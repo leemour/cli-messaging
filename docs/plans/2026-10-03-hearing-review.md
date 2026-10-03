@@ -1,8 +1,9 @@
 # Reuse a read connection for hearing and review voice questions before filtering
 
 Status, 2026-10-03: proposed for owner review; no implementation. Read at cli-messaging
-`ca66eb2`, MAX `04c70e4`. Source confirms the lifecycle and filtering order; failing synthetic
-regressions are the first implementation step. MAX task CLI-63 and the audio handoff's FIND-509.
+`ca66eb2`, MAX `04c70e4`. Read-only synthetic probes reproduced both defects: compiled CLI transcription opens two
+provider connections, while unanswered review drops a voice question before retained/fresh hearing.
+Permanent failing regressions are the first implementation step. MAX task CLI-63 and the audio handoff's FIND-509.
 
 ## Goal and current state
 
