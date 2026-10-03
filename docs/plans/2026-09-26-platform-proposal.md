@@ -529,6 +529,12 @@ stories, calls, admin features, a UI. (**Superseded for polls and admin features
 above, 2026-09-28.) If it does not help *read → sync → search → context → safe
 action*, it waits.
 
+**Follow-up proposal, 2026-10-02 (not yet approved):**
+[chat briefs, news digests, portable archives, monitoring and person context](2026-10-02-messaging-workflows.md)
+plans the owner's requested next capabilities, with shared services, agent-facing contracts and
+dependency-ordered work packages. It distinguishes existing archive features from incremental
+recovery and extends the summarisation scope for discussion; no automation is enabled by the plan.
+
 ## 9. The spike: definition and success criteria
 
 Run against the owner's real account, sending only to Saved Messages.
