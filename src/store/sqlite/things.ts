@@ -26,6 +26,8 @@ const REFERABLE: Partial<Record<EntityType, { tombstone: boolean }>> = {
   decision: { tombstone: true },
   bot: { tombstone: false },
   message: { tombstone: true },
+  email: { tombstone: true },
+  email_thread: { tombstone: true },
   chat: { tombstone: false },
   identity: { tombstone: false },
   account: { tombstone: false },
@@ -46,23 +48,29 @@ export const thingOf = (database: CacheDatabase, reference: Reference | string):
     row ? { type, id: Number(row.id) } : undefined
   switch (parsed.type) {
     case "message":
-      return found(
-        "message",
-        database
-          .prepare(
-            "SELECT m.id FROM messages m JOIN chats c ON c.id = m.chat_id JOIN accounts a ON a.id = c.account_id " +
-              "WHERE a.provider = ? AND a.external_id = ? AND c.external_id = ? AND m.external_id = ?",
-          )
-          .get(parsed.provider, parsed.account, parsed.chat, parsed.message),
+      return (
+        (parsed.provider === "email" ? emailOf(database, parsed.account, parsed.chat, parsed.message) : undefined) ??
+        found(
+          "message",
+          database
+            .prepare(
+              "SELECT m.id FROM messages m JOIN chats c ON c.id = m.chat_id JOIN accounts a ON a.id = c.account_id " +
+                "WHERE a.provider = ? AND a.external_id = ? AND c.external_id = ? AND m.external_id = ?",
+            )
+            .get(parsed.provider, parsed.account, parsed.chat, parsed.message),
+        )
       )
     case "chat":
-      return found(
-        "chat",
-        database
-          .prepare(
-            "SELECT c.id FROM chats c JOIN accounts a ON a.id = c.account_id WHERE a.provider = ? AND a.external_id = ? AND c.external_id = ?",
-          )
-          .get(parsed.provider, parsed.account, parsed.chat),
+      return (
+        (parsed.provider === "email" ? emailThreadOf(database, parsed.account, parsed.chat) : undefined) ??
+        found(
+          "chat",
+          database
+            .prepare(
+              "SELECT c.id FROM chats c JOIN accounts a ON a.id = c.account_id WHERE a.provider = ? AND a.external_id = ? AND c.external_id = ?",
+            )
+            .get(parsed.provider, parsed.account, parsed.chat),
+        )
       )
     case "contact":
       return found(
@@ -90,6 +98,27 @@ export const thingOf = (database: CacheDatabase, reference: Reference | string):
       return found(parsed.type, database.prepare(`SELECT id FROM ${known.table} WHERE id = ?`).get(id))
     }
   }
+}
+
+/** Mail that memo saved before it wrote the mail tables is still messages, so the caller falls back to them. */
+export const emailOf = (database: CacheDatabase, account: string, thread: string, email: string): Thing | undefined => {
+  const row = database
+    .prepare(
+      "SELECT e.id FROM emails e JOIN email_threads t ON t.id = e.email_thread_id JOIN accounts a ON a.id = e.account_id " +
+        "WHERE a.provider = 'email' AND a.external_id = ? AND t.external_id = ? AND e.external_id = ?",
+    )
+    .get(account, thread, email)
+  return row ? { type: "email", id: Number(row.id) } : undefined
+}
+
+export const emailThreadOf = (database: CacheDatabase, account: string, thread: string): Thing | undefined => {
+  const row = database
+    .prepare(
+      "SELECT t.id FROM email_threads t JOIN accounts a ON a.id = t.account_id " +
+        "WHERE a.provider = 'email' AND a.external_id = ? AND t.external_id = ?",
+    )
+    .get(account, thread)
+  return row ? { type: "email_thread", id: Number(row.id) } : undefined
 }
 
 /** The reference people and agents read for a row; `undefined` once the row is gone. */
@@ -124,6 +153,33 @@ export const referenceOfThing = (database: CacheDatabase, thing: Thing): string 
             account: String(row.account),
             chat: String(row.chat),
           })
+        : undefined
+    }
+    case "email": {
+      const row = database
+        .prepare(
+          "SELECT a.external_id AS account, t.external_id AS thread, e.external_id AS email FROM emails e " +
+            "JOIN email_threads t ON t.id = e.email_thread_id JOIN accounts a ON a.id = e.account_id WHERE e.id = ?",
+        )
+        .get(thing.id)
+      return row
+        ? formatLocator({
+            provider: "email",
+            account: String(row.account),
+            chat: String(row.thread),
+            message: String(row.email),
+          })
+        : undefined
+    }
+    case "email_thread": {
+      const row = database
+        .prepare(
+          "SELECT a.external_id AS account, t.external_id AS thread FROM email_threads t " +
+            "JOIN accounts a ON a.id = t.account_id WHERE t.id = ?",
+        )
+        .get(thing.id)
+      return row
+        ? formatReference({ type: "chat", provider: "email", account: String(row.account), chat: String(row.thread) })
         : undefined
     }
     case "identity": {

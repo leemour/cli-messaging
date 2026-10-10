@@ -12,6 +12,7 @@ export const ENTITY_TABLES = {
   decision: "decisions",
   document: "documents",
   email: "emails",
+  email_thread: "email_threads",
   identity: "identities",
   meeting: "meetings",
   memory: "memories",
