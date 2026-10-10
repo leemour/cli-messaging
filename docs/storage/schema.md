@@ -919,7 +919,6 @@ Cancellation is cooperative: the signal is checked before and between queries an
 An active synchronous SQLite query completes before cancellation is reported; callers await the
 read before closing its connection.
 
-
 ### `event_series`
 
 A repeating event, above any one provider's recurrence.
