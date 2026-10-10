@@ -3,6 +3,7 @@ import type { Link, LinkInput } from "../../conversations/link.js"
 import type { Id, Message, Page } from "../../domain/models.js"
 import type { ConversationBuild, ConversationSummary, StoredLink } from "../store.js"
 import { and, asc, desc, eq, isNull, type SQL, sql } from "./drizzle/core.js"
+import { linkKind } from "./link-kinds.js"
 import type { StoreContext } from "./open.js"
 import { selectMessages, toMessages } from "./reads.js"
 import {
@@ -176,7 +177,7 @@ export const replaceConversations = async (
     .get()
   const project = context.database
     .prepare(
-      "SELECT to_id FROM links WHERE from_type='chat' AND from_id=? AND to_type='project' AND kind='member-of' AND confirmed=1 ORDER BY id LIMIT 1",
+      `SELECT to_id FROM links WHERE from_type='chat' AND from_id=? AND to_type='project' AND kind=${linkKind("member-of")} AND confirmed=1 ORDER BY id LIMIT 1`,
     )
     .get(chatKey)
 

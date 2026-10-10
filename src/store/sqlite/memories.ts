@@ -3,6 +3,7 @@ import type { Stemmer, Stemmers } from "../../search/stem.js"
 import { normalize } from "../normalize.js"
 import { type Actor, botNamed, ownerPerson } from "./actors.js"
 import { atomic } from "./atomic.js"
+import { linkKind } from "./link-kinds.js"
 import { CORPORA, corpusIndexState, drainCorpus, type NoteIndexState } from "./note-index.js"
 import { requiredThing } from "./notes.js"
 import type { StoreContext } from "./open.js"
@@ -97,7 +98,7 @@ export const linkEvidence = (
   const at = context.now()
   const insert = context.database.prepare(
     "INSERT INTO links (from_type, from_id, to_type, to_id, kind, source, confirmed, created_at, author, updated_at) " +
-      "VALUES (?, ?, ?, ?, 'evidence', ?, 1, ?, ?, ?)",
+      `VALUES (?, ?, ?, ?, ${linkKind("evidence")}, ?, 1, ?, ?, ?)`,
   )
   for (const reference of references) {
     const thing = requiredThing(context.database, reference, "the evidence")
@@ -108,7 +109,7 @@ export const linkEvidence = (
 export const evidenceOf = (context: StoreContext, from: { type: string; id: number }): string[] =>
   context.database
     .prepare(
-      "SELECT to_type, to_id FROM links WHERE from_type = ? AND from_id = ? AND kind = 'evidence' AND to_id IS NOT NULL ORDER BY id",
+      `SELECT to_type, to_id FROM links WHERE from_type = ? AND from_id = ? AND kind = ${linkKind("evidence")} AND to_id IS NOT NULL ORDER BY id`,
     )
     .all(from.type, from.id)
     .flatMap((row) => referenceOfThing(context.database, { type: String(row.to_type), id: Number(row.to_id) }) ?? [])

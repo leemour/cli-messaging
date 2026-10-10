@@ -1,6 +1,7 @@
 import { CliError } from "@wirecat/cli-core"
 import type { Actor } from "./actors.js"
 import { atomic } from "./atomic.js"
+import { linkKind } from "./link-kinds.js"
 import { type Author, authorActor, evidenceOf, linkEvidence } from "./memories.js"
 import { requiredThing } from "./notes.js"
 import type { StoreContext } from "./open.js"
@@ -120,7 +121,7 @@ export const decisionsStoreOver = (context: StoreContext): DecisionsStore => {
           database
             .prepare(
               "INSERT INTO links (from_type, from_id, to_type, to_id, kind, source, confirmed, created_at, author, updated_at) " +
-                "VALUES ('decision', ?, ?, ?, 'created-from', 'suggested', 1, ?, 'agent', ?)",
+                `VALUES ('decision', ?, ?, ?, ${linkKind("created-from")}, 'suggested', 1, ?, 'agent', ?)`,
             )
             .run(made, from.type, from.id, at, at)
         }

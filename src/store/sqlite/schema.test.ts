@@ -7,6 +7,7 @@ import type { CacheDatabase } from "../driver.js"
 import { migrate } from "../migrations.js"
 import { openCache } from "../open.js"
 import { openStore } from "../store.js"
+import { LINK_KINDS } from "./link-kinds.js"
 import { type OpenedSqlite, openSqlite } from "./open.js"
 import { accounts } from "./schema.js"
 
@@ -460,5 +461,16 @@ describe("what the initial migration seeds and enforces", () => {
     run("DELETE FROM mailboxes")
     run("DELETE FROM accounts")
     expect(count("links")).toBe(0)
+  })
+})
+
+describe("the link kinds", () => {
+  it("are the ones the schema doc describes for `links`, no more and no fewer", () => {
+    const page = readFileSync(DOC, "utf8")
+    const description = page.slice(page.indexOf("### `links`")).split("\n\n")[1] ?? ""
+    // A kind is named outside parentheses; what it explains inside them may name a column.
+    const named = [...description.replace(/\([^)]*\)/g, "").matchAll(/`([a-z-]+)`/g)].map((match) => match[1])
+
+    expect(named.sort()).toEqual([...LINK_KINDS].sort())
   })
 })

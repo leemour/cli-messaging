@@ -12,6 +12,7 @@ import {
 import type { CacheDatabase, SqlValue } from "../driver.js"
 import { actorOfOrigin, originOfActor } from "./actors.js"
 import { atomic } from "./atomic.js"
+import { linkKind } from "./link-kinds.js"
 import { taskRowOf, thingOf } from "./things.js"
 
 export { taskIdOf, taskRowOf } from "./things.js"
@@ -185,13 +186,15 @@ export const taskStoreOver = (database: CacheDatabase, now: () => number = Date.
       atomic(database, () => {
         database.prepare("UPDATE tasks SET resolution = ?, updated_at = ? WHERE id = ?").run(text, at, row)
         if (!by) return
-        database.prepare("DELETE FROM links WHERE from_type = 'task' AND from_id = ? AND kind = 'answered-by'").run(row)
+        database
+          .prepare(`DELETE FROM links WHERE from_type = 'task' AND from_id = ? AND kind = ${linkKind("answered-by")}`)
+          .run(row)
         // A message the store has not saved yet keeps its locator as the written target.
         const thing = thingOf(database, by)
         database
           .prepare(
             "INSERT INTO links (from_type, from_id, to_type, to_id, kind, source, target_text, confirmed, created_at, author, updated_at) " +
-              "VALUES ('task', ?, ?, ?, 'answered-by', 'owner', ?, 1, ?, 'rule', ?)",
+              `VALUES ('task', ?, ?, ?, ${linkKind("answered-by")}, 'owner', ?, 1, ?, 'rule', ?)`,
           )
           .run(row, thing?.type ?? null, thing?.id ?? null, thing ? null : by.slice(0, 500), at, at)
       })
