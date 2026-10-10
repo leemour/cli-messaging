@@ -167,12 +167,21 @@ export { adminStatisticsService } from "./admin-statistics.js"
 export { GAP_BOUNDS, type GapPlan, type GapRepair, gapsService, type RepairOptions } from "./archive-gaps.js"
 export type { CounterQuery, CountersService } from "./counters.js"
 export { countersService } from "./counters.js"
+export type { ModelChoice } from "./embeddings.js"
 export {
   type MeetingEvidenceCue,
   type MeetingEvidenceOptions,
   type MeetingEvidencePacket,
   readMeetingEvidence,
 } from "./meeting-evidence.js"
+export {
+  createMeetingRemoteModel,
+  type MeetingEmbedder,
+  type MeetingEmbedderOptions,
+  type MeetingEmbeddingModel,
+  meetingEmbeddingModel,
+  openMeetingEmbedder,
+} from "./meeting-model.js"
 export {
   type MeetingReadStore,
   type MeetingReferenceReadOptions,
