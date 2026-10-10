@@ -6,7 +6,9 @@ import type { Command } from "commander"
 import { NOT_FILES } from "../../domain/attachments.js"
 import type { Id } from "../../domain/models.js"
 import { FETCHING, keyOf } from "../../services/archive.js"
-import { recordPaths, type Saved, save } from "../../services/file-download.js"
+import type { ExtractRun } from "../../services/attachments.js"
+import { type BatchResult, batchProgress, mergeBatches } from "../../services/batch.js"
+import { type Saved, saveFiles } from "../../services/file-download.js"
 
 export { downloadMessage, type Saved, safeName, save } from "../../services/file-download.js"
 
@@ -55,20 +57,40 @@ export const downloadSubcommand = (messages: Command, messenger: Messenger): Com
         if (skipped.length > 0) context.renderer.note(`not a file, not downloaded: ${skipped.join(", ")}`)
         if (files.length === 0) throw new CliError("not_found", `message ${id} has no file to download`)
         mkdirSync(output, { recursive: true })
-        const done: Saved[] = []
-        for (const [index, file] of files.entries()) done.push(await save(file, output, `${id}-${index + 1}`))
-        await recordPaths(services.messages, chat, id, files, done, context.renderer.warn)
-        const extraction = extract
-          ? await services.attachments.extract({ chat, message: id, paths: done.map((file) => file.path) })
-          : undefined
-        return { saved: done, extraction }
+        const progress = batchProgress(context.env)
+        const downloaded = await saveFiles(services.messages, chat, id, files, output, {
+          warn: context.renderer.warn,
+          batch: progress,
+        })
+        const done = downloaded.saved
+        let extraction: ExtractRun | undefined
+        if (extract) {
+          try {
+            extraction = await services.attachments.extract({ chat, message: id, paths: done.map((file) => file.path) })
+          } catch (error) {
+            const issue = progress.fail(id, "extract", error)
+            context.renderer.warn(
+              `message ${id}: ${issue.code} — ${issue.actions.map((action) => action.message).join(" ")}`,
+            )
+          }
+        }
+        const merged = mergeBatches(progress.result(), extraction?.batch)
+        const batch = merged?.failed ? merged : undefined
+        return { saved: done, extraction, ...(batch ? { complete: false, batch } : {}) }
       })
-      const { saved, extraction } = result
+      const { saved, extraction, batch } = result
       if (extraction && context.format !== "json")
         context.renderer.note(`${extraction.extracted} extracted, ${extraction.failed} unreadable`)
       if (context.format === "pretty") context.streams.data(`${saved.map((one) => one.path).join("\n")}\n`)
-      else if (context.format === "jsonl") context.renderer.stream(saved)
-      else context.renderer.result({ items: saved, ...(extraction ? { extraction } : {}) })
+      else if (context.format === "jsonl") {
+        context.renderer.stream(saved)
+        if (batch) context.renderer.stream([{ type: "batch_summary", complete: false, batch }])
+      } else
+        context.renderer.result({
+          items: saved,
+          ...(extraction ? { extraction } : {}),
+          ...(batch ? { complete: false, batch } : {}),
+        })
     })
 
 /** The most messages a provider hands out per history request — Telegram's cap. */
@@ -87,6 +109,7 @@ type KeyedBy = "id" | "time"
 interface Progress {
   by: KeyedBy
   done: Stretch[]
+  failed?: Id[]
 }
 
 /**
@@ -97,14 +120,18 @@ interface Progress {
 const progressFile = (output: string, chatId: Id) => join(output, `.download-${chatId.replace(/[^\w-]/g, "_")}.json`)
 
 /** A file from before `by` was written is keyed by id. One keyed the other way is set aside, not misread. */
-const readProgress = (path: string, by: KeyedBy, note: (message: string) => void): Stretch[] => {
-  if (!existsSync(path)) return []
-  const { done, by: was = "id" } = JSON.parse(readFileSync(path, "utf8")) as Partial<Progress>
+const readProgress = (path: string, by: KeyedBy, note: (message: string) => void): Progress => {
+  if (!existsSync(path)) return { by, done: [] }
+  const { done, failed, by: was = "id" } = JSON.parse(readFileSync(path, "utf8")) as Partial<Progress>
   if (was !== by) {
     note(`${path} counts messages by ${was}, this messenger by ${by} — starting from the newest again`)
-    return []
+    return { by, done: [] }
   }
-  return Array.isArray(done) ? done : []
+  return {
+    by,
+    done: Array.isArray(done) ? done : [],
+    failed: Array.isArray(failed) ? failed.filter((id) => typeof id === "string") : [],
+  }
 }
 
 const writeProgress = (path: string, chatId: Id, progress: Progress) => {
@@ -123,7 +150,8 @@ const downloadChat = async (
 ) => {
   if (context.settings.offline) throw new CliError("validation_error", OFFLINE)
   const items: Saved[] = []
-  const extraction = { extracted: 0, failed: 0, needsAgent: 0, complete: true }
+  const extraction: { extracted: number; failed: number; needsAgent: number; complete: boolean; batch?: BatchResult } =
+    { extracted: 0, failed: 0, needsAgent: 0, complete: true }
   const onSaved = (one: Saved) => {
     if (context.format === "pretty") context.streams.data(`${one.path}\n`)
     else if (context.format === "jsonl") context.renderer.stream([one])
@@ -132,9 +160,10 @@ const downloadChat = async (
   const stop = stopOnSignal(command)
   try {
     mkdirSync(output, { recursive: true })
-    const result = await context.withServices((services) =>
-      walkChat(services.messages, chat, {
+    const result = await context.withServices(async (services) => {
+      const { batch: downloadBatch, ...walked } = await walkChat(services.messages, chat, {
         output,
+        env: context.env,
         pauseMs,
         fetching: messenger.fetching ?? FETCHING,
         fromStore: messenger.history === "store",
@@ -151,17 +180,32 @@ const downloadChat = async (
                   extraction.failed += run.failed
                   extraction.needsAgent += run.needsAgent
                   extraction.complete &&= run.complete
-                } catch {
+                  extraction.batch = mergeBatches(extraction.batch, run.batch)
+                  return (
+                    run.batch ?? {
+                      ...batchProgress(context.env).result(),
+                      attempted: run.extracted + run.needsAgent,
+                      succeeded: run.extracted + run.needsAgent,
+                    }
+                  )
+                } catch (error) {
+                  const issue = batchProgress(context.env)
+                  issue.fail(id, "extract", error)
+                  extraction.batch = mergeBatches(extraction.batch, issue.result())
                   extraction.failed += 1
                   extraction.complete = false
+                  return issue.result()
                 }
               },
             }
           : {}),
-      }),
-    )
+      })
+      const batch = downloadBatch.failed ? downloadBatch : undefined
+      return { ...walked, complete: walked.complete && extraction.complete, ...(batch ? { batch } : {}) }
+    })
     if (context.format === "json") context.renderer.result({ items, ...result, ...(extract ? { extraction } : {}) })
     else {
+      if (context.format === "jsonl" && result.batch) context.renderer.stream([{ type: "batch_summary", ...result }])
       context.renderer.note(summary(result))
       if (extract) context.renderer.note(`${extraction.extracted} extracted, ${extraction.failed} unreadable`)
     }
@@ -170,11 +214,22 @@ const downloadChat = async (
   }
 }
 
-const summary = ({ saved, existing, complete }: { saved: number; existing: number; complete: boolean }) =>
-  `${saved} saved${existing > 0 ? `, ${existing} already there` : ""}${complete ? " — the whole chat" : " — run it again to continue"}`
+const summary = ({
+  saved,
+  existing,
+  complete,
+  batch,
+}: {
+  saved: number
+  existing: number
+  complete: boolean
+  batch?: BatchResult
+}) =>
+  `${saved} saved${existing > 0 ? `, ${existing} already there` : ""}${complete ? " — the whole chat" : batch?.failures.every((failure) => failure.stage === "extract") ? " — downloads retained; retry attachments extract for failed locators" : " — run it again to continue"}`
 
 interface ChatWalk {
   output: string
+  env?: NodeJS.ProcessEnv
   pauseMs: number
   fetching: Fetching
   /** The history pages the local store, where walking past what is held costs no request. */
@@ -183,7 +238,7 @@ interface ChatWalk {
   note: (message: string) => void
   warn: (message: string) => void
   onSaved: (one: Saved) => void
-  onDownloaded?: (message: Id, paths: string[]) => Promise<void>
+  onDownloaded?: (message: Id, paths: string[]) => Promise<BatchResult | undefined>
 }
 
 /** Both stretches as one, keeping by time the messages walked at its two ends. */
@@ -215,7 +270,7 @@ const joined = (a: Stretch, b: Stretch): Stretch => {
 const walkChat = async (
   messages: Pick<MessagesService, "list" | "download" | "keepDownloaded">,
   chat: string,
-  { output, pauseMs, fetching, fromStore, stop, note, warn, onSaved, onDownloaded }: ChatWalk,
+  { output, env, pauseMs, fetching, fromStore, stop, note, warn, onSaved, onDownloaded }: ChatWalk,
 ) => {
   const by: KeyedBy = fetching.orderBy ?? "id"
   const keyed = keyOf(fetching)
@@ -235,20 +290,35 @@ const walkChat = async (
   let saved = 0
   let existing = 0
   let complete = false
+  const batch = batchProgress(env)
+  const failedIds = new Set<string>()
+  const unresolved = new Set<string>()
   const remember = () => {
-    if (chatId !== undefined) writeProgress(path, chatId, { by, done: run ? [...done, run] : done })
+    if (chatId !== undefined)
+      writeProgress(path, chatId, {
+        by,
+        done: run ? [...done, run] : done,
+        ...(unresolved.size ? { failed: [...unresolved] } : {}),
+      })
   }
   const backTo = (ms: number) => {
     beforeMs = ms
     before = new Date(ms).toISOString()
   }
 
-  pages: while (!stop.aborted) {
-    const page = await patiently(
-      () => messages.list(chat, { limit: fromStore ? PAGE : fetching.page, ...(before ? { before } : {}) }),
-      note,
-      stop,
-    )
+  pages: while (!stop.aborted && !batch.stopped) {
+    let page: Awaited<ReturnType<MessagesService["list"]>>
+    try {
+      page = await patiently(
+        () => messages.list(chat, { limit: fromStore ? PAGE : fetching.page, ...(before ? { before } : {}) }),
+        note,
+        stop,
+      )
+    } catch (error) {
+      const issue = batch.fail(chat, "history", error)
+      warn(`history: ${issue.code} — ${issue.actions.map((action) => action.message).join(" ")}`)
+      break
+    }
     const first = page.items[0]
     if (!first) {
       complete = true
@@ -257,7 +327,9 @@ const walkChat = async (
     if (chatId === undefined) {
       chatId = first.chatId
       path = progressFile(output, chatId)
-      done = readProgress(path, by, note)
+      const progress = readProgress(path, by, note)
+      done = progress.done
+      for (const id of progress.failed ?? []) unresolved.add(id)
     }
     const newestFirst = page.items.toReversed().map((message) => ({ message, key: keyed(message) }))
     if (newestFirst.some(({ key }) => !Number.isSafeInteger(key))) {
@@ -271,39 +343,58 @@ const walkChat = async (
     let fresh = 0
     for (const { message, key } of newestFirst) {
       if (stop.aborted) break pages
-      if (run && inside(run, key, message.id)) continue
+      if (failedIds.has(message.id) || (!unresolved.has(message.id) && run && inside(run, key, message.id))) continue
       fresh += 1
-      const known = done.find((one) => inside(one, key, message.id))
+      const known = unresolved.has(message.id) ? undefined : done.find((one) => inside(one, key, message.id))
       if (known) {
         done = done.filter((one) => one !== known)
         run = run ? joined(run, known) : known
         remember()
-        if (fromStore) continue
+        if (fromStore || unresolved.size > 0) continue
         if (pagesByTime) backTo(known.from + 1)
         else before = String(known.from)
         continue pages
       }
       if (message.attachments.some(({ kind }) => !NOT_FILES.has(kind))) {
-        const { files } = await patiently(() => messages.download(chat, message.id), note, stop)
-        const done: Saved[] = []
-        for (const [index, file] of files.entries()) {
-          const one = await patiently(
-            () => save(file, output, `${message.id}-${index + 1}`, { unique: true }),
-            note,
-            stop,
+        let messageComplete = true
+        try {
+          const { files } = await patiently(() => messages.download(chat, message.id), note, stop)
+          const previousFailures = batch.failed
+          const downloaded = await saveFiles(messages, message.chatId, message.id, files, output, {
+            unique: true,
+            warn,
+            batch,
+            onSaved: (one) => {
+              if (one.existing) existing += 1
+              else saved += 1
+              onSaved(one)
+            },
+          })
+          messageComplete = batch.failed === previousFailures
+          const extracted = await onDownloaded?.(
+            message.id,
+            downloaded.saved.map((file) => file.path),
           )
-          if (one.existing) existing += 1
-          else saved += 1
-          done.push(one)
-          onSaved(one)
+          if (extracted) batch.absorb(extracted)
+        } catch (error) {
+          const issue = batch.fail(message.id, "download", error)
+          warn(`message ${message.id}: ${issue.code} — ${issue.actions.map((action) => action.message).join(" ")}`)
+          messageComplete = false
         }
-        await recordPaths(messages, message.chatId, message.id, files, done, warn)
-        await onDownloaded?.(
-          message.id,
-          done.map((file) => file.path),
-        )
-        run = run ? joined(run, point(key, message.id)) : point(key, message.id)
+        if (messageComplete) {
+          unresolved.delete(message.id)
+          // A failed message is a checkpoint gap: never merge successful stretches across it.
+          run = run ? joined(run, point(key, message.id)) : point(key, message.id)
+        } else {
+          failedIds.add(message.id)
+          unresolved.add(message.id)
+          if (run) {
+            done.push(run)
+            run = undefined
+          }
+        }
         remember()
+        if (batch.stopped) break pages
       } else run = run ? joined(run, point(key, message.id)) : point(key, message.id)
     }
     remember()
@@ -321,5 +412,12 @@ const walkChat = async (
     await sleep(pauseMs, undefined, { signal: stop }).catch(() => {})
   }
   remember()
-  return { chat: chatId ?? null, saved, existing, complete, ...(stop.aborted ? { stopped: true } : {}) }
+  return {
+    chat: chatId ?? null,
+    saved,
+    existing,
+    complete: complete && batch.failed === 0,
+    batch: batch.result(),
+    ...(stop.aborted ? { stopped: true } : {}),
+  }
 }

@@ -1,17 +1,24 @@
-name: CI
+name: Full validation
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_call:
+    inputs:
+      pack:
+        type: boolean
+        default: false
+    outputs:
+      package-sha256:
+        value: ${{ jobs.ci.outputs.package-sha256 }}
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   ci:
-    uses: WireCatLabs/cli-core/.github/workflows/node-ci.yml@b36a30fb6037b457001bd2db860949f64512ecdd # v0.17.3
+    uses: WireCatLabs/cli-core/.github/workflows/node-ci.yml@4c78a803c460317fd40a38be6d1fb53278087741
     with:
+      pack: ${{ inputs.pack || false }}
       checks: |
         pnpm docs:check
         pnpm check:dist
@@ -91,3 +98,6 @@ jobs:
           [ "$next" != "$pr" ] || exit 0
           echo "::warning file=package.json::version $pr is not above both main ($main) and npm's latest ($latest)" \
             "— bin/release will publish it as $next"
+
+  parity:
+    uses: ./.github/workflows/parity.yml

@@ -4,80 +4,26 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
-## Unreleased
-
-### Changed — may break callers
-
-- **cli-core 0.19.2 or newer within the 0.19 series is required.** Meeting and messenger CLIs share
-  field projection through core rather than separate implementations. Existing `fieldsOf` and
-  `projectFields` exports remain; empty direct selections still retain operation metadata.
-
-### Fixed
-
-- **Direct field projection rejects unsafe or excessive paths** before traversal, matching parsed
-  `--fields` validation and preventing prototype writes. Pass valid field paths; empty selections
-  remain supported.
-
-## 0.218.0 — 10.10.2026
+## 0.218.1 — 11.10.2026
 
 ### Added
 
-- **`contacts timeline <person>` and the MCP tool `contacts_timeline`**: everything one person took part in, in every
-  messenger linked to them, newest first, with `--scope personal|work`, `--since-time`, `--until-time` and `--limit`.
-  A message comes with its locator, and `pending` counts changes a very large write left for the next one.
-  `store.involvements.forPerson` takes `since` and `until`. The index stays current: writes queue what they change (`involvement_pending`) and recompute
-  only that before they commit, so the timeline is a plain read; `store reindex` rebuilds it whole.
-- `store.botUpdates` records Bot API deliveries once per account and update id, with handling, failure and replay state.
-- `store.involvements` rebuilds a person timeline across messages, chats, meetings, mail, tasks and person links; reads
-  can filter scope and return newest first through the person index.
-- Account and chat scopes, nested chats and message thread roots; conversation vector searches can narrow by scope,
-  project, person and time. See [the messaging store APIs](docs/storage/messaging.md).
-- `store.decisions`, `store.memories` (a memory needs a scope and evidence), `store.proposedActions` (agent
-  proposals that wait for the owner) and `store.agentActions` (one audit row per MCP tool call, never its
-  arguments). Topics: `knowledge.createTag(name, { kind: "topic" })` for the owner, `setMainTopic`.
-- **`store.meetings`: the shared store's `MeetingStore`**, the port `@wirecat/cli-meetings` 0.2.1 defines (now a
-  dependency). It keeps meetings, their series, participants, transcripts with their history, chat, summaries,
-  files, calendar events and the pull cursor, and passes the package's `meetingStoreContract`. Search matches
-  every word of the query as a prefix.
-- **`store.mail`: email threads, emails, recipients and mailboxes**, keyed by account and Message-ID. Save a
-  thread, list threads, read one, read an email by Message-ID, mark emails gone, and search subjects and bodies.
-- `saveAccount` answers the store's id for the account, which `store.meetings` and `store.mail` take.
-- Link kinds are one list, the one the schema doc describes: `links-to`, `about`, `member-of`, `labelled`,
-  `answered-by`, `evidence`, `created-from`, `duplicate-of`, `related-to`, `assigned-to`. `addLink` now takes
-  `labelled` too.
-- `storedAccounts()` lists every account with the store's id; `storedAccount(key)` finds one by provider and
-  external id without creating it, and fails with `not_found` when the store has none.
-- A new store holds the owner's person and the bots `rule` and `agent` from the start. Tasks keep the task
-  package's id, source locator, kind and group in columns; an inbox project names its account. The store refuses
-  a second displayed alias for one thing and account, a second meeting summary from one source and a repeated
-  meeting chat line. Purging an email takes its recipients, mailboxes and chunks with it.
-
-### Fixed
-
-- PDF extraction and page previews accept long documents; extraction follows caller cancellation instead of a separate page/time cutoff. Local Ogg Opus transcription accepts recordings beyond ten minutes while retaining format validation.
-- Attachment guards allow ordinary hidden developer folders while protecting known credentials, application state and exact store files. Markdown exports preserve message formatting; MCP writes preserve original Unicode and registry checks retain their normal default. Reply-template previews and model prompts use normal interpolated values. Configured embedding gateways use normal redirect handling.
-
-- Under Bun a missing row read as `null` instead of `undefined`, so the store took it for a found row: linking a
-  meeting to an event that does not exist succeeded. The Bun driver now answers `undefined`, as the Node one does.
+- `runs search` and the MCP read command `runs search` search recorded diagnostic metadata, error codes and partial-batch IDs with profile, operation, date and pagination filters; message contents and raw job logs are excluded.
+- Structured recovery actions on CLI/MCP errors, with wait times, configuration names and explicit retry/skip guidance.
+- Configurable extraction/retained-file size through `MESSAGING_ATTACHMENT_MAX_MIB` (default 50). Generated MCP configuration preserves this setting and the PDF preview settings.
 
 ### Changed — may break callers
 
-- Conversation chunks live in `chunks` with every other kind of text, one `conversation` row per piece; the messages a
-  piece spans are in `chunk_messages`. `conversation_chunks` is gone. A chunk's scope and project follow its chat's,
-  its account's and the chat's project link when they change, and deleting a message deletes its chunks.
-- **A new store schema in a new file, `wirecat.db`, created by one initial migration (store version 1).** Tables
-  and columns follow Rails naming (`id`, `<thing>_id`, `external_id`, `created_at`/`updated_at`); mail, documents,
-  notes, memories, decisions, events, meetings, organizations, projects, tasks, proposed actions, aliases,
-  taggings and topics, chunks and embeddings have tables of their own. Every table and column is in
-  [`docs/storage/schema.md`](docs/storage/schema.md). The old `messages.db` is left as it is and not
-  converted: messages come back with a fresh sync.
-- **Knowledge, notes and tasks write the new tables.** `store.notes` splits files in a folder (`documents`,
-  `ref` `document:<id>`) from written notes (`notes`, `ref` `note:<id>`); a `Note` now carries `ref`, and
-  `note`, `noteTags` and `noteReferences` take a reference. Folders are `accounts` rows of provider `folder`;
-  `claimFolderPath` and `pendingPath` are gone with the old migration line. `addEntity`/`entities` are
-  replaced by `knowledge.addOrganization`/`organizations` and `addProject`/`projects`; `entity:` references
-  resolve as not found. `store.tasks` keeps the `@wirecat/cli-tasks` `TaskStore` and adds `answer` and
-  `judge`.
+- Attachment batches continue after independent file failures and retain successful downloads and their original positions. Partial JSON returns `complete: false` and `batch` counters/failures; JSONL appends a `batch_summary` row. Runs with partial results exit successfully instead of discarding the batch, so scripts must check `complete`/`batch.failed`. Repeated errors stop above `MESSAGING_BATCH_MAX_ERROR_PERCENT` (default 50) after ten attempts; provider throttling/authentication stops sooner. No automatic write replay is added.
+- History page failures return earlier fetched counts/ranges with an actionable `issue` and resume boundary. All-chat fetches keep independent successes and stop repeated systemic failures. Partial background jobs are retryable through the existing jobs commands. Partial CLI/MCP results are recorded using IDs/stages/error codes, without error payloads.
+
+### Fixed
+
+- PDF page previews render at higher resolution, with defaults of 4,000 pixels per side and 8 MiB, configurable through `MESSAGING_PDF_PREVIEW_MAX_PIXELS` and `MESSAGING_PDF_PREVIEW_MAX_MIB`. Transfer chunks remain separate at 1 MiB.
+
+## 0.218.0 — 10.10.2026
+
+
 
 ## 0.217.0 — 10.10.2026
 

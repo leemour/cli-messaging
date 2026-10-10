@@ -308,8 +308,8 @@ describe.each(["max", "tg"])("shared shell contract for %s", (name) => {
     streams.stdout.length = 0
     expect(await run(["messages", "list", "--offline", "--no-record"], provider, options)).toBe(6)
     expect(streams.stdout).toEqual([])
-    expect(JSON.parse(streams.stderr[0] ?? "")).toEqual({
-      error: { code: "not_found", message: "nothing recorded", retryable: false },
+    expect(JSON.parse(streams.stderr[0] ?? "")).toMatchObject({
+      error: { code: "not_found", message: "nothing recorded", retryable: false, actions: expect.any(Array) },
     })
   })
 })
@@ -439,7 +439,9 @@ describe("machine failures", () => {
       { streams, tty: true, env: process.env },
     )
     expect(code).toBe(6)
-    expect(streams.stderr).toEqual(["✗ synthetic missing item"])
+    expect(streams.stderr).toHaveLength(1)
+    expect(streams.stderr[0]).toContain("✗ synthetic missing item")
+    expect(streams.stderr[0]).toContain("Check the item ID or path")
   })
 
   it("uses JSON for a preparation failure before command options have been parsed", async () => {

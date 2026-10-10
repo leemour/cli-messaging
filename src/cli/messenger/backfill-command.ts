@@ -266,15 +266,15 @@ export const jobsCommand = (messenger: Messenger): Command => {
 
   command
     .command("retry")
-    .description("start a failed or died job again, as a new job; the fetch resumes where the store stopped")
+    .description("start a partial, failed or died job again, as a new job; the fetch resumes where the store stopped")
     .argument("[job]", "the job id")
-    .option("--failed", "every chat whose newest job failed or died")
+    .option("--failed", "every chat whose newest job partial, failed or died")
     .action(function (this: Command, id: string | undefined) {
       const context = messengerContext(this, messenger)
       const { failed } = this.opts<{ failed?: boolean }>()
       if ((id === undefined) === (failed !== true))
-        throw new CliError("validation_error", "name a job, or --failed for every failed one")
-      const broken = (job: Job) => ["failed", "died"].includes(stateOf(job))
+        throw new CliError("validation_error", "name a job, or --failed for every partial or failed one")
+      const broken = (job: Job) => ["partial", "failed", "died"].includes(stateOf(job))
       if (id !== undefined) {
         const job = findJob(messenger, context, id)
         if (!broken(job)) throw new CliError("validation_error", `job ${job.id} did not fail — it is ${stateOf(job)}`)
@@ -294,7 +294,7 @@ export const jobsCommand = (messenger: Messenger): Command => {
         }
       }
       renderList(context.renderer, context.format, items)
-      if (items.length === 0) context.renderer.note("no failed or died jobs to retry")
+      if (items.length === 0) context.renderer.note("no partial, failed or died jobs to retry")
     })
 
   annotate(command.command("clear"), { mutates: true, local: true })
@@ -321,7 +321,14 @@ const brief = (job: Job) => ({
   ...(job.limit === undefined ? {} : { limit: job.limit }),
   ...(job.pageSize === undefined ? {} : { pageSize: job.pageSize }),
   ...(job.last === undefined ? {} : { last: job.last }),
-  ...(job.result ? { complete: job.result.complete === true } : {}),
+  ...(job.result
+    ? {
+        complete: job.result.complete === true,
+        ...(job.result.issue ? { issue: job.result.issue } : {}),
+        ...(job.result.batch ? { batch: job.result.batch } : {}),
+        ...(job.result.resume ? { resume: job.result.resume } : {}),
+      }
+    : {}),
   ...(job.error ? { error: job.error } : {}),
 })
 

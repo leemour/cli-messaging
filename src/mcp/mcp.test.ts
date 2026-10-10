@@ -751,6 +751,7 @@ describe("the MCP server", () => {
       "chat_metadata_get",
       "chat_polls_show",
       "chat_review",
+      "chat_runs_search",
       "chat_search_all",
       "chat_search_conversations",
       "chat_search_mail",
@@ -1952,7 +1953,7 @@ describe("the MCP server", () => {
     const { call } = await connect(telegram)
 
     const missing = await call("chat_chats_show", { chat: "Bok" })
-    expect(missing).toEqual({
+    expect(missing).toMatchObject({
       isError: true,
       body: { error: { code: "not_found", message: "no chat matches Bok", retryable: false } },
     })
@@ -3351,6 +3352,9 @@ describe("mcp config", () => {
         MESSAGING_STORE: "/m.db",
         XDG_RUNTIME_DIR: "/run/user/1000",
         CHAT_API_HASH: "never",
+        MESSAGING_ATTACHMENT_MAX_MIB: "250",
+        MESSAGING_PDF_PREVIEW_MAX_PIXELS: "8000",
+        MESSAGING_PDF_PREVIEW_MAX_MIB: "16",
       },
     })
 
@@ -3360,7 +3364,14 @@ describe("mcp config", () => {
           type: "stdio",
           command: "/usr/bin/node",
           args: [PNPM, "work", "mcp"],
-          env: { CHAT_STATE_DIR: "/s", MESSAGING_STORE: "/m.db", XDG_RUNTIME_DIR: "/run/user/1000" },
+          env: {
+            CHAT_STATE_DIR: "/s",
+            MESSAGING_STORE: "/m.db",
+            XDG_RUNTIME_DIR: "/run/user/1000",
+            MESSAGING_ATTACHMENT_MAX_MIB: "250",
+            MESSAGING_PDF_PREVIEW_MAX_PIXELS: "8000",
+            MESSAGING_PDF_PREVIEW_MAX_MIB: "16",
+          },
         },
       },
     })

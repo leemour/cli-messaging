@@ -23,6 +23,7 @@ import { privatePeopleTools } from "./tools/private-people.js"
 import { rankingTools } from "./tools/rankings.js"
 import { reactionTools } from "./tools/reactions.js"
 import { reviewTools } from "./tools/review.js"
+import { runsTools } from "./tools/runs.js"
 import { searchTools } from "./tools/search-tools.js"
 import { searchesTools } from "./tools/searches.js"
 import { statsTools } from "./tools/stats.js"
@@ -36,6 +37,7 @@ import { topicsTools, topicWriteTools } from "./tools/topics.js"
  * so `tg_chats_list` is `tg chats list`. A new resource is a file in `tools/` and a line here.
  */
 export const readTools = (messenger: Messenger): Record<string, AnyTool> => ({
+  ...runsTools(messenger),
   ...inboxTools(messenger),
   ...reviewTools(messenger),
   ...topicsTools(messenger),
