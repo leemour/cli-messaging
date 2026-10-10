@@ -174,6 +174,14 @@ export {
 } from "./meeting-evidence.js"
 export { type MeetingReadStore, type ResolvedMeetingReference, resolveMeetingReference } from "./meeting-reference.js"
 export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
+export {
+  type CreateMeetingTaskInput,
+  createTaskFromMeeting,
+  type MeetingTaskSourceView,
+  type MeetingTaskStore,
+  type MeetingTaskView,
+  readMeetingTask,
+} from "./meeting-tasks.js"
 export type { QueryMetadata, SearchCoverage } from "./messages-search.js"
 export { metadataService } from "./metadata.js"
 export {
