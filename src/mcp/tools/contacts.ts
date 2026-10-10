@@ -136,7 +136,7 @@ export const contactsTools = (messenger: Messenger): Record<string, AnyTool> => 
           ? "wrote in the store, and the public ban lists " +
             `${Object.values(REGISTRIES)
               .map(({ title, docs }) => `${title} (${docs})`)
-              .join(", ")} — **the person's id is sent to each of them** only when registries is true. `
+              .join(", ")} — **the person's id is sent to each of them** unless registries is false. `
           : "wrote in the store. The public ban lists cover Telegram only, so nothing is sent. ") +
         "Returns { person, " +
         "score, reasons: [{ reason, weight, source, detail }], registries: [{ name, answer: listed|clean|unknown, " +
@@ -144,12 +144,12 @@ export const contactsTools = (messenger: Messenger): Record<string, AnyTool> => 
       input: v.object({
         person: v.pipe(v.string(), v.minLength(1), v.description("person id, @username, or part of a name")),
         registries: v.optional(
-          v.pipe(v.boolean(), v.description("true: explicitly ask public ban lists; default false keeps the id local")),
+          v.pipe(v.boolean(), v.description("false: skip public ban lists; default true asks them")),
         ),
       }),
       annotations: READ,
       served: (services, args, defaults) => {
-        const registries = args.registries === true
+        const registries = args.registries !== false
         const key = registries ? casKey(messenger.app, defaults.env) : undefined
         return services.botcheck.person(args.person, { registries, ...(key ? { registry: { casKey: key } } : {}) })
       },

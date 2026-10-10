@@ -142,10 +142,7 @@ export const extractText = async (
   if (kind) return readDocument(bytes, kind, signal)
   if (startsWith(bytes, "%PDF-")) {
     return withEngine<Unpdf>(load, "unpdf", async (unpdf, extractor) => {
-      const deadline = new AbortController()
-      const timeout = setTimeout(() => deadline.abort(), 30_000)
-      timeout.unref()
-      const bounded = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal
+      const bounded = signal ?? new AbortController().signal
       let pdf: PdfDocument | undefined
       let closed = false
       const close = () => {
@@ -158,7 +155,7 @@ export const extractText = async (
       const aborted = new Promise<never>((_, reject) => {
         abort = () => {
           close()
-          reject(new CliError(signal?.aborted ? "cancelled" : "timeout", "PDF text extraction stopped"))
+          reject(new CliError("cancelled", "PDF text extraction stopped"))
         }
         bounded.addEventListener("abort", abort, { once: true })
         if (bounded.aborted) abort()
@@ -175,7 +172,7 @@ export const extractText = async (
             close()
             bounded.throwIfAborted()
           }
-          if (!Number.isSafeInteger(pdf.numPages) || pdf.numPages < 1 || pdf.numPages > 20) throw new ReaderLimit()
+          if (!Number.isSafeInteger(pdf.numPages) || pdf.numPages < 1) throw new ReaderLimit()
           return unpdf.extractText(pdf, { mergePages: false })
         }
         const result = await Promise.race([reading(), aborted])
@@ -198,7 +195,6 @@ export const extractText = async (
               ...(text.length > MAX_TEXT_CHARS ? { truncated: true } : {}),
             }
       } finally {
-        clearTimeout(timeout)
         bounded.removeEventListener("abort", abort)
         close()
       }

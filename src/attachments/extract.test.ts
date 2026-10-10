@@ -39,53 +39,47 @@ describe("reading the text layer of a file", () => {
     expect(extractRawText).not.toHaveBeenCalled()
   })
 
-  it("refuses oversized PDF page counts before reading text and closes the document", async () => {
-    const destroy = vi.fn(async () => {})
-    const read = vi.fn()
-    const load: LoadEngine = async () => ({
-      getDocumentProxy: async () => ({ numPages: 100_000, loadingTask: { destroy } }),
-      extractText: read,
-    })
-    expect(await extractText(pdf(), hint("large.pdf"), load)).toEqual({ status: "too-large" })
-    expect(read).not.toHaveBeenCalled()
-    expect(destroy).toHaveBeenCalledOnce()
-  })
-
-  it("bounds stuck PDF text extraction and cancels a pending document load", async () => {
+  it("extracts a long PDF and closes its document without a fixed page/time cutoff", async () => {
     vi.useFakeTimers()
     try {
       const destroy = vi.fn(async () => {})
-      const read = vi.fn(() => new Promise(() => {}))
       const load: LoadEngine = async () => ({
-        getDocumentProxy: async () => ({ numPages: 1, loadingTask: { destroy } }),
-        extractText: read,
+        getDocumentProxy: async () => ({ numPages: 100, loadingTask: { destroy } }),
+        extractText: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 31_000))
+          return { text: ["Synthetic long document"], totalPages: 100 }
+        },
       })
-      const pending = extractText(pdf(), hint("stuck.pdf"), load)
-      await vi.advanceTimersByTimeAsync(30_000)
-      expect(await pending).toMatchObject({ status: "unreadable" })
+      const pending = extractText(pdf(), hint("long.pdf"), load)
+      await vi.advanceTimersByTimeAsync(31_000)
+      expect(await pending).toMatchObject({ status: "extracted", pages: 100 })
       expect(destroy).toHaveBeenCalledOnce()
-      const abort = new AbortController()
-      let finish = (_value: unknown) => {}
-      const loading: LoadEngine = async () => ({
-        getDocumentProxy: () =>
-          new Promise((resolve) => {
-            finish = resolve
-          }),
-        extractText: read,
-      })
-      const cancelled = extractText(pdf(), hint("cancelled.pdf"), loading, abort.signal)
-      const rejected = expect(cancelled).rejects.toMatchObject({ code: "cancelled" })
-      await vi.advanceTimersByTimeAsync(0)
-      abort.abort()
-      await rejected
-      finish({ numPages: 1, loadingTask: { destroy } })
-      await vi.advanceTimersByTimeAsync(0)
-      expect(destroy).toHaveBeenCalledTimes(2)
-      expect(read).toHaveBeenCalledOnce()
-      expect(vi.getTimerCount()).toBe(0)
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it("cancels a pending PDF load and releases a late document", async () => {
+    const destroy = vi.fn(async () => {})
+    const read = vi.fn()
+    const abort = new AbortController()
+    let finish = (_value: unknown) => {}
+    const loading: LoadEngine = async () => ({
+      getDocumentProxy: () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      extractText: read,
+    })
+    const pending = extractText(pdf(), hint("cancelled.pdf"), loading, abort.signal)
+    const rejected = expect(pending).rejects.toMatchObject({ code: "cancelled" })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    abort.abort()
+    await rejected
+    finish({ numPages: 1, loadingTask: { destroy } })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(destroy).toHaveBeenCalledOnce()
+    expect(read).not.toHaveBeenCalled()
   })
   it("preserves spreadsheet cell addresses and PDF page spans", async () => {
     const workbook = new ExcelJS.Workbook()

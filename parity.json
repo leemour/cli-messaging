@@ -42,7 +42,7 @@
       "meaning": "every member may pin messages"
     },
     "--allow-any-file": {
-      "meaning": "send a --file even from a hidden folder, ~/.ssh or the tool's own folders"
+      "meaning": "send a --file even from credential folders or the tool's own folders"
     },
     "--allow-chats": {
       "meaning": "replace allowed chat ids, comma-separated; empty clears",

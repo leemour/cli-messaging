@@ -8,5 +8,4 @@ export const agentJson = (value: unknown): string =>
     return item
   })
 
-export const agentArguments = (args: Record<string, unknown>): Record<string, unknown> =>
-  JSON.parse(agentJson(args)) as Record<string, unknown>
+export const agentArguments = (args: Record<string, unknown>): Record<string, unknown> => args
