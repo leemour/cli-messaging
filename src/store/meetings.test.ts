@@ -1,11 +1,11 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { meetingStoreContract, sampleMeeting } from "@wirecat/cli-meetings/testing"
+import { meetingStoreContract, meetingTranscriptStoreContract, sampleMeeting } from "@wirecat/cli-meetings/testing"
 import { afterEach, describe, expect, it } from "vitest"
-import type { CacheDatabase } from "./driver.js"
 import { migrate } from "./migrations.js"
 import { meetingRowid, meetingStoreOver } from "./sqlite/meetings.js"
+import type { StoreContext } from "./sqlite/open.js"
 import { openSqlite } from "./sqlite/open.js"
 import { openStore } from "./store.js"
 
@@ -17,8 +17,8 @@ afterEach(async () => {
 const freshPath = () => join(mkdtempSync(join(tmpdir(), "meetings-")), "store.db")
 
 /** The contract's two invented accounts, ids 1 and 2. */
-const seeded = async (): Promise<CacheDatabase> => {
-  const { database } = await openSqlite(freshPath())
+const seeded = async (): Promise<StoreContext> => {
+  const { database, orm } = await openSqlite(freshPath())
   opened.push(database)
   migrate(database)
   const account = database.prepare(
@@ -26,16 +26,20 @@ const seeded = async (): Promise<CacheDatabase> => {
   )
   account.run(1, "first", "First Example")
   account.run(2, "second", "Second Example")
-  return database
+  return { database, orm, now: () => 3000 }
 }
 
 describe("SQLite meeting store", () => {
-  for (const { name, run } of meetingStoreContract(async () => meetingStoreOver({ database: await seeded() })))
+  for (const { name, run } of meetingStoreContract(async () => meetingStoreOver(await seeded())))
     it(`contract: ${name}`, run)
 
+  for (const { name, run } of meetingTranscriptStoreContract(async () => meetingStoreOver(await seeded())))
+    it(`append contract: ${name}`, run)
+
   it("keeps a transcript row and a summary with the same id apart in search, and drops one deleted", async () => {
-    const database = await seeded()
-    const store = meetingStoreOver({ database })
+    const context = await seeded()
+    const { database } = context
+    const store = meetingStoreOver(context)
     const input = sampleMeeting()
     input.transcripts[0].rows[0].text = "Overlap transcript words"
     input.summaries = [

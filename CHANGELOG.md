@@ -28,6 +28,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   `--max-meetings <n|all>` (MCP `max_meetings`) sets how many meetings it looks through, newest first: 100 by
   default, `all` for every one; meetings have no search index yet, so each is two queries.
 
+- `store.meetings.appendTranscripts` implements the optional shared atomic append capability:
+  account-scoped source/hash imports preserve existing meeting fields, owner links and unrelated
+  parts. Historical transcript replays stay historical, and a failed batch writes nothing.
+
 ### Security
 
 - **The old `messages.db` is deleted** when the store opens at its default path: the unencrypted file the
@@ -41,12 +45,21 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - **An inbox project learns its account when the messenger saves the account**, not only on the inbox's next
   task.
 
+
+- Explicitly associated stable meeting participant identities now have their own person and account association;
+
+  older orphan identities are repaired when ingested again. Existing owner links are preserved,
+  and participant names or emails never merge people or resolve document links. Unmarked or explicitly
+  unassociated guests retain their detached identity without creating a person.
+
+
 ## 0.221.0 — 11.10.2026
 
 ### Added
 
 - **`store reset --no-backup`** deletes the store and starts an empty one without the `VACUUM INTO` copy beside
   it; the result has `backup: null` and `backedUp: null`. Without it, `store reset` backs up first as before.
+
 
 ## 0.220.0 — 10.10.2026
 
