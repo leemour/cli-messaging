@@ -168,8 +168,8 @@ Phase 5. Four steps, each a command the owner runs, and nothing leaves the machi
 mentions and who wrote next (phase 3). The same build cuts each conversation into
 **chunks**: consecutive messages, cut only between messages, at most 1,200 characters each (about 300
 tokens; `CHUNK_CHARS`, `src/conversations/chunks.ts`). A chunk's text is `sender: text` per line. The
-text is never stored — only the chunk's first and last message and the sha256 of its text
-(`conversation_chunks`).
+text is never stored — only the chunk's first and last message (`chunk_messages`) and the sha256 of its text
+(`chunks`, the table every kind of text is cut into).
 
 Why chunks and not whole conversations: e5-small reads at most 512 tokens (EmbeddingGemma 2,048), and
 one long conversation covers many subjects. Why not single messages: «ок» or «да, давай» mean nothing alone.

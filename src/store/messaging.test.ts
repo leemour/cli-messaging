@@ -143,8 +143,18 @@ it("stores chunk filter columns and narrows by scope, project, person and time b
     expect(await store.nearestConversations(account, { ...query, projectId: "2" })).toEqual([])
     expect(await store.nearestConversations(account, { ...query, personId: "999" })).toEqual([])
     expect(await store.nearestConversations(account, { ...query, before: new Date(200).toISOString() })).toEqual([])
+
+    db.prepare("UPDATE chats SET scope='personal' WHERE id=?").run(chat)
+    expect(await store.nearestConversations(account, { ...query, scope: "personal" })).toHaveLength(1)
+    db.prepare("DELETE FROM links WHERE from_type='chat'").run()
+    expect(db.prepare("SELECT project_id FROM chunks").get()).toEqual({ project_id: null })
+
+    db.prepare("DELETE FROM messages").run()
+    expect([
+      db.prepare("SELECT count(*) AS n FROM chunks").get()?.n,
+      db.prepare("SELECT count(*) AS n FROM chunk_messages").get()?.n,
+    ]).toEqual([0, 0])
     await store.purge(account)
-    expect(db.prepare("SELECT count(*) AS n FROM chunks").get()?.n).toBe(0)
   } finally {
     db.close()
     await store.close()

@@ -100,10 +100,11 @@ const chunkRows = (path: string) => {
   try {
     return db
       .prepare(
-        `SELECT f.external_id AS first, l.external_id AS last, k.content_hash AS hash FROM conversation_chunks k
-         JOIN conversations c ON c.id = k.conversation_id
+        `SELECT f.external_id AS first, l.external_id AS last, k.content_hash AS hash FROM chunks k
+         JOIN chunk_messages r ON r.chunk_id = k.id
+         JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id
          JOIN conversation_state s ON s.chat_id = c.chat_id AND s.current_build = c.build
-         JOIN messages f ON f.id = k.first_message_id JOIN messages l ON l.id = k.last_message_id
+         JOIN messages f ON f.id = r.first_message_id JOIN messages l ON l.id = r.last_message_id
          ORDER BY f.sent_at`,
       )
       .all() as { first: string; last: string; hash: string }[]

@@ -115,8 +115,10 @@ describe("chunk tables (store version 14)", () => {
     const path = fresh()
     await conversationIn(path)
     await withDatabase(path, (run) => {
-      run(`INSERT INTO conversation_chunks (conversation_id, ordinal, first_message_id, last_message_id, content_hash)
-           SELECT 1, 0, min(id), max(id), 'abc' FROM messages`)
+      run(`INSERT INTO chunks (chunkable_type, chunkable_id, position, start_offset, end_offset, content_hash, created_at,
+             updated_at) VALUES ('conversation', 1, 0, 0, 1, 'abc', 0, 0)`)
+      run(`INSERT INTO chunk_messages (chunk_id, first_message_id, last_message_id)
+           SELECT (SELECT id FROM chunks), min(id), max(id) FROM messages`)
       run(`INSERT INTO embeddings (model, content_hash, dims, vector, created_at,updated_at)
            VALUES ('local:e5-small:384', 'abc', 2, x'0000803f00000000', 0,0)`)
     })
@@ -127,9 +129,10 @@ describe("chunk tables (store version 14)", () => {
 
     expect(
       await withDatabase(path, (run) => [
-        Number(run("SELECT count(*) AS n FROM conversation_chunks")[0]?.n),
+        Number(run("SELECT count(*) AS n FROM chunks")[0]?.n),
+        Number(run("SELECT count(*) AS n FROM chunk_messages")[0]?.n),
         Number(run("SELECT count(*) AS n FROM embeddings")[0]?.n),
       ]),
-    ).toEqual([0, 1])
+    ).toEqual([0, 0, 1])
   })
 })

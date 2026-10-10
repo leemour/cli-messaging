@@ -119,7 +119,7 @@ answers, in `src/store/sqlite/batches.ts`:
   only to the local store. `batches next` shows message text and is checked as `messages`.
 
 **Chunks and vectors** (phase 5, store version 14, plan). Each build
-also writes `conversation_chunks`: a conversation cut at message boundaries into pieces of at most
+also writes `chunks` rows of type `conversation`, with their message range in `chunk_messages`: a conversation cut at message boundaries into pieces of at most
 `CHUNK_CHARS` (`src/conversations/chunks.ts`), each with its first and last message and the sha256 of
 its text. A message longer than a chunk is split into overlapping pieces (`splitText`), a chunk each, and
 since store version 21 such a chunk also keeps the stretch of the message it holds (`text_start`,

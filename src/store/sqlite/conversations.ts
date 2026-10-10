@@ -9,8 +9,8 @@ import { selectMessages, toMessages } from "./reads.js"
 import {
   accounts,
   chats,
+  chunkMessages,
   chunks as chunkRows,
-  conversationChunks,
   conversationMessages,
   conversationState,
   conversations,
@@ -143,7 +143,7 @@ export const replaceConversations = async (
   const { orm, now } = context
   check?.()
   const oldHashes = orm.all<{ hash: string }>(
-    sql`SELECT DISTINCT k.content_hash AS hash FROM conversation_chunks k JOIN conversations c ON c.id = k.conversation_id WHERE c.chat_id = ${chatKey}`,
+    sql`SELECT DISTINCT k.content_hash AS hash FROM chunks k JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id WHERE c.chat_id = ${chatKey}`,
   )
   const held = new Map(
     orm
@@ -198,21 +198,37 @@ export const replaceConversations = async (
     })
     .onConflictDoNothing()
     .prepare()
-  const insertMember = orm
-    .insert(conversationMessages)
-    .values({ conversationId: sql.placeholder("conversationId"), messageId: sql.placeholder("messageId") })
-    .prepare()
-  const insertChunk = orm
-    .insert(conversationChunks)
+  const insertPiece = orm
+    .insert(chunkRows)
     .values({
-      conversationId: sql.placeholder("conversationId"),
-      ordinal: sql.placeholder("ordinal"),
-      firstMessageId: sql.placeholder("firstMessageId"),
-      lastMessageId: sql.placeholder("lastMessagePk"),
+      chunkableType: "conversation",
+      chunkableId: sql.placeholder("conversationId"),
+      position: sql.placeholder("position"),
+      startOffset: sql.placeholder("startOffset"),
+      endOffset: sql.placeholder("endOffset"),
       contentHash: sql.placeholder("contentHash"),
+      projectId: project ? Number(project.to_id) : null,
+      accountId: chunkScope?.accountId ?? null,
+      scope: chunkScope?.scope ?? null,
+      occurredAt: sql.placeholder("occurredAt"),
+      createdAt: startedAt,
+      updatedAt: startedAt,
+    })
+    .returning({ id: chunkRows.id })
+    .prepare()
+  const insertRange = orm
+    .insert(chunkMessages)
+    .values({
+      chunkId: sql.placeholder("chunkId"),
+      firstMessageId: sql.placeholder("firstMessageId"),
+      lastMessageId: sql.placeholder("lastMessageId"),
       textStart: sql.placeholder("textStart"),
       textEnd: sql.placeholder("textEnd"),
     })
+    .prepare()
+  const insertMember = orm
+    .insert(conversationMessages)
+    .values({ conversationId: sql.placeholder("conversationId"), messageId: sql.placeholder("messageId") })
     .prepare()
   await inTurns(
     context,
@@ -265,34 +281,22 @@ export const replaceConversations = async (
           const from = held.get(chunk.firstId)
           const to = held.get(chunk.lastId)
           if (!from || !to) continue
-          if (chunkScope)
-            orm
-              .insert(chunkRows)
-              .values({
-                chunkableType: "conversation",
-                chunkableId: created.pk,
-                position: ordinal,
-                startOffset:
-                  (offsets.get(from.id)?.start ?? 0) +
-                  (chunk.range ? (offsets.get(from.id)?.prefix ?? 0) + chunk.range.start : 0),
-                endOffset: chunk.range
-                  ? (offsets.get(to.id)?.start ?? 0) + (offsets.get(to.id)?.prefix ?? 0) + chunk.range.end
-                  : (offsets.get(to.id)?.end ?? 0),
-                contentHash: chunk.hash,
-                projectId: project ? Number(project.to_id) : null,
-                accountId: chunkScope.accountId,
-                scope: chunkScope.scope,
-                occurredAt: from.sentAt,
-                createdAt: startedAt,
-                updatedAt: startedAt,
-              })
-              .run()
-          insertChunk.run({
+          const row = insertPiece.get({
             conversationId: created.pk,
-            ordinal,
-            firstMessageId: from.pk,
-            lastMessagePk: to.pk,
+            position: ordinal,
+            startOffset:
+              (offsets.get(from.id)?.start ?? 0) +
+              (chunk.range ? (offsets.get(from.id)?.prefix ?? 0) + chunk.range.start : 0),
+            endOffset: chunk.range
+              ? (offsets.get(to.id)?.start ?? 0) + (offsets.get(to.id)?.prefix ?? 0) + chunk.range.end
+              : (offsets.get(to.id)?.end ?? 0),
             contentHash: chunk.hash,
+            occurredAt: from.sentAt,
+          })
+          insertRange.run({
+            chunkId: Number(row?.id),
+            firstMessageId: from.pk,
+            lastMessageId: to.pk,
             textStart: chunk.range?.start ?? null,
             textEnd: chunk.range?.end ?? null,
           })

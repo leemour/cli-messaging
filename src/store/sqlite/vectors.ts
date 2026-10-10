@@ -8,8 +8,11 @@ export interface ChunkToEmbed {
   lines: { id: string; sender: string | null; text: string }[]
 }
 
-const currentChunks = (chatKey: number) => sql`SELECT k.content_hash, k.conversation_id, k.first_message_id,
-    k.last_message_id, k.text_start, k.text_end FROM conversation_chunks k JOIN conversations c ON c.id = k.conversation_id
+const currentChunks = (
+  chatKey: number,
+) => sql`SELECT k.content_hash, k.chunkable_id AS conversation_id, r.first_message_id,
+    r.last_message_id, r.text_start, r.text_end FROM chunks k JOIN chunk_messages r ON r.chunk_id = k.id
+    JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id
   WHERE c.chat_id = ${chatKey}
     AND c.build = (SELECT s.current_build FROM conversation_state s WHERE s.chat_id = ${chatKey})`
 
@@ -95,11 +98,12 @@ export const purgeVectorHashes = (context: StoreContext, hashes: readonly string
         last: number
         start: number | null
         end: number | null
-      }>(sql`SELECT k.conversation_id AS conversation, k.first_message_id AS first,
-        k.last_message_id AS last, k.text_start AS start, k.text_end AS end
-        FROM conversation_chunks k JOIN conversations c ON c.id = k.conversation_id
+      }>(sql`SELECT k.chunkable_id AS conversation, r.first_message_id AS first,
+        r.last_message_id AS last, r.text_start AS start, r.text_end AS end
+        FROM chunks k JOIN chunk_messages r ON r.chunk_id = k.id
+        JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id
         JOIN conversation_state s ON s.chat_id = c.chat_id AND s.current_build = c.build
-        WHERE k.content_hash = ${hash} ORDER BY k.conversation_id, k.ordinal LIMIT 100 OFFSET ${offset}`)
+        WHERE k.content_hash = ${hash} ORDER BY k.chunkable_id, k.position LIMIT 100 OFFSET ${offset}`)
       valid = candidates.some(({ conversation, first, last, start, end }) => {
         const lines = chunkLines(orm, conversation, first, last)
         return !lines.some(({ deleted }) => deleted) && chunkHash(chunkTextOf(lines, rangeOf(start, end))) === hash
@@ -118,8 +122,9 @@ export const purgeVectorHashes = (context: StoreContext, hashes: readonly string
 export const purgeVectorsOf = (context: StoreContext, messagePk: number): void => {
   const hashes = context.orm.all<{ hash: string }>(sql`SELECT DISTINCT k.content_hash AS hash
     FROM conversation_messages cm JOIN messages m ON m.id = cm.message_id
-    JOIN conversation_chunks k ON k.conversation_id = cm.conversation_id
-    JOIN messages f ON f.id = k.first_message_id JOIN messages l ON l.id = k.last_message_id
+    JOIN chunks k ON k.chunkable_type = 'conversation' AND k.chunkable_id = cm.conversation_id
+    JOIN chunk_messages r ON r.chunk_id = k.id
+    JOIN messages f ON f.id = r.first_message_id JOIN messages l ON l.id = r.last_message_id
     WHERE cm.message_id = ${messagePk}
       AND (m.sent_at, m.id) >= (f.sent_at, f.id) AND (m.sent_at, m.id) <= (l.sent_at, l.id)`)
   purgeVectorHashes(
@@ -145,13 +150,13 @@ export const conversationVectors = (
     hash: string
     vector: Uint8Array | null
   }>(
-    sql`SELECT k.first_message_id AS first, k.last_message_id AS last, k.text_start AS start, k.text_end AS end,
+    sql`SELECT r.first_message_id AS first, r.last_message_id AS last, r.text_start AS start, r.text_end AS end,
         k.content_hash AS hash, v.vector
-      FROM conversation_chunks k
-      JOIN conversations c ON c.id = k.conversation_id
+      FROM chunks k JOIN chunk_messages r ON r.chunk_id = k.id
+      JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id
       JOIN conversation_state s ON s.chat_id = c.chat_id AND s.current_build = c.build
       LEFT JOIN embeddings v ON v.model = ${model} AND v.content_hash = k.content_hash
-      WHERE k.conversation_id = ${conversationPk} ORDER BY k.ordinal`,
+      WHERE k.chunkable_type = 'conversation' AND k.chunkable_id = ${conversationPk} ORDER BY k.position`,
   )
   const vectors = rows.flatMap(({ first, last, start, end, hash, vector }) =>
     vector &&
@@ -204,10 +209,11 @@ export const clearVectors = ({ orm }: StoreContext, chatKey: number, model: stri
   orm.all<{ n: number }>(
     sql`DELETE FROM embeddings
       WHERE ${model === undefined ? sql`1` : sql`model = ${model}`}
-        AND content_hash IN (SELECT k.content_hash FROM conversation_chunks k
-          JOIN conversations c ON c.id = k.conversation_id WHERE c.chat_id = ${chatKey})
-        AND content_hash NOT IN (SELECT k.content_hash FROM conversation_chunks k
-          JOIN conversations c ON c.id = k.conversation_id WHERE c.chat_id <> ${chatKey})
+        AND content_hash IN (SELECT k.content_hash FROM chunks k
+          JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id WHERE c.chat_id = ${chatKey})
+        AND content_hash NOT IN (SELECT k.content_hash FROM chunks k
+          LEFT JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id
+          WHERE c.id IS NULL OR c.chat_id <> ${chatKey})
       RETURNING 1 AS n`,
   ).length
 
@@ -279,24 +285,24 @@ export const nearestChunks = (
     }>(
       // CROSS JOIN keeps the chunks first, so each page walks their key; led by the vectors, SQLite re-read and
       // sorted every one of them per page — 1.3 s against 140 ms at 42k chunks (bench/embeddings/README.md).
-      sql`SELECT k.conversation_id AS conversation, k.ordinal, k.first_message_id AS first, k.last_message_id AS last,
-          k.text_start AS start, k.text_end AS end, k.content_hash AS hash, v.vector FROM conversation_chunks k
-        CROSS JOIN conversations c ON c.id = k.conversation_id
+      sql`SELECT k.chunkable_id AS conversation, k.position AS ordinal, r.first_message_id AS first, r.last_message_id AS last,
+          r.text_start AS start, r.text_end AS end, k.content_hash AS hash, v.vector FROM chunks k
+        CROSS JOIN conversations c ON c.id = k.chunkable_id
+        JOIN chunk_messages r ON r.chunk_id = k.id
         JOIN conversation_state s ON s.chat_id = c.chat_id AND s.current_build = c.build
         JOIN chats ch ON ch.id = c.chat_id
-        JOIN chunks narrowed ON narrowed.chunkable_type='conversation' AND narrowed.chunkable_id=c.id AND narrowed.position=k.ordinal
         JOIN embeddings v ON v.model = ${model} AND v.content_hash = k.content_hash
-        WHERE ch.account_id = ${accountPk}
-          ${scope === undefined ? sql`` : sql`AND narrowed.scope=${scope}`}
-          ${projectId === undefined ? sql`` : sql`AND narrowed.project_id=${projectId}`}
-          ${before === undefined ? sql`` : sql`AND narrowed.occurred_at < ${before}`}
+        WHERE k.chunkable_type = 'conversation' AND ch.account_id = ${accountPk}
+          ${scope === undefined ? sql`` : sql`AND k.scope=${scope}`}
+          ${projectId === undefined ? sql`` : sql`AND k.project_id=${projectId}`}
+          ${before === undefined ? sql`` : sql`AND k.occurred_at < ${before}`}
           ${personId === undefined ? sql`` : sql`AND EXISTS (SELECT 1 FROM conversation_messages pcm JOIN messages pm ON pm.id=pcm.message_id JOIN identity_links pil ON pil.identity_id=pm.sender_identity_id WHERE pcm.conversation_id=c.id AND pil.person_id=${personId})`}
           ${chatKey === undefined ? sql`` : sql`AND c.chat_id = ${chatKey}`}
-          ${since === undefined ? sql`` : sql`AND narrowed.occurred_at >= ${since}`}
+          ${since === undefined ? sql`` : sql`AND k.occurred_at >= ${since}`}
           ${exclude === undefined ? sql`` : sql`AND c.id <> ${exclude}`}
           ${conversations === undefined ? sql`` : sql`AND c.id IN (SELECT value FROM json_each(${JSON.stringify(conversations)}))`}
-          AND (k.conversation_id, k.ordinal) > (${after.conversation}, ${after.ordinal})
-        ORDER BY k.conversation_id, k.ordinal LIMIT ${SCAN_PAGE}`,
+          AND (k.chunkable_id, k.position) > (${after.conversation}, ${after.ordinal})
+        ORDER BY k.chunkable_id, k.position LIMIT ${SCAN_PAGE}`,
     )
     for (const row of rows) {
       const score = dot(query, row.vector)
@@ -320,8 +326,8 @@ export const nearestChunks = (
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit)
 }
 
-const hasVectorOf = (models: ReturnType<typeof sql>) => sql`EXISTS (SELECT 1 FROM conversation_chunks k
-    JOIN conversations c ON c.id = k.conversation_id
+const hasVectorOf = (models: ReturnType<typeof sql>) => sql`EXISTS (SELECT 1 FROM chunks k
+    JOIN conversations c ON k.chunkable_type = 'conversation' AND c.id = k.chunkable_id
     JOIN conversation_state s ON s.chat_id = c.chat_id AND s.current_build = c.build
     JOIN embeddings v ON v.model ${models} AND v.content_hash = k.content_hash
     WHERE c.chat_id = ch.id)`
@@ -410,8 +416,9 @@ export const readiness = ({ orm }: StoreContext, chatKey: number, model: string)
           JOIN conversations c ON c.id = cm.conversation_id AND c.build = ${build}
           WHERE m.chat_id = ${chatKey} AND (m.deleted_at IS NOT NULL OR ${editedSince(sql`m.id`)})),
         stale AS (SELECT DISTINCT k.content_hash AS hash FROM changed g
-          JOIN conversation_chunks k ON k.conversation_id = g.conversation_id
-          JOIN messages f ON f.id = k.first_message_id JOIN messages l ON l.id = k.last_message_id
+          JOIN chunks k ON k.chunkable_type = 'conversation' AND k.chunkable_id = g.conversation_id
+          JOIN chunk_messages r ON r.chunk_id = k.id
+          JOIN messages f ON f.id = r.first_message_id JOIN messages l ON l.id = r.last_message_id
           WHERE (g.sent_at, g.id) >= (f.sent_at, f.id) AND (g.sent_at, g.id) <= (l.sent_at, l.id)),
         hashes AS (SELECT DISTINCT h.content_hash AS hash,
             EXISTS (SELECT 1 FROM embeddings v WHERE v.model = ${model} AND v.content_hash = h.content_hash) AS vector,
