@@ -385,6 +385,52 @@ describe("store restore", () => {
   })
 })
 
+describe("store reset", () => {
+  it("**backs the store up beside it, then starts an empty one** — never unasked, never under a writer", async () => {
+    const env = envFor()
+    ;(await seeded(env)).close()
+    const path = String(env.MESSAGING_STORE)
+
+    const unasked = await call(["store", "reset", "--json"], env)
+    expect(unasked.code).not.toBe(0)
+    expect(unasked.stderr.join("\n")).toContain("add --yes")
+
+    const writer = await openCache(path)
+    writer.exec("BEGIN IMMEDIATE")
+    try {
+      const held = await call(["store", "reset", "--yes", "--json"], env)
+      expect(held.code).not.toBe(0)
+      expect(held.stderr.join("\n")).toContain("a write to the store is under way")
+    } finally {
+      writer.exec("ROLLBACK")
+      writer.close()
+    }
+    expect(readdirSync(dirname(path)).some((name) => name.includes(".backup-"))).toBe(false)
+    expect(await messagesIn(path)).toBe(2)
+
+    const { code, answer, stderr } = await call(["store", "reset", "--yes", "--json"], env)
+    expect(code).toBe(0)
+    expect(answer).toMatchObject({ path, reset: true, schema: latest, backedUp: { rows: { messages: 2 } } })
+    expect(answer.backup).toMatch(/m\.db\.backup-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/)
+    expect(stderr.join("\n")).toContain(`backed the store up to ${answer.backup}`)
+    expect(await messagesIn(answer.backup)).toBe(2)
+    expect(statSync(answer.backup).mode & 0o777).toBe(0o600)
+    expect(await messagesIn(path)).toBe(0)
+  })
+
+  it("**a migration that fails names `store reset`**, keeping SQLite's own words", async () => {
+    const env = envFor()
+    const database = await seeded(env)
+    database.exec("DELETE FROM schema_migrations")
+    database.close()
+
+    const { code, stderr } = await call(["store", "migrate", "--json"], env)
+    expect(code).not.toBe(0)
+    expect(stderr.join("\n")).toContain("already exists")
+    expect(stderr.join("\n")).toContain("`chat store reset` takes a backup of it first")
+  })
+})
+
 describe("the stems", () => {
   it("**`config set searchStemmers.*` is store-wide**: stems wait for `store reindex`, which rebuilds them", async () => {
     const env = envFor()

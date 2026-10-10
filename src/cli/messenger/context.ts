@@ -255,7 +255,7 @@ export const connected = (
         : stored(adapter, {
             account: { provider, account: self },
             store: () => {
-              store ??= openStore({ env })
+              store ??= openStore({ env, command: app.command })
               return store
             },
             warn: renderer.warn,
@@ -389,7 +389,7 @@ export const messengerContext = (command: Command, messenger: Messenger): Messen
         async () => {
           const account = recalledAccount(app, provider, profile, base.env)
           if (!account) throw unrecorded(messenger, profile)
-          const store = await openStore({ env: base.env })
+          const store = await openStore({ env: base.env, command: app.command })
           try {
             return await work(store, account)
           } finally {
@@ -435,7 +435,7 @@ export const messengerContext = (command: Command, messenger: Messenger): Messen
               return account
             },
             store: () => {
-              store ??= openStore({ env: base.env }).then(async (opened) => {
+              store ??= openStore({ env: base.env, command: app.command }).then(async (opened) => {
                 if (messenger.history === "store") await warnUnserved(messenger, profile, base, opened)
                 return opened
               })

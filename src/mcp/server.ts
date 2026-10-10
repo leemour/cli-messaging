@@ -106,7 +106,7 @@ export const createServer = (
         withStore: context.withStore,
         log: async (call) => {
           if (!recalledAccount(app, provider, settings.profile, context.env)) return
-          const store = await openStore({ env: context.env })
+          const store = await openStore({ env: context.env, command: app.command })
           try {
             await store.agentActions.record({ actor: { bot: `${app.command}-mcp` }, ...call })
           } finally {
