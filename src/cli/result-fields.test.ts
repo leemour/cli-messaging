@@ -1,3 +1,4 @@
+import { fieldsOf as coreFieldsOf, projectFields as coreProjectFields } from "@wirecat/cli-core"
 import { describe, expect, it } from "vitest"
 import { fieldsOf, projectFields } from "./result-fields.js"
 
@@ -58,4 +59,39 @@ it("accepts items.id consistently for paged rows, arrays and JSONL items", () =>
   })
   expect(projectFields([{ id: "synthetic" }], ["items.id"])).toEqual([{ id: "synthetic" }])
   expect(projectFields({ id: "synthetic", text: "synthetic" }, ["items.id"])).toEqual({ id: "synthetic" })
+})
+
+it("reuses core projection while preserving metadata-only empty selections", () => {
+  expect(fieldsOf).toBe(coreFieldsOf)
+  const value = {
+    items: [
+      { id: "example", operationId: "example-operation", sendId: "example-send" },
+      { id: "second-example" },
+      null,
+    ],
+    page: 2,
+    limit: 3,
+    hasMore: false,
+    coverage: { state: "partial" },
+    operationId: "example-page-operation",
+  }
+  expect(projectFields(value, [])).toEqual({
+    ...value,
+    items: [{ operationId: "example-operation", sendId: "example-send" }, {}, null],
+  })
+  expect(projectFields({ id: "example", sendId: "example-send" }, [])).toEqual({ sendId: "example-send" })
+  expect(projectFields([{ id: "example" }, null, 3], [])).toEqual([{}, null, 3])
+  expect(projectFields({ items: null, id: "example" }, [])).toEqual({})
+  expect(projectFields(value, fieldsOf("items.id"))).toEqual(coreProjectFields(value, fieldsOf("items.id")))
+})
+
+it("rejects unsafe direct paths and excessive selections before projection", () => {
+  for (const paths of [
+    ["__proto__.example"],
+    ["sender.constructor"],
+    ["a.prototype.example"],
+    ["a".repeat(257)],
+    Array.from({ length: 129 }, () => "id"),
+  ])
+    expect(() => projectFields({}, paths)).toThrow("--fields")
 })

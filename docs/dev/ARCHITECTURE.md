@@ -559,3 +559,12 @@ declares static support for a connection-free preview. The shared service resolv
 exact locator selection before connecting and guards `stats.messages.counters.refresh` as a local write.
 It closes stalled connections on abort and records partial results without message actions.
 CLI commands and the existing three-tool MCP frontend share this service. See [statistics guide](../rankings.md).
+
+## Shared result projection
+
+The CLI's `fieldsOf` export is cli-core's parser, and `projectFields` delegates to core's projection.
+List envelopes, operation identifiers, parent selections and `items.id` semantics remain unchanged.
+A thin wrapper preserves empty direct selections as metadata-only output. Parsed paths retain the
+existing limits of 128 paths and 256 characters each; direct invalid paths now reject before traversal.
+The runtime peer and development pin require cli-core 0.19.2 so every consumer has these exports.
+The messenger runner retains its own write and resource lifetime policy; no store schema is involved.
