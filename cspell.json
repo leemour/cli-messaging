@@ -1,0 +1,6 @@
+{
+  "version": "0.2",
+  "files": ["README.md"],
+  "import": ["./config/wirecat/cspell.json"],
+  "words": ["CLIG", "resvg", "zrender"]
+}
