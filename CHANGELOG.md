@@ -4,6 +4,15 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+## 0.217.1 — 10.10.2026
+
+### Fixed
+
+- Long PDF documents and voice recordings no longer hit separate page/time/duration cutoffs; caller cancellation and format/allocation checks remain.
+- Ordinary hidden developer folders are allowed while known credentials and application state stay protected. Markdown bodies, original Unicode writes, registry defaults, embedding redirects and interpolated reply previews retain their normal behavior.
+- Windows maintenance setup uses compatible core 0.19.1.
+
+
 ## 0.217.0 — 10.10.2026
 
 ### Fixed

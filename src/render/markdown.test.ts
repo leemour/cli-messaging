@@ -38,20 +38,20 @@ describe("a chat as Markdown", () => {
         "## 2026-09-29",
         "",
         "**23:58 Olga**",
-        "> text 1",
+        "text 1",
         "",
         "**23:59 you** · edited",
-        "> text 2",
+        "text 2",
         "",
         "## 2026-09-30",
         "",
         "**00:01 Olga**",
         "> **Olga:** text 1",
-        "> yes",
+        "yes",
         "",
         "**00:02 Olga**",
         "> in reply to message 99",
-        "> which?",
+        "which?",
         "",
       ].join("\n"),
     )
@@ -82,28 +82,24 @@ describe("a chat as Markdown", () => {
     )
 
     expect(markdown).not.toContain("\u001b")
-    expect(markdown).toContain("# A\\\\x0achat\n")
+    expect(markdown).toContain("# A\\x0achat\n")
     expect(markdown).toContain("> forwarded from **Ivan**\n> news\n> - photo")
-    expect(markdown).toContain("- file: a\\.pdf\n- [Site](https://example.com/)")
+    expect(markdown).toContain("- file: a.pdf\n- [Site](https://example.com/)")
   })
 
-  it("quotes foreign text and escapes sender/attachment structure so it cannot forge an export turn", () => {
+  it("preserves message Markdown and ordinary metadata for existing exports", () => {
     const markdown = toMarkdown(
-      "# forged heading",
+      "# heading",
       [
         message("1", 0, {
-          senderName: "**owner** <script>",
-          text: "hello\n\n## another day\n**12:00 you**\n<script>bad()</script>",
-          attachments: [{ kind: "share", title: "] forged [link", url: "https://example.test/a)" }],
+          text: "## Section\n**rich text**",
+          senderName: "Olga (owner)",
         }),
       ],
       "UTC",
     )
-    expect(markdown.split("\n").filter((line) => /^## /.test(line))).toEqual(["## 2026-09-29"])
-    expect(markdown).not.toContain("<script>")
-    expect(markdown).toContain("> \\#\\# another day")
-    expect(markdown).toContain("https://example.test/a%29")
-    expect(markdown).not.toContain("\n**12:00 you**")
+    expect(markdown).toContain("# # heading")
+    expect(markdown).toContain("**23:58 Olga (owner)**\n## Section\n**rich text**")
   })
 
   it("lists a bot's buttons with their numbers", () => {

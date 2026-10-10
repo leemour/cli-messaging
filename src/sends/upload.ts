@@ -19,12 +19,7 @@ export interface Upload {
 const PHOTO = new Set([".jpg", ".jpeg", ".png", ".webp"])
 const VOICE = new Set([".ogg", ".oga", ".opus"])
 
-/**
- * A file somebody talked an agent into sending would be a key or a token: those live in hidden
- * files and folders, `~/.ssh` among them, in the CLI's own folders — the session is there — and in
- * the message store (max-cli `NEED-274`). The real path is checked as well as the typed one, so a
- * link does not hide where it points.
- */
+/** Protect known credential/state paths without refusing ordinary hidden developer folders. */
 export const refusedPlace = (path: string, app: AppIdentity, env: NodeJS.ProcessEnv): boolean => {
   const own = Object.values(resolvePaths({ appName: app.appName, prefix: app.envPrefix, env }))
   // The store file and its -wal and -shm, not its folder: MESSAGING_STORE may sit in the home folder.
@@ -42,11 +37,21 @@ export const refusedPlace = (path: string, app: AppIdentity, env: NodeJS.Process
       ancestor = parent
     }
   }
+  const credentialFolders = new Set([".ssh", ".gnupg", ".aws", ".secrets", "secrets"])
+  const credentialFiles = new Set([".env", ".npmrc", ".pypirc", "credentials.yml.enc", "master.key"])
   return [resolve(path), real].some(
     (candidate) =>
-      candidate.split(sep).some((part) => part.startsWith(".") && part !== "." && part !== "..") ||
+      candidate
+        .split(sep)
+        .some(
+          (part, index, parts) =>
+            credentialFolders.has(part) ||
+            credentialFiles.has(part) ||
+            /^\.env\./.test(part) ||
+            (part === ".config" && parts[index + 1] === "autostart"),
+        ) ||
       own.some((dir) => inside(candidate, dir)) ||
-      candidate.startsWith(store),
+      [store, `${store}-wal`, `${store}-shm`].includes(candidate),
   )
 }
 
@@ -69,7 +74,7 @@ export const readUpload = async (
   if (!anyFile && refusedPlace(path, app, env)) {
     throw new CliError(
       "validation_error",
-      `cannot send ${path}: hidden files and folders, ~/.ssh, ${app.command}'s own folders and the message store ` +
+      `cannot send ${path}: known credential files, ${app.command}'s own folders and the message store ` +
         `are not sent — the owner adds --allow-any-file to \`${app.command} messages send\` if this file is meant to go`,
     )
   }

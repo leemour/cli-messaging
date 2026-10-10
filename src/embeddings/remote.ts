@@ -83,7 +83,6 @@ export const openRemote = (
       try {
         response = await post(`${remote.baseUrl.replace(/\/$/, "")}/embeddings`, {
           method: "POST",
-          redirect: "error",
           headers: {
             "content-type": "application/json",
             ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),

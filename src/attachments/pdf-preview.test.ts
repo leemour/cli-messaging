@@ -43,10 +43,14 @@ describe("PDF page previews for remote agents", () => {
     expect(fixture.destroy).toHaveBeenCalledTimes(1)
     expect(fixture.cleanup).toHaveBeenCalledTimes(1)
   })
+  it("previews a requested page in a long document", async () => {
+    const fixture = fake({ pages: 100 })
+    expect(await pdfPreview(pdf(), 99, undefined, fixture.load)).toMatchObject({ page: 99, pageCount: 100 })
+  })
   it("rejects invalid pages, page counts and dimensions before rendering", async () => {
     for (const page of [0, -1, 1.5, Infinity])
       await expect(pdfPreview(pdf(), page)).rejects.toMatchObject({ code: "validation_error" })
-    for (const pages of [0, 21, 1.5]) {
+    for (const pages of [0, 1.5]) {
       const fixture = fake({ pages })
       await expect(pdfPreview(pdf(), 1, undefined, fixture.load)).rejects.toMatchObject({ code: "validation_error" })
       expect(fixture.destroy).toHaveBeenCalledTimes(1)

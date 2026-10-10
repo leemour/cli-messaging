@@ -30,7 +30,7 @@ describe("readUpload", () => {
     await expect(readUpload("photo", put("pics/cat.gif"), { app, env })).rejects.toThrow(/send .* as a file/)
   })
 
-  it("**refuses hidden files, the CLI's own folders and the store**, also through a link — unless anyFile", async () => {
+  it("**refuses credential files, the CLI's own folders and the store**, also through a link — unless anyFile", async () => {
     const { root, env, put } = setUp()
     const key = put(".ssh/id_ed25519")
     const link = join(root, "innocent.txt")
@@ -41,6 +41,12 @@ describe("readUpload", () => {
     }
     expect(await readUpload("file", key, { app, env, anyFile: true })).toMatchObject({ name: "id_ed25519" })
     expect(await readUpload("file", put("store/report.pdf"), { app, env })).toMatchObject({ name: "report.pdf" })
+  })
+
+  it("allows hidden developer folders and similarly named store neighbors", async () => {
+    const { env, put } = setUp()
+    for (const name of [".worktrees/a.txt", ".cache/a.txt", ".incoming/.notes", "store/m.db-report.pdf"])
+      expect(await readUpload("file", put(name), { app, env })).toMatchObject({ kind: "file" })
   })
 
   it("says what is wrong with a path that is not a readable file", async () => {

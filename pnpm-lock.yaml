@@ -104,8 +104,8 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(vitest@5.0.2)
       '@wirecat/cli-core':
-        specifier: 0.19.0
-        version: 0.19.0(commander@15.0.0)(typescript@7.0.2)
+        specifier: 0.19.1
+        version: 0.19.1(commander@15.0.0)(typescript@7.0.2)
       cli-messaging-0.13:
         specifier: npm:@leemour/cli-messaging@0.13.0
         version: '@leemour/cli-messaging@0.13.0(commander@15.0.0)(typescript@7.0.2)'
@@ -1025,8 +1025,8 @@ packages:
   '@wasm-audio-decoders/opus-ml@0.0.3':
     resolution: {integrity: sha512-SEeTmk0eb3q5etJA/NHCRWW6BivTx9tqvNTmG0kg2ynuATEQRUZnwQE6Ibvl1BBvqIGHqI57+qyJMWmJBwb5XQ==}
 
-  '@wirecat/cli-core@0.19.0':
-    resolution: {integrity: sha512-pGtphpeXqS87eRu20CJoB28MRwKdqKuHQe7ORuyiFo+BgA/IZ1KMPfP4VYXye3/kSAWksDLojOLvfyeslhk4wA==}
+  '@wirecat/cli-core@0.19.1':
+    resolution: {integrity: sha512-Q2OXHHbVAIxqbeCzGaDeYNqnibaox6TaL4X4Dr1VWYuVYVUYDFuJVQObjtZ80CJ8FnmX7VfYVwrJhWhBt6+aRA==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
@@ -2737,7 +2737,7 @@ snapshots:
     dependencies:
       '@wasm-audio-decoders/common': 9.0.7
 
-  '@wirecat/cli-core@0.19.0(commander@15.0.0)(typescript@7.0.2)':
+  '@wirecat/cli-core@0.19.1(commander@15.0.0)(typescript@7.0.2)':
     dependencies:
       cli-table3: 0.6.5
       cross-spawn: 7.0.6

@@ -61,8 +61,8 @@ export const pdfPreview = async (
     })
     signal?.addEventListener("abort", close, { once: true })
     cancelled()
-    if (!Number.isSafeInteger(document.numPages) || document.numPages < 1 || document.numPages > 20)
-      throw new CliError("validation_error", "PDF previews support documents with 1–20 pages")
+    if (!Number.isSafeInteger(document.numPages) || document.numPages < 1)
+      throw new CliError("validation_error", "PDF page count must be a positive integer")
     if (page > document.numPages) throw new CliError("validation_error", "PDF page is past the end of the document")
     const selected = await document.getPage(page)
     let image: Buffer

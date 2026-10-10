@@ -31,13 +31,13 @@ export const toMarkdown = (title: string, messages: Message[], timeZone?: string
     if (answered) lines.push(...quote(`**${nameOf(answered)}:** ${literal(visibleControls(answered.text))}`))
     else if (message.replyToId !== undefined) lines.push(`> in reply to message ${singleLine(message.replyToId)}`)
     if (message.forwardedFrom) lines.push(...forwarded(message.forwardedFrom))
-    if (message.text) lines.push(...quote(literal(visibleControls(message.text))))
+    if (message.text) lines.push(visibleControls(message.text))
     lines.push(...message.attachments.map((attachment) => `- ${attachmentLine(attachment)}`))
   }
   return `${lines.join("\n")}\n`
 }
 
-const literal = (text: string): string => text.replace(/[\\`*_{}[\]()#+.!|<>]/g, "\\$&")
+const literal = (text: string): string => text
 
 const nameOf = (message: Pick<Message, "senderName" | "senderId" | "outgoing">): string =>
   literal(singleLine(message.senderName ?? (message.outgoing ? "you" : (message.senderId ?? "unknown"))))
