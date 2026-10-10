@@ -12,6 +12,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
+- Meeting evidence, reference resolution, person context and explicit task provenance now require bounded
+  account-scoped meeting read capabilities. Evidence uses separate stored-text page and output JSON budgets,
+  seek continuation and observed coverage; capped reads do not claim exact omitted totals or a cross-page snapshot.
+
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
 - Read-only meeting reference resolution, cue evidence, explicitly scoped person meeting context and

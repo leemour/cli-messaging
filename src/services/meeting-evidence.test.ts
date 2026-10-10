@@ -2,21 +2,34 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { CliError } from "@wirecat/cli-core"
-import { memoryMeetingStore, sampleMeeting } from "@wirecat/cli-meetings/testing"
-import { describe, expect, it, vi } from "vitest"
+import { sampleMeeting } from "@wirecat/cli-meetings/testing"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   canonicalMeetingReference,
   formatMeetingReference,
   parseMeetingReference,
 } from "../domain/meeting-reference.js"
-import { openStore } from "../store/store.js"
+import { type MessageStore, openStore } from "../store/store.js"
 import { readMeetingEvidence } from "./meeting-evidence.js"
-import { resolveMeetingReference } from "./meeting-reference.js"
+import { type MeetingReadStore, resolveMeetingReference } from "./meeting-reference.js"
 import { proposeMeetingTask } from "./meeting-task-proposal.js"
 import { type PersonMeetingReadStore, personMeetingContext } from "./person-meeting-context.js"
 
+const opened: MessageStore[] = []
+afterEach(async () => {
+  for (const store of opened.splice(0)) await store.close()
+})
+const unread = (meeting: MeetingReadStore["meetingMetadata"]): MeetingReadStore => ({
+  meetingMetadata: meeting,
+  transcriptMetadata: vi.fn(),
+  transcripts: vi.fn(),
+  transcriptRows: vi.fn(),
+})
 const fixture = async () => {
-  const store = memoryMeetingStore()
+  const owner = await openStore({ path: join(mkdtempSync(join(tmpdir(), "zm-test-bounded-evidence-")), "store.db") })
+  opened.push(owner)
+  await owner.saveAccount({ provider: "example", account: "alice-example" }, { name: "Alice Example" })
+  const store = owner.meetings
   const input = sampleMeeting()
   input.meeting.title = "Alice Example and Bob Sample"
   input.transcripts[0].rows[0].speakerName = "Alice Example"
@@ -55,7 +68,7 @@ describe("meeting evidence references", () => {
 
   it("denies a foreign account before asking the store for rows", async () => {
     const meeting = vi.fn()
-    await expect(resolveMeetingReference({ meeting }, 2, "meeting:1/1/1/0")).rejects.toMatchObject({
+    await expect(resolveMeetingReference(unread(meeting), 2, "meeting:1/1/1/0")).rejects.toMatchObject({
       code: "not_found",
     })
     expect(meeting).not.toHaveBeenCalled()
@@ -94,9 +107,9 @@ describe("meeting evidence references", () => {
     expect(small.contentBytes).toBe(2)
     expect(small.coverage).toMatchObject({
       included: 0,
-      omitted: 1,
+      omitted: null,
       truncatedBy: "bytes",
-      input: "materialized-meeting",
+      input: "bounded-meeting-pages",
     })
     expect(
       (await readMeetingEvidence(store, input.meeting.accountId, reference, { bytes: full.contentBytes })).items,
@@ -115,7 +128,7 @@ describe("meeting evidence references", () => {
       { cues: 1 },
     )
     expect(packet.items).toHaveLength(1)
-    expect(packet.coverage).toMatchObject({ provided: 2, omitted: 1, hasMore: true, truncatedBy: "cues" })
+    expect(packet.coverage).toMatchObject({ provided: 2, omitted: null, hasMore: true, truncatedBy: "cues" })
   })
 
   it("rejects missing revisions and cues, invalid limits and cancelled reads", async () => {
@@ -128,11 +141,11 @@ describe("meeting evidence references", () => {
         code: "not_found",
       })
     const meeting = vi.fn()
-    await expect(readMeetingEvidence({ meeting }, 1, "meeting:1/1", { cues: 0 })).rejects.toMatchObject({
+    await expect(readMeetingEvidence(unread(meeting), 1, "meeting:1/1", { cues: 0 })).rejects.toMatchObject({
       code: "validation_error",
     })
     await expect(
-      readMeetingEvidence({ meeting }, 1, "meeting:1/1", { signal: AbortSignal.abort() }),
+      readMeetingEvidence(unread(meeting), 1, "meeting:1/1", { signal: AbortSignal.abort() }),
     ).rejects.toMatchObject({ code: "cancelled" })
     expect(meeting).not.toHaveBeenCalled()
   })
@@ -140,7 +153,18 @@ describe("meeting evidence references", () => {
   it("rejects deleted parents and mismatched revision ownership", async () => {
     const { details, input, reference } = await fixture()
     const accountId = input.meeting.accountId
-    const wrapped = (value: typeof details) => ({ meeting: async () => value })
+    const wrapped = (value: typeof details): MeetingReadStore => ({
+      meetingMetadata: async () => value.meeting,
+      transcriptMetadata: async () =>
+        value.transcripts[0]?.transcript as (typeof details.transcripts)[number]["transcript"],
+      transcripts: async () => ({ items: value.transcripts.map((part) => part.transcript), hasMore: false }),
+      transcriptRows: async () => ({
+        meeting: value.meeting,
+        transcript: value.transcripts[0]?.transcript as (typeof details.transcripts)[number]["transcript"],
+        rows: value.transcripts[0]?.rows ?? [],
+        hasMore: false,
+      }),
+    })
     await expect(
       resolveMeetingReference(
         wrapped({ ...details, meeting: { ...details.meeting, deletedAt: 1 } }),
@@ -183,14 +207,15 @@ describe("meeting evidence references", () => {
   })
 
   it("does not return evidence when cancellation arrives during the store read", async () => {
-    const { details, reference, input } = await fixture()
+    const { details, reference, input, store } = await fixture()
     const controller = new AbortController()
     await expect(
       readMeetingEvidence(
         {
-          meeting: async () => {
+          ...store,
+          meetingMetadata: async () => {
             controller.abort()
-            return details
+            return details.meeting
           },
         },
         input.meeting.accountId,
@@ -312,7 +337,7 @@ it("person context skips stale missing meetings while preserving other typed fai
     ...port,
     meetings: {
       ...meetings,
-      meeting: async () => {
+      meetingMetadata: async () => {
         throw new CliError("invalid_response", "invented source error")
       },
     },
@@ -320,4 +345,72 @@ it("person context skips stale missing meetings while preserving other typed fai
   await expect(
     personMeetingContext(broken, "person:1", { accountIds: [input.meeting.accountId] }),
   ).rejects.toMatchObject({ code: "invalid_response" })
+})
+
+it("reads bounded pages, resumes exact cues and never materializes meeting history", async () => {
+  const { store, input, details } = await fixture()
+  input.transcripts[0].contentHash = "bounded-example"
+  input.transcripts[0].rows.splice(
+    0,
+    input.transcripts[0].rows.length,
+    ...Array.from({ length: 5 }, (_, position) => ({
+      ...input.transcripts[0].rows[0],
+      position,
+      text: `Alice Example cue ${position}`,
+    })),
+  )
+  await store.saveMeeting(input)
+  const fullRead = vi.fn(async () => {
+    throw new Error("History materialization is forbidden")
+  })
+  const port = { ...store, meeting: fullRead }
+  const source = `meeting:${input.meeting.accountId}/${details.meeting.id}`
+  const first = await readMeetingEvidence(port, input.meeting.accountId, source, { cues: 1 })
+  expect(first.items.map((item) => item.position)).toEqual([0])
+  expect(first.coverage).toMatchObject({
+    provided: 2,
+    providedExact: false,
+    omitted: null,
+    hasMore: true,
+    input: "bounded-meeting-pages",
+  })
+  const second = await readMeetingEvidence(port, input.meeting.accountId, source, {
+    cues: 1,
+    after: first.coverage.nextReference ?? undefined,
+  })
+  expect(second.items.map((item) => item.position)).toEqual([1])
+  const final = await readMeetingEvidence(port, input.meeting.accountId, source, {
+    cues: 10,
+    after: second.coverage.nextReference ?? undefined,
+  })
+  expect(final.items.map((item) => item.position)).toEqual([2, 3, 4])
+  expect(final.coverage).toMatchObject({ hasMore: false, providedExact: true, omitted: 0, nextReference: null })
+  expect(fullRead).not.toHaveBeenCalled()
+  await expect(
+    readMeetingEvidence(port, input.meeting.accountId, source, { after: "meeting:999/1/1/0" }),
+  ).rejects.toMatchObject({ code: "validation_error" })
+})
+
+it("rejects an oversized stored cue before producing JSON and seeks exact cue positions", async () => {
+  const { store, input, details } = await fixture()
+  input.transcripts[0].contentHash = "gap-example"
+  input.transcripts[0].rows.splice(
+    0,
+    input.transcripts[0].rows.length,
+    ...[0, 2].map((position) => ({
+      ...input.transcripts[0].rows[0],
+      position,
+      text: `Alice Example ${"x".repeat(2000)}`,
+    })),
+  )
+  const saved = await store.saveMeeting(input)
+  const transcriptId = saved.transcripts.find((part) => part.transcript.supersededAt === null)?.transcript.id
+  const source = `meeting:${input.meeting.accountId}/${details.meeting.id}/${transcriptId}`
+  await expect(
+    readMeetingEvidence(store, input.meeting.accountId, source, { maxReadBytes: 200 }),
+  ).rejects.toMatchObject({ code: "validation_error" })
+  await expect(resolveMeetingReference(store, input.meeting.accountId, `${source}/1`)).rejects.toMatchObject({
+    code: "not_found",
+  })
+  expect((await resolveMeetingReference(store, input.meeting.accountId, `${source}/2`)).cue?.position).toBe(2)
 })

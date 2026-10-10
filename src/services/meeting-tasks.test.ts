@@ -102,7 +102,12 @@ describe("explicit meeting task provenance", () => {
     const unavailable: MeetingTaskStore = {
       storedAccount: (key) => store.storedAccount(key),
       tasks: store.tasks,
-      meetings: { ...store.meetings, meeting: async () => null },
+      meetings: {
+        ...store.meetings,
+        meetingMetadata: async () => {
+          throw new CliError("not_found", "Deleted invented meeting")
+        },
+      },
     }
     expect(await readMeetingTask(unavailable, account, created.task.id)).toMatchObject({
       state: "unavailable",
@@ -113,7 +118,7 @@ describe("explicit meeting task provenance", () => {
       ...unavailable,
       meetings: {
         ...store.meetings,
-        meeting: async () => {
+        meetingMetadata: async () => {
           throw new CliError("invalid_response", "invented source failure")
         },
       },

@@ -173,7 +173,12 @@ export {
   type MeetingEvidencePacket,
   readMeetingEvidence,
 } from "./meeting-evidence.js"
-export { type MeetingReadStore, type ResolvedMeetingReference, resolveMeetingReference } from "./meeting-reference.js"
+export {
+  type MeetingReadStore,
+  type MeetingReferenceReadOptions,
+  type ResolvedMeetingReference,
+  resolveMeetingReference,
+} from "./meeting-reference.js"
 export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
 export {
   type CreateMeetingTaskInput,
@@ -209,6 +214,7 @@ export {
   type PersonMeetingContext,
   type PersonMeetingContextItem,
   type PersonMeetingContextOptions,
+  type PersonMeetingReadStore,
   personMeetingContext,
 } from "./person-meeting-context.js"
 export { privatePeopleService } from "./private-people.js"
