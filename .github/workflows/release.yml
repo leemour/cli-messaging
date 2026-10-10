@@ -22,14 +22,18 @@ concurrency:
 
 jobs:
   checks:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/0.217' || inputs.dry_run
     permissions:
       contents: read
-    uses: WireCatLabs/cli-core/.github/workflows/release-checks.yml@b36a30fb6037b457001bd2db860949f64512ecdd # v0.17.3
+      actions: read
+      security-events: write
+    uses: WireCatLabs/cli-core/.github/workflows/release-checks.yml@1183bfb970330989ad8acec917b14b7e6187de15
+    with:
+      languages: '["actions","javascript-typescript","python","c-cpp","java-kotlin"]'
 
   build:
     needs: checks
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/0.217'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,7 +96,7 @@ jobs:
 
       # npm, not pnpm: npm's trusted publishing is the documented path. A tarball runs no
       # lifecycle scripts, and nothing is installed here.
-      - run: npm publish "wirecat-cli-messaging-$VERSION.tgz" --access public ${{ inputs.dry_run && '--dry-run' || '' }}
+      - run: npm publish "wirecat-cli-messaging-$VERSION.tgz" --access public --tag ${{ github.ref == 'refs/heads/release/0.217' && 'maintenance-0.217' || 'latest' }} ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: wait for npm to show the version
         if: ${{ !inputs.dry_run }}
