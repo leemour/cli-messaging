@@ -5,7 +5,7 @@ of the store plan's schema page, generated from the same spec; `src/store/sqlite
 hand-written SQL in `drizzle/` must agree with it, and `src/store/sqlite/schema.test.ts` checks every table
 and column of a new store against this page.
 
-78 tables, 16 full-text indexes; 51 new, 14 of today's dropped or merged.
+78 tables, 16 full-text indexes; 52 new, 15 of today's dropped or merged.
 Status: **new** — added; **changed** — merged, split or reshaped; **renamed** — naming rules and timestamps only; **kept** — as today.
 
 ## Conventions
@@ -1469,27 +1469,11 @@ Which chats the user enabled, and how fresh their conversations are.
 | `algorithm_version` | integer |  |  | Linking-rules version of the current build; NULL before the first build. |
 | `current_build` | integer |  |  | The build readers see; a higher one is being written, or failed. |
 
-### `conversation_chunks` — renamed
-
-A conversation, or a run of its messages when it is longer than one chunk.
-
-| Column | Type | Constraints | References | Meaning |
-|---|---|---|---|---|
-| `conversation_id` ← `conversation_pk` | integer | not null | → `conversations.id` | the `conversation` it belongs to |
-| `ordinal` | integer | not null |  | Position of this chunk within its conversation, from 0. |
-| `first_message_id` ← `first_message_pk` | integer | not null | → `messages.id` | the `message` it belongs to |
-| `last_message_id` ← `last_message_pk` | integer | not null | → `messages.id` | the `message` it belongs to |
-| `content_hash` | text | not null |  | sha256 of the text the model is given, hex. The chunk's text itself is never stored. |
-| `text_start` | integer |  |  | Set on a piece of one message longer than a chunk (`first_message_pk` = `last_message_pk`): the stretch of its text the piece holds, as offsets. `NULL` is the whole of every message in range. |
-| `text_end` | integer |  |  | For a piece of one long message, the offset in that message's text where the piece ends; NULL when the chunk is whole messages. |
-
-*Keys and indexes:* `PRIMARY KEY (conversation_id, ordinal)`, `INDEX (content_hash)`, `INDEX (first_message_id)`, `INDEX (last_message_id)`
-
 ### `embeddings` — changed (was `chunk_vectors`)
 
 One embedding vector per model and text: any chunk whose `content_hash` matches uses it.
 
-*Change:* Renamed: one table of vectors for every chunk, of `chunks` and `conversation_chunks` alike, found by `content_hash`.
+*Change:* Renamed: one table of vectors for every chunk, found by `content_hash`.
 
 | Column | Type | Constraints | References | Meaning |
 |---|---|---|---|---|
@@ -1566,7 +1550,7 @@ Things whose `involvements` rows are stale: a message, chat, meeting, email, tas
 
 ### `chunks` — new
 
-Pieces of a longer text, the unit that gets an embedding: ranges of a document, an email, an attachment's text, a note, a meeting transcript or summary; a short task or event is one chunk. A conversation of messages keeps its pieces in `conversation_chunks` and also gets a `conversation` row here per piece, so vector search filters it by scope, account and time like any other text.
+Pieces of a longer text, the unit that gets an embedding: ranges of a document, an email, an attachment's text, a note, a meeting transcript or summary; a short task or event is one chunk. A conversation of messages is cut into pieces here too, one `conversation` row per piece, and `chunk_messages` says which messages each piece spans; so one search can read every kind of text, filtered by scope, account, project and time.
 
 | Column | Type | Constraints | References | Meaning |
 |---|---|---|---|---|
@@ -1577,7 +1561,7 @@ Pieces of a longer text, the unit that gets an embedding: ranges of a document, 
 | `start_offset` | integer | not null |  | where the piece starts in the parent's text, in characters |
 | `end_offset` | integer | not null |  | where it ends, exclusive |
 | `content_hash` | text | not null |  | hash of the piece's text; its embedding is the `embeddings` row with this hash, so equal text is embedded once |
-| `scope` | text |  |  | copied from the parent's account, chat or project, so a vector search filters before it compares |
+| `scope` | text |  |  | copied from the parent's account, chat or project, so a vector search filters before it compares; triggers follow a chat's or account's change |
 | `account_id` | integer |  | → `accounts.id` | copied from the parent, a filter for vector search |
 | `project_id` | integer |  | → `projects.id` | copied from the parent when it belongs to one |
 | `occurred_at` | integer |  |  | when the parent happened (sent, held, written), a filter for vector search |
@@ -1585,6 +1569,20 @@ Pieces of a longer text, the unit that gets an embedding: ranges of a document, 
 | `updated_at` | integer | not null |  | when this row last changed here |
 
 *Keys and indexes:* `UNIQUE (chunkable_type, chunkable_id, position)`, `INDEX (content_hash)`, `INDEX (scope, occurred_at)`, `INDEX (account_id)`, `INDEX (project_id)`
+
+### `chunk_messages` — new
+
+Which messages a conversation's chunk is cut from. One row per `conversation` row of `chunks`; deleting either message deletes the chunk.
+
+| Column | Type | Constraints | References | Meaning |
+|---|---|---|---|---|
+| `chunk_id` | integer | PK | → `chunks.id` | the chunk, of type `conversation` |
+| `first_message_id` | integer | not null | → `messages.id` | the `message` it belongs to |
+| `last_message_id` | integer | not null | → `messages.id` | the `message` it belongs to |
+| `text_start` | integer |  |  | where the piece starts inside the first message's text, when it begins mid-message |
+| `text_end` | integer |  |  | where it ends inside the last message's text |
+
+*Keys and indexes:* `INDEX (first_message_id)`, `INDEX (last_message_id)`
 
 ## Store
 
@@ -1625,4 +1623,5 @@ Settings of the store file itself, shared by every profile, tg and MAX — unlik
 | `note_index_pending` | → `document_index_pending`, `note_index_pending` |
 | `note_words` | → `document_words`, `note_words` |
 | `note_stems` | → `document_stems`, `note_stems` |
+| `conversation_chunks` | merged into `chunks`; the messages a piece spans are `chunk_messages` |
 | `tasks` | replaced by the task system below; today's kinds (question, request, mention, promise) become task types |

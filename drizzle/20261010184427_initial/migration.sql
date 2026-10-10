@@ -160,6 +160,17 @@ CREATE TABLE `chats` (
 	CONSTRAINT `chats_account_id_external_id_unique` UNIQUE(`account_id`,`external_id`)
 );
 --> statement-breakpoint
+CREATE TABLE `chunk_messages` (
+	`chunk_id` integer PRIMARY KEY,
+	`first_message_id` integer NOT NULL,
+	`last_message_id` integer NOT NULL,
+	`text_start` integer,
+	`text_end` integer,
+	CONSTRAINT `fk_chunk_messages_chunk_id_chunks_id_fk` FOREIGN KEY (`chunk_id`) REFERENCES `chunks`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_chunk_messages_first_message_id_messages_id_fk` FOREIGN KEY (`first_message_id`) REFERENCES `messages`(`id`) ON DELETE CASCADE,
+	CONSTRAINT `fk_chunk_messages_last_message_id_messages_id_fk` FOREIGN KEY (`last_message_id`) REFERENCES `messages`(`id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
 CREATE TABLE `chunks` (
 	`id` integer PRIMARY KEY,
 	`chunkable_type` text NOT NULL,
@@ -177,20 +188,6 @@ CREATE TABLE `chunks` (
 	CONSTRAINT `fk_chunks_account_id_accounts_id_fk` FOREIGN KEY (`account_id`) REFERENCES `accounts`(`id`),
 	CONSTRAINT `fk_chunks_project_id_projects_id_fk` FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`),
 	CONSTRAINT `chunks_chunkable_type_chunkable_id_position_unique` UNIQUE(`chunkable_type`,`chunkable_id`,`position`)
-);
---> statement-breakpoint
-CREATE TABLE `conversation_chunks` (
-	`conversation_id` integer NOT NULL,
-	`ordinal` integer NOT NULL,
-	`first_message_id` integer NOT NULL,
-	`last_message_id` integer NOT NULL,
-	`content_hash` text NOT NULL,
-	`text_start` integer,
-	`text_end` integer,
-	CONSTRAINT `conversation_chunks_pk` PRIMARY KEY(`conversation_id`, `ordinal`),
-	CONSTRAINT `fk_conversation_chunks_conversation_id_conversations_id_fk` FOREIGN KEY (`conversation_id`) REFERENCES `conversations`(`id`) ON DELETE CASCADE,
-	CONSTRAINT `fk_conversation_chunks_first_message_id_messages_id_fk` FOREIGN KEY (`first_message_id`) REFERENCES `messages`(`id`) ON DELETE CASCADE,
-	CONSTRAINT `fk_conversation_chunks_last_message_id_messages_id_fk` FOREIGN KEY (`last_message_id`) REFERENCES `messages`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
 CREATE TABLE `conversation_messages` (
@@ -1097,13 +1094,12 @@ CREATE INDEX `bots_by_owner_person_id` ON `bots` (`owner_person_id`);--> stateme
 CREATE INDEX `chat_members_by_identity_id` ON `chat_members` (`identity_id`);--> statement-breakpoint
 CREATE INDEX `chats_by_recency` ON `chats` (`account_id`,"last_message_at" desc);--> statement-breakpoint
 CREATE INDEX `chats_by_parent_chat_id` ON `chats` (`parent_chat_id`);--> statement-breakpoint
+CREATE INDEX `chunk_messages_by_first_message_id` ON `chunk_messages` (`first_message_id`);--> statement-breakpoint
+CREATE INDEX `chunk_messages_by_last_message_id` ON `chunk_messages` (`last_message_id`);--> statement-breakpoint
 CREATE INDEX `chunks_by_content_hash` ON `chunks` (`content_hash`);--> statement-breakpoint
 CREATE INDEX `chunks_by_scope_occurred_at` ON `chunks` (`scope`,`occurred_at`);--> statement-breakpoint
 CREATE INDEX `chunks_by_account_id` ON `chunks` (`account_id`);--> statement-breakpoint
 CREATE INDEX `chunks_by_project_id` ON `chunks` (`project_id`);--> statement-breakpoint
-CREATE INDEX `conversation_chunks_by_hash` ON `conversation_chunks` (`content_hash`);--> statement-breakpoint
-CREATE INDEX `conversation_chunks_by_first_message_id` ON `conversation_chunks` (`first_message_id`);--> statement-breakpoint
-CREATE INDEX `conversation_chunks_by_last_message_id` ON `conversation_chunks` (`last_message_id`);--> statement-breakpoint
 CREATE INDEX `conversation_messages_by_message_id` ON `conversation_messages` (`message_id`);--> statement-breakpoint
 CREATE INDEX `conversations_by_chat` ON `conversations` (`chat_id`,`build`,`first_at`);--> statement-breakpoint
 CREATE INDEX `conversations_by_first_message_id` ON `conversations` (`first_message_id`);--> statement-breakpoint
@@ -1365,8 +1361,7 @@ CREATE TRIGGER document_bd BEFORE DELETE ON documents BEGIN
   DELETE FROM embeddings WHERE content_hash IN (
     SELECT k.content_hash FROM chunks k WHERE k.chunkable_type = 'document' AND k.chunkable_id = old.id
       AND NOT EXISTS (SELECT 1 FROM chunks o WHERE o.content_hash = k.content_hash
-        AND NOT (o.chunkable_type = 'document' AND o.chunkable_id = old.id))
-      AND NOT EXISTS (SELECT 1 FROM conversation_chunks c WHERE c.content_hash = k.content_hash));
+        AND NOT (o.chunkable_type = 'document' AND o.chunkable_id = old.id)));
   DELETE FROM chunks WHERE chunkable_type = 'document' AND chunkable_id = old.id;
   DELETE FROM document_words WHERE rowid = old.id;
   DELETE FROM document_stems WHERE rowid = old.id;
@@ -1400,8 +1395,7 @@ CREATE TRIGGER note_bd BEFORE DELETE ON notes BEGIN
   DELETE FROM embeddings WHERE content_hash IN (
     SELECT k.content_hash FROM chunks k WHERE k.chunkable_type = 'note' AND k.chunkable_id = old.id
       AND NOT EXISTS (SELECT 1 FROM chunks o WHERE o.content_hash = k.content_hash
-        AND NOT (o.chunkable_type = 'note' AND o.chunkable_id = old.id))
-      AND NOT EXISTS (SELECT 1 FROM conversation_chunks c WHERE c.content_hash = k.content_hash));
+        AND NOT (o.chunkable_type = 'note' AND o.chunkable_id = old.id)));
   DELETE FROM chunks WHERE chunkable_type = 'note' AND chunkable_id = old.id;
   DELETE FROM note_words WHERE rowid = old.id;
   DELETE FROM note_stems WHERE rowid = old.id;
@@ -1432,8 +1426,7 @@ CREATE TRIGGER memory_bd BEFORE DELETE ON memories BEGIN
   DELETE FROM embeddings WHERE content_hash IN (
     SELECT k.content_hash FROM chunks k WHERE k.chunkable_type = 'memory' AND k.chunkable_id = old.id
       AND NOT EXISTS (SELECT 1 FROM chunks o WHERE o.content_hash = k.content_hash
-        AND NOT (o.chunkable_type = 'memory' AND o.chunkable_id = old.id))
-      AND NOT EXISTS (SELECT 1 FROM conversation_chunks c WHERE c.content_hash = k.content_hash));
+        AND NOT (o.chunkable_type = 'memory' AND o.chunkable_id = old.id)));
   DELETE FROM chunks WHERE chunkable_type = 'memory' AND chunkable_id = old.id;
   DELETE FROM memory_words WHERE rowid = old.id;
   DELETE FROM memory_stems WHERE rowid = old.id;
@@ -1462,8 +1455,7 @@ CREATE TRIGGER email_bd BEFORE DELETE ON emails BEGIN
   DELETE FROM embeddings WHERE content_hash IN (
     SELECT k.content_hash FROM chunks k WHERE k.chunkable_type = 'email' AND k.chunkable_id = old.id
       AND NOT EXISTS (SELECT 1 FROM chunks o WHERE o.content_hash = k.content_hash
-        AND NOT (o.chunkable_type = 'email' AND o.chunkable_id = old.id))
-      AND NOT EXISTS (SELECT 1 FROM conversation_chunks c WHERE c.content_hash = k.content_hash));
+        AND NOT (o.chunkable_type = 'email' AND o.chunkable_id = old.id)));
   DELETE FROM chunks WHERE chunkable_type = 'email' AND chunkable_id = old.id;
   DELETE FROM email_recipients WHERE email_id = old.id;
   DELETE FROM email_mailboxes WHERE email_id = old.id;
@@ -1648,6 +1640,43 @@ CREATE TRIGGER involvement_identity_link_au AFTER UPDATE OF person_id ON identit
 END;--> statement-breakpoint
 CREATE TRIGGER involvement_identity_link_ad AFTER DELETE ON identity_links BEGIN
   DELETE FROM involvements WHERE identity_id = old.identity_id;
+END;--> statement-breakpoint
+-- A conversation's chunk is a `chunks` row whose message range is in `chunk_messages`: deleting a message
+-- cascades to the range, and the range takes its chunk with it, as a conversation takes all of its chunks.
+CREATE TRIGGER chunk_messages_ad AFTER DELETE ON chunk_messages BEGIN
+  DELETE FROM chunks WHERE id = old.chunk_id;
+END;--> statement-breakpoint
+CREATE TRIGGER conversation_ad AFTER DELETE ON conversations BEGIN
+  DELETE FROM chunks WHERE chunkable_type = 'conversation' AND chunkable_id = old.id;
+END;--> statement-breakpoint
+-- A conversation chunk copies its chat's scope and project so a search filters before it compares; these keep
+-- the copies right when the chat, its account or its project link changes.
+CREATE TRIGGER conversation_chunks_chat_scope AFTER UPDATE OF scope ON chats WHEN old.scope IS NOT new.scope BEGIN
+  UPDATE chunks SET scope = coalesce(new.scope, (SELECT scope FROM accounts WHERE id = new.account_id))
+    WHERE chunkable_type = 'conversation' AND chunkable_id IN (SELECT id FROM conversations WHERE chat_id = new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER conversation_chunks_account_scope AFTER UPDATE OF scope ON accounts WHEN old.scope IS NOT new.scope BEGIN
+  UPDATE chunks SET scope = new.scope
+    WHERE chunkable_type = 'conversation' AND chunkable_id IN (
+      SELECT c.id FROM conversations c JOIN chats ch ON ch.id = c.chat_id WHERE ch.account_id = new.id AND ch.scope IS NULL);
+END;--> statement-breakpoint
+CREATE TRIGGER conversation_chunks_project_ai AFTER INSERT ON links
+  WHEN new.from_type = 'chat' AND new.to_type = 'project' AND new.kind = 'member-of' BEGIN
+  UPDATE chunks SET project_id = (SELECT to_id FROM links WHERE from_type = 'chat' AND from_id = new.from_id
+      AND to_type = 'project' AND kind = 'member-of' AND confirmed = 1 ORDER BY id LIMIT 1)
+    WHERE chunkable_type = 'conversation' AND chunkable_id IN (SELECT id FROM conversations WHERE chat_id = new.from_id);
+END;--> statement-breakpoint
+CREATE TRIGGER conversation_chunks_project_au AFTER UPDATE ON links
+  WHEN new.from_type = 'chat' AND new.to_type = 'project' AND new.kind = 'member-of' BEGIN
+  UPDATE chunks SET project_id = (SELECT to_id FROM links WHERE from_type = 'chat' AND from_id = new.from_id
+      AND to_type = 'project' AND kind = 'member-of' AND confirmed = 1 ORDER BY id LIMIT 1)
+    WHERE chunkable_type = 'conversation' AND chunkable_id IN (SELECT id FROM conversations WHERE chat_id = new.from_id);
+END;--> statement-breakpoint
+CREATE TRIGGER conversation_chunks_project_ad AFTER DELETE ON links
+  WHEN old.from_type = 'chat' AND old.to_type = 'project' AND old.kind = 'member-of' BEGIN
+  UPDATE chunks SET project_id = (SELECT to_id FROM links WHERE from_type = 'chat' AND from_id = old.from_id
+      AND to_type = 'project' AND kind = 'member-of' AND confirmed = 1 ORDER BY id LIMIT 1)
+    WHERE chunkable_type = 'conversation' AND chunkable_id IN (SELECT id FROM conversations WHERE chat_id = old.from_id);
 END;--> statement-breakpoint
 -- A new file has nothing to fill: the words index is built at once. `analyzer` stays NULL until the first
 -- drain claims it.

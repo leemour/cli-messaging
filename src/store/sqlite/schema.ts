@@ -1459,37 +1459,6 @@ export const conversationState = sqliteTable("conversation_state", {
   currentBuild: integer("current_build"),
 })
 
-/** A conversation, or a run of its messages when it is longer than one chunk. */
-export const conversationChunks = sqliteTable(
-  "conversation_chunks",
-  {
-    conversationId: integer("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    ordinal: integer("ordinal").notNull(),
-    firstMessageId: integer("first_message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    lastMessageId: integer("last_message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    /** sha256 of the text the model is given, hex. The chunk's text itself is never stored. */
-    contentHash: text("content_hash").notNull(),
-    /**
-     * Set on a piece of one message longer than a chunk (`first_message_id` = `last_message_id`): the stretch
-     * of its text the piece holds, as offsets. `NULL` is the whole of every message in range.
-     */
-    textStart: integer("text_start"),
-    textEnd: integer("text_end"),
-  },
-  (table) => [
-    primaryKey({ columns: [table.conversationId, table.ordinal] }),
-    index("conversation_chunks_by_hash").on(table.contentHash),
-    index("conversation_chunks_by_first_message_id").on(table.firstMessageId),
-    index("conversation_chunks_by_last_message_id").on(table.lastMessageId),
-  ],
-)
-
 /** One model's vector for one chunk text; no owner, so vectors outlive the builds and chunks that point at them. */
 export const embeddings = sqliteTable(
   "embeddings",
@@ -1580,6 +1549,32 @@ export const chunks = sqliteTable(
     index("chunks_by_scope_occurred_at").on(table.scope, table.occurredAt),
     index("chunks_by_account_id").on(table.accountId),
     index("chunks_by_project_id").on(table.projectId),
+  ],
+)
+
+/** Which messages a conversation chunk is cut from; deleting either message deletes the chunk. */
+export const chunkMessages = sqliteTable(
+  "chunk_messages",
+  {
+    chunkId: integer("chunk_id")
+      .primaryKey()
+      .references(() => chunks.id, { onDelete: "cascade" }),
+    firstMessageId: integer("first_message_id")
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    lastMessageId: integer("last_message_id")
+      .notNull()
+      .references(() => messages.id, { onDelete: "cascade" }),
+    /**
+     * Set on a piece of one message longer than a chunk (`first_message_id` = `last_message_id`): the stretch
+     * of its text the piece holds, as offsets. `NULL` is the whole of every message in range.
+     */
+    textStart: integer("text_start"),
+    textEnd: integer("text_end"),
+  },
+  (table) => [
+    index("chunk_messages_by_first_message_id").on(table.firstMessageId),
+    index("chunk_messages_by_last_message_id").on(table.lastMessageId),
   ],
 )
 

@@ -48,6 +48,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Changed — may break callers
 
+- Conversation chunks live in `chunks` with every other kind of text, one `conversation` row per piece; the messages a
+  piece spans are in `chunk_messages`. `conversation_chunks` is gone. A chunk's scope and project follow its chat's,
+  its account's and the chat's project link when they change, and deleting a message deletes its chunks.
 - **A new store schema in a new file, `wirecat.db`, created by one initial migration (store version 1).** Tables
   and columns follow Rails naming (`id`, `<thing>_id`, `external_id`, `created_at`/`updated_at`); mail, documents,
   notes, memories, decisions, events, meetings, organizations, projects, tasks, proposed actions, aliases,

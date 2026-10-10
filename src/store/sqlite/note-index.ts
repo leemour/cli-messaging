@@ -96,8 +96,7 @@ const writer = (database: CacheDatabase, corpus: Corpus, stemmer: Stemmer) => {
     ),
     purge: database.prepare(
       `DELETE FROM embeddings WHERE content_hash = ?
-         AND NOT EXISTS (SELECT 1 FROM chunks WHERE content_hash = ?)
-         AND NOT EXISTS (SELECT 1 FROM conversation_chunks WHERE content_hash = ?)`,
+         AND NOT EXISTS (SELECT 1 FROM chunks WHERE content_hash = ?)`,
     ),
     dequeue: database.prepare(`DELETE FROM ${corpus.type}_index_pending WHERE indexable_type = ? AND id = ?`),
   }
@@ -123,7 +122,7 @@ const writer = (database: CacheDatabase, corpus: Corpus, stemmer: Stemmer) => {
         statements.chunk.run(corpus.type, id, position, start, end, hash, scope, at, at)
       })
     }
-    for (const hash of before) if (!after.has(hash)) statements.purge.run(hash, hash, hash)
+    for (const hash of before) if (!after.has(hash)) statements.purge.run(hash, hash)
     statements.dequeue.run(corpus.type, id)
   }
 }

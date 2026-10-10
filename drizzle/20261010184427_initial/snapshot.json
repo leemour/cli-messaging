@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "74db9b82-4f46-4916-9414-38fd547dd7b4",
+  "id": "9adfe1cc-9b82-4a02-98e3-7bdb5474d50b",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -47,11 +47,11 @@
       "entityType": "tables"
     },
     {
-      "name": "chunks",
+      "name": "chunk_messages",
       "entityType": "tables"
     },
     {
-      "name": "conversation_chunks",
+      "name": "chunks",
       "entityType": "tables"
     },
     {
@@ -1442,6 +1442,56 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
+      "name": "chunk_id",
+      "entityType": "columns",
+      "table": "chunk_messages"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_message_id",
+      "entityType": "columns",
+      "table": "chunk_messages"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_message_id",
+      "entityType": "columns",
+      "table": "chunk_messages"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text_start",
+      "entityType": "columns",
+      "table": "chunk_messages"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text_end",
+      "entityType": "columns",
+      "table": "chunk_messages"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
       "name": "id",
       "entityType": "columns",
       "table": "chunks"
@@ -1565,76 +1615,6 @@
       "name": "updated_at",
       "entityType": "columns",
       "table": "chunks"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "conversation_id",
-      "entityType": "columns",
-      "table": "conversation_chunks"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "ordinal",
-      "entityType": "columns",
-      "table": "conversation_chunks"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "first_message_id",
-      "entityType": "columns",
-      "table": "conversation_chunks"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "last_message_id",
-      "entityType": "columns",
-      "table": "conversation_chunks"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "content_hash",
-      "entityType": "columns",
-      "table": "conversation_chunks"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "text_start",
-      "entityType": "columns",
-      "table": "conversation_chunks"
-    },
-    {
-      "type": "integer",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "text_end",
-      "entityType": "columns",
-      "table": "conversation_chunks"
     },
     {
       "type": "integer",
@@ -7738,6 +7718,51 @@
     },
     {
       "columns": [
+        "chunk_id"
+      ],
+      "tableTo": "chunks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_chunk_messages_chunk_id_chunks_id_fk",
+      "entityType": "fks",
+      "table": "chunk_messages"
+    },
+    {
+      "columns": [
+        "first_message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_chunk_messages_first_message_id_messages_id_fk",
+      "entityType": "fks",
+      "table": "chunk_messages"
+    },
+    {
+      "columns": [
+        "last_message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_chunk_messages_last_message_id_messages_id_fk",
+      "entityType": "fks",
+      "table": "chunk_messages"
+    },
+    {
+      "columns": [
         "account_id"
       ],
       "tableTo": "accounts",
@@ -7765,51 +7790,6 @@
       "name": "fk_chunks_project_id_projects_id_fk",
       "entityType": "fks",
       "table": "chunks"
-    },
-    {
-      "columns": [
-        "conversation_id"
-      ],
-      "tableTo": "conversations",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_conversation_chunks_conversation_id_conversations_id_fk",
-      "entityType": "fks",
-      "table": "conversation_chunks"
-    },
-    {
-      "columns": [
-        "first_message_id"
-      ],
-      "tableTo": "messages",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_conversation_chunks_first_message_id_messages_id_fk",
-      "entityType": "fks",
-      "table": "conversation_chunks"
-    },
-    {
-      "columns": [
-        "last_message_id"
-      ],
-      "tableTo": "messages",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_conversation_chunks_last_message_id_messages_id_fk",
-      "entityType": "fks",
-      "table": "conversation_chunks"
     },
     {
       "columns": [
@@ -9029,16 +9009,6 @@
     {
       "columns": [
         "conversation_id",
-        "ordinal"
-      ],
-      "nameExplicit": false,
-      "name": "conversation_chunks_pk",
-      "entityType": "pks",
-      "table": "conversation_chunks"
-    },
-    {
-      "columns": [
-        "conversation_id",
         "message_id"
       ],
       "nameExplicit": false,
@@ -9247,6 +9217,15 @@
       "nameExplicit": false,
       "name": "chats_pk",
       "table": "chats",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "chunk_id"
+      ],
+      "nameExplicit": false,
+      "name": "chunk_messages_pk",
+      "table": "chunk_messages",
       "entityType": "pks"
     },
     {
@@ -9917,6 +9896,34 @@
     {
       "columns": [
         {
+          "value": "first_message_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "chunk_messages_by_first_message_id",
+      "entityType": "indexes",
+      "table": "chunk_messages"
+    },
+    {
+      "columns": [
+        {
+          "value": "last_message_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "chunk_messages_by_last_message_id",
+      "entityType": "indexes",
+      "table": "chunk_messages"
+    },
+    {
+      "columns": [
+        {
           "value": "content_hash",
           "isExpression": false
         }
@@ -9973,48 +9980,6 @@
       "name": "chunks_by_project_id",
       "entityType": "indexes",
       "table": "chunks"
-    },
-    {
-      "columns": [
-        {
-          "value": "content_hash",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "name": "conversation_chunks_by_hash",
-      "entityType": "indexes",
-      "table": "conversation_chunks"
-    },
-    {
-      "columns": [
-        {
-          "value": "first_message_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "name": "conversation_chunks_by_first_message_id",
-      "entityType": "indexes",
-      "table": "conversation_chunks"
-    },
-    {
-      "columns": [
-        {
-          "value": "last_message_id",
-          "isExpression": false
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "origin": "manual",
-      "name": "conversation_chunks_by_last_message_id",
-      "entityType": "indexes",
-      "table": "conversation_chunks"
     },
     {
       "columns": [

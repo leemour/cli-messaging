@@ -339,7 +339,7 @@ const vectorsHeld = (database: CacheDatabase) => {
   const unused = database
     .prepare(
       `SELECT count(*) AS n FROM embeddings v
-       WHERE NOT EXISTS (SELECT 1 FROM conversation_chunks k WHERE k.content_hash = v.content_hash)`,
+       WHERE NOT EXISTS (SELECT 1 FROM chunks k WHERE k.content_hash = v.content_hash)`,
     )
     .get()
   return { models, unused: Number(unused?.n ?? 0) }
