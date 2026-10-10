@@ -232,3 +232,68 @@ it("atomically revalidates parent scope after model work and acknowledges cached
     await store.close()
   }
 })
+
+it("explicit rebuild reclaims every orphan model while preserving real shared note and document vectors", async () => {
+  const { store, accountId, input, saved, path } = await fixture()
+  try {
+    input.transcripts[0].contentHash = "invented-short-shared"
+    input.transcripts[0].rows[0].speakerName = null
+    input.transcripts[0].rows[0].text = "Invented shared archived evidence"
+    input.transcripts.push({
+      ...input.transcripts[0],
+      source: "invented-independent-source",
+      contentHash: "invented-independent-content",
+      rows: [{ ...input.transcripts[0].rows[0], text: "Invented unshared archived evidence" }],
+    })
+    await store.meetings.saveMeeting(input)
+    await store.meetingVectors.rebuild({ accountId })
+    const pending = await store.meetingVectors.chunksToEmbed("invented-model-one", { accountId, limit: 100 })
+    const shared = pending.items.find(({ text }) => text === "Invented shared archived evidence")
+    if (!shared) throw new Error("Missing invented chunk")
+    const note = await store.notes.addNote({ text: shared.text })
+    const folder = await store.notes.addFolder({ name: "Invented shared archive" })
+    await store.notes.saveFileNote({ folderId: folder.id, path: "example.md", title: "", text: shared.text })
+    expect((await store.notes.chunksToEmbed("invented-model-one", { limit: 100 })).map(({ hash }) => hash)).toContain(
+      shared.hash,
+    )
+    const models = ["invented-model-one", "invented-model-two"]
+    for (const model of models)
+      await store.meetingVectors.saveCurrent(
+        model,
+        2,
+        pending.items.map(({ hash }) => ({ hash, vector: new Float32Array([1, 0]) })),
+        { accountId },
+      )
+    input.meeting.externalId = "another-invented-occurrence"
+    for (const transcript of input.transcripts)
+      transcript.rows[0].text = "Invented live meeting with independent evidence"
+    await store.meetings.saveMeeting(input)
+    await store.meetingVectors.rebuild({ accountId })
+    const db = await openCache(path)
+    try {
+      db.prepare("UPDATE meetings SET deleted_at=1 WHERE id=?").run(saved.meeting.id)
+      expect(await store.meetingVectors.rebuild({ accountId })).toMatchObject({ transcripts: 2 })
+      expect(
+        db
+          .prepare(
+            "SELECT count(*) AS n FROM chunks WHERE chunkable_type='meeting_transcript' AND chunkable_id IN (SELECT id FROM meeting_transcripts WHERE meeting_id=?)",
+          )
+          .get(saved.meeting.id)?.n,
+      ).toBe(0)
+      expect(db.prepare("SELECT DISTINCT content_hash FROM embeddings ORDER BY content_hash").all()).toEqual([
+        { content_hash: shared.hash },
+      ])
+      expect(db.prepare("SELECT model FROM embeddings ORDER BY model").all()).toEqual(
+        models.map((model) => ({ model })),
+      )
+      for (const model of models)
+        expect(
+          (await store.notes.nearest(model, new Float32Array([1, 0]), { limit: 10 })).map(({ note }) => note.id),
+        ).toContain(note.id)
+    } finally {
+      db.close()
+    }
+  } finally {
+    await store.close()
+  }
+})

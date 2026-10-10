@@ -228,6 +228,11 @@ export const meetingVectorsOver = (context: StoreContext): MeetingVectors => ({
       }
       context.database
         .prepare(
+          "DELETE FROM embeddings WHERE EXISTS (SELECT 1 FROM chunks k WHERE k.content_hash=embeddings.content_hash AND k.chunkable_type='meeting_transcript' AND k.account_id=? AND NOT EXISTS (SELECT 1 FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id WHERE t.id=k.chunkable_id AND t.deleted_at IS NULL AND t.superseded_at IS NULL AND m.deleted_at IS NULL AND m.account_id=?)) AND NOT EXISTS (SELECT 1 FROM chunks k WHERE k.content_hash=embeddings.content_hash AND (k.chunkable_type <> 'meeting_transcript' OR k.account_id IS NOT ? OR EXISTS (SELECT 1 FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id WHERE t.id=k.chunkable_id AND t.deleted_at IS NULL AND t.superseded_at IS NULL AND m.deleted_at IS NULL AND m.account_id=?)))",
+        )
+        .run(input.accountId, input.accountId, input.accountId, input.accountId)
+      context.database
+        .prepare(
           "DELETE FROM chunks WHERE chunkable_type='meeting_transcript' AND account_id=? AND NOT EXISTS (SELECT 1 FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id WHERE t.id=chunks.chunkable_id AND t.deleted_at IS NULL AND t.superseded_at IS NULL AND m.deleted_at IS NULL AND m.account_id=?)",
         )
         .run(input.accountId, input.accountId)

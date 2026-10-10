@@ -248,6 +248,8 @@ Explicit `rebuild({ accountId })` creates bindings for current live transcripts;
 rechecks their current account ownership atomically before caching model results. It acknowledges
 saved and skipped hashes and never replaces an existing vector. No operation chooses a model,
 downloads one or calls a provider.
+Rebuild retires inactive transcript bindings and their orphaned model vectors atomically, while
+preserving every hash still used by another corpus or live meeting binding.
 
 Vector operations default to a 4 MiB aggregate text budget and 10,000 rows per transcript, with
 explicit maxima of 64 MiB and 100,000 rows. Oversized rebuilds roll back the complete batch.
