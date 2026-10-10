@@ -57,6 +57,7 @@ import { logPruner } from "./sqlite/log-pruning.js"
 import type { QueryGroup, QueryGrouping } from "./sqlite/lucene.js"
 import * as lucene from "./sqlite/lucene.js"
 import type { MeetingReadCapabilities } from "./sqlite/meeting-reads.js"
+import { type MeetingVectors, meetingVectorsOver } from "./sqlite/meeting-vectors.js"
 import { meetingStoreOver } from "./sqlite/meetings.js"
 import { type MemoriesStore, memoriesStoreOver } from "./sqlite/memories.js"
 import * as messageWrites from "./sqlite/messages.js"
@@ -602,6 +603,7 @@ export interface MessageStore {
   /** One row per tool an agent called, never its arguments. */
   readonly agentActions: AgentActionsStore
   /** Meetings and calendar events: the port `@wirecat/cli-meetings` defines. */
+  readonly meetingVectors: MeetingVectors
   readonly meetings: MeetingStore & MeetingTranscriptStore & MeetingReadCapabilities
   /** Email threads, emails, recipients and mailboxes. */
   readonly mail: MailStore
@@ -832,6 +834,7 @@ const storeOver = (context: StoreContext): MessageStore => {
   let mail: MessageStore["mail"] | undefined
 
   return {
+    meetingVectors: meetingVectorsOver(context),
     saveAccount: async (key, { name }) => {
       const pk = accountPk(key, name)
       linkInbox(database, `${key.provider}:${key.account}`, pk)

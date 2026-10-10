@@ -1,5 +1,5 @@
 import { CliError } from "@wirecat/cli-core"
-import { canonicalReference, parseReference } from "../../domain/references.js"
+import { parseReference } from "../../domain/references.js"
 import { normalizeTag } from "../../domain/tags.js"
 import type { CacheDatabase, CacheStatement } from "../driver.js"
 import { fold } from "../normalize.js"
@@ -10,7 +10,7 @@ import { LINK_KINDS, linkKind } from "./link-kinds.js"
 import type { NoteSearch } from "./note-search.js"
 import type { StoreContext } from "./open.js"
 import { addTags, ensureTag, type Label, labelsOf } from "./tags.js"
-import { referenceOfThing, storedThing, type Thing, thingOf } from "./things.js"
+import { canonicalThingReference, referenceOfThing, storedThing, type Thing, thingOf } from "./things.js"
 
 export const NOTE_FORMATS = ["obsidian", "markdown"] as const
 export const LINK_ORIGINS = ["file", "owner", "suggested"] as const
@@ -208,7 +208,7 @@ export const linkOf = (database: CacheDatabase, row: Row): Link => {
 
 /** The row a reference names, refused when the store holds none. */
 export const requiredThing = (database: CacheDatabase, reference: string, what = "the target"): Thing => {
-  const thing = thingOf(database, canonicalReference(reference))
+  const thing = thingOf(database, canonicalThingReference(reference))
   if (!thing) throw new CliError("not_found", `${what} ${reference} is not in the local store`)
   return thing
 }
@@ -507,7 +507,7 @@ export const notesStoreOver = (context: StoreContext): Omit<NotesStore, keyof No
     notes: async (options = {}) => {
       const { limit, offset } = bounded(options.limit, options.offset)
       if (options.source !== undefined) oneOf(options.source, ["file", "internal"] as const, "a note's source")
-      const about = options.about === undefined ? undefined : thingOf(database, canonicalReference(options.about))
+      const about = options.about === undefined ? undefined : thingOf(database, canonicalThingReference(options.about))
       if (options.about !== undefined && !about) return { items: [], hasMore: false }
       const folder = options.folderId === undefined ? null : Number(folderRow(options.folderId).id)
       const search = options.search ?? null
@@ -571,7 +571,7 @@ export const notesStoreOver = (context: StoreContext): Omit<NotesStore, keyof No
     links: async (options = {}) => {
       const pair = (reference: string | undefined) => {
         if (reference === undefined) return { known: true, type: null, id: null }
-        const thing = thingOf(database, canonicalReference(reference))
+        const thing = thingOf(database, canonicalThingReference(reference))
         return thing ? { known: true, type: thing.type, id: thing.id } : { known: false, type: null, id: null }
       }
       const from = pair(options.from)

@@ -35,6 +35,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - Meeting evidence, reference resolution, person context and explicit task provenance now require bounded
   account-scoped meeting read capabilities. Evidence uses separate stored-text page and output JSON budgets,
   seek continuation and observed coverage; capped reads do not claim exact omitted totals or a cross-page snapshot.
+- Meeting transcript vectors reuse shared content hashes and embeddings with explicit models, bounded
+  account-scoped current-revision reads and scan continuation. No model setup or network call runs automatically.
+- Memories and decisions retain canonical meeting, transcript revision and cue evidence across reopen
+  and corrections. Person context authorization can check explicit account presence without reading profiles.
 
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
