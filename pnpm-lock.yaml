@@ -31,8 +31,8 @@ importers:
         specifier: 1.8.0
         version: 1.8.0(valibot@1.5.0(typescript@7.0.2))
       '@wirecat/cli-meetings':
-        specifier: 0.2.1
-        version: 0.2.1
+        specifier: 0.2.4
+        version: 0.2.4(@wirecat/cli-core@0.19.2(commander@15.0.0)(typescript@7.0.2))
       '@wirecat/cli-messaging-onnx':
         specifier: 1.0.0
         version: 1.0.0
@@ -1324,9 +1324,11 @@ packages:
       commander:
         optional: true
 
-  '@wirecat/cli-meetings@0.2.1':
-    resolution: {integrity: sha512-exg66m0jGHmiFf47pnTQPGhwELAsLB6+fo8Fg1XCkq09kBwTLMrGV06n+mOJJKDyPU53DfIMTQagjcvyjgsSgw==}
+  '@wirecat/cli-meetings@0.2.4':
+    resolution: {integrity: sha512-Rq761G7dgT3D2w3mSFgujW56TAMR6sPXPRulsbyT8ZkSEFLXFWzsLO9pY3xQR+vuLNv3FfWfPoOFDDQaB7gHeg==}
     engines: {node: '>=22.12.0'}
+    peerDependencies:
+      '@wirecat/cli-core': '>=0.18.1 <0.20.0'
 
   '@wirecat/cli-messaging-onnx@1.0.0':
     resolution: {integrity: sha512-U8x0jee2htq5VaWLFeyfmV+Eq3Lv5KTKIZMjyZLnZdA56OYSYwomFAT3usHN3MlA3qCqm6v0Vn77W0OfQg/OGA==}
@@ -3673,8 +3675,9 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@wirecat/cli-meetings@0.2.1':
+  '@wirecat/cli-meetings@0.2.4(@wirecat/cli-core@0.19.2(commander@15.0.0)(typescript@7.0.2))':
     dependencies:
+      '@wirecat/cli-core': 0.19.2(commander@15.0.0)(typescript@7.0.2)
       commander: 15.0.0
 
   '@wirecat/cli-messaging-onnx@1.0.0':
