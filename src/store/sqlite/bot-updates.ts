@@ -7,6 +7,7 @@ export interface BotUpdate {
   id: number
   externalId: string
   kind: string
+  /** `null` once the update was handled more than 30 days ago (`LOG_RETENTION`). */
   payload: unknown
   receivedAt: number
   handledAt: number | null
@@ -25,7 +26,7 @@ export interface BotUpdateStore {
   recent(account: AccountKey, limit?: number): BotUpdate[]
 }
 
-export const botUpdateStoreOver = (context: StoreContext): BotUpdateStore => {
+export const botUpdateStoreOver = (context: StoreContext, afterSave: () => void = () => {}): BotUpdateStore => {
   const { database, now } = context
   const change = (account: AccountKey, externalId: string, column: "handled_at" | "replayed_at") => {
     const accountId = findAccountPk(context, account)
@@ -45,14 +46,15 @@ export const botUpdateStoreOver = (context: StoreContext): BotUpdateStore => {
         throw new CliError("validation_error", "receivedAt is a nonnegative epoch timestamp")
       const payload = JSON.stringify(update.payload)
       if (payload === undefined) throw new CliError("validation_error", "an update needs a JSON payload")
-      return (
+      const saved =
         database
           .prepare(
             "INSERT INTO bot_updates (account_id, external_id, kind, payload, received_at, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(account_id, external_id) DO NOTHING",
           )
           .run(accountPk(context, account), update.externalId, update.kind, payload, update.receivedAt ?? now(), now())
           .changes > 0
-      )
+      afterSave()
+      return saved
     },
     handled: (account, externalId) => change(account, externalId, "handled_at"),
     failed: (account, externalId, error) => {

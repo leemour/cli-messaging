@@ -14,6 +14,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   without either it refuses. It refuses while this CLI's `serve` runs, while another process has the file open, or
   while a write is under way. A migration that fails now names `<cli> store reset` after SQLite's own error;
   `openStore` and `migrate` take `command` for it.
+- **The store prunes its growing logs**, at most once a day: when it opens, and after a write to either log, so a
+  long-running `serve` prunes too. Agent tool calls (`agent_actions`) older than 90 days are deleted. A bot update
+  handled more than 30 days ago keeps its row, so a redelivery is still recognised, but its payload becomes `null`.
+  Member-list reads are kept, because retention is computed from them. `LOG_RETENTION` holds both periods.
 
 ## 0.218.0 — 10.10.2026
 

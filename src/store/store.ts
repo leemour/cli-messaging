@@ -52,6 +52,7 @@ import { drainInvolvementQueue } from "./sqlite/involvement-queue.js"
 import { type InvolvementStore, involvementStoreOver } from "./sqlite/involvements.js"
 import { type KnowledgeStore, knowledgeStoreOver } from "./sqlite/knowledge.js"
 import { findRegex } from "./sqlite/legacy-regex.js"
+import { logPruner } from "./sqlite/log-pruning.js"
 import type { QueryGroup, QueryGrouping } from "./sqlite/lucene.js"
 import * as lucene from "./sqlite/lucene.js"
 import { meetingStoreOver } from "./sqlite/meetings.js"
@@ -753,6 +754,7 @@ export const openStore = async ({ path, env, now = Date.now, command }: StoreOpt
     ) {
       stems.fillStems(database, { now })
     }
+    logPruner(database, now)()
   } catch (error) {
     database.close()
     throw error
@@ -763,6 +765,7 @@ export const openStore = async ({ path, env, now = Date.now, command }: StoreOpt
 const storeOver = (context: StoreContext): MessageStore => {
   const { database } = context
   const stemmerFor = stems.stemmerCache()
+  const pruneLogsWhenDue = logPruner(database, context.now)
   const inTransaction = (body: () => void): void => {
     database.exec("BEGIN IMMEDIATE")
     try {
@@ -1563,7 +1566,7 @@ const storeOver = (context: StoreContext): MessageStore => {
 
     // Built on first use: an area that prepares its statements must not stop the store opening for the rest.
     get botUpdates() {
-      botUpdates ??= botUpdateStoreOver(context)
+      botUpdates ??= botUpdateStoreOver(context, pruneLogsWhenDue)
       return botUpdates
     },
     get involvements() {
@@ -1595,7 +1598,7 @@ const storeOver = (context: StoreContext): MessageStore => {
       return proposedActions
     },
     get agentActions() {
-      agentActions ??= agentActionsStoreOver(context)
+      agentActions ??= agentActionsStoreOver(context, pruneLogsWhenDue)
       return agentActions
     },
     get meetings() {

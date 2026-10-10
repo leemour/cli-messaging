@@ -43,7 +43,7 @@ export interface AgentActionsStore {
 
 const CODE = /^[a-z][a-z0-9_]{0,63}$/
 
-export const agentActionsStoreOver = (context: StoreContext): AgentActionsStore => {
+export const agentActionsStoreOver = (context: StoreContext, afterRecord: () => void = () => {}): AgentActionsStore => {
   const { database, now } = context
   const actionOf = (row: Record<string, unknown>): AgentAction => ({
     id: String(row.id),
@@ -86,6 +86,7 @@ export const agentActionsStoreOver = (context: StoreContext): AgentActionsStore 
           now(),
         )
       database.prepare("UPDATE bots SET last_seen_at = ? WHERE ? = 'bot' AND id = ?").run(now(), actor.type, actor.id)
+      afterRecord()
       return actionOf(row as Record<string, unknown>)
     },
     list: async ({ tool, limit = 100 } = {}) =>
