@@ -21,6 +21,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Fixed
 
+- **`parity.json` says where each command is now.** 90 entries planned for tg or max (the commands that came
+  with 0.218.0, MCP setup, moderation, folder rules and more) exist in both CLIs' `main` and are listed as such.
+  `chats link create`, `list` and `revoke` are tg-only on purpose: MAX's protocol only resets a group's link.
 - **A provider on `@wirecat/cli-meetings` 0.2.4 installed two copies of it**, because this package pinned 0.2.1. It
   now pins 0.2.4; the `MeetingStore` port is unchanged, so zoom-cli 0.2.0 and later load one copy.
 

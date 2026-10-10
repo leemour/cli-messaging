@@ -1146,10 +1146,7 @@
       "in": "all"
     },
     "account list": {
-      "in": ["tg"],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "account privacy": {
       "in": ["max"],
@@ -1298,12 +1295,7 @@
         "--offset-bytes": {
           "in": "all"
         },
-        "--page": {
-          "in": ["tg"],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--page": "all"
       }
     },
     "attachments text": {
@@ -1714,18 +1706,8 @@
     "chats events": {
       "in": "all",
       "options": {
-        "--since-time": {
-          "in": ["max"],
-          "planned": {
-            "tg": "T6"
-          }
-        },
-        "--type": {
-          "in": ["max"],
-          "planned": {
-            "tg": "T6"
-          }
-        }
+        "--since-time": "all",
+        "--type": "all"
       }
     },
     "chats folders": {
@@ -1736,39 +1718,24 @@
       "options": {
         "--chat": "all",
         "--emoji": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--exclude-chat": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--include": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--pin": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--skip": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         }
       }
     },
@@ -1776,11 +1743,8 @@
       "in": "all"
     },
     "chats folders join": {
-      "in": [],
-      "reason": "max-cli does not map folders shared by a link yet",
-      "planned": {
-        "tg": "feat/folders-order-join"
-      }
+      "in": ["tg"],
+      "reason": "max-cli does not map folders shared by a link yet"
     },
     "chats folders list": {
       "in": "all"
@@ -1789,50 +1753,32 @@
       "in": "all"
     },
     "chats folders show": {
-      "in": ["tg"],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "chats folders update": {
       "in": "all",
       "options": {
         "--add": "all",
         "--emoji": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--exclude-chat": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--include": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--pin": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--remove": "all",
         "--skip": {
-          "in": [],
-          "reason": "max-cli folders hold only the chats named in them",
-          "planned": {
-            "tg": "feat/folder-rules"
-          }
+          "in": ["tg"],
+          "reason": "max-cli folders hold only the chats named in them"
         },
         "--title": "all"
       }
@@ -1851,58 +1797,42 @@
     },
     "chats link create": {
       "in": ["tg"],
-      "planned": {
-        "max": "max's next cli-messaging bump"
-      },
       "options": {
         "--approval": {
           "in": ["tg"],
-          "planned": {
-            "max": "max's next cli-messaging bump"
-          }
+          "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
         },
         "--expire-time": {
           "in": ["tg"],
-          "planned": {
-            "max": "max's next cli-messaging bump"
-          }
+          "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
         },
         "--max-uses": {
           "in": ["tg"],
-          "planned": {
-            "max": "max's next cli-messaging bump"
-          }
+          "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
         }
-      }
+      },
+      "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
     },
     "chats link list": {
       "in": ["tg"],
-      "planned": {
-        "max": "max's next cli-messaging bump"
-      },
       "options": {
         "--limit": {
           "in": ["tg"],
-          "planned": {
-            "max": "max's next cli-messaging bump"
-          }
+          "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
         },
         "--revoked": {
           "in": ["tg"],
-          "planned": {
-            "max": "max's next cli-messaging bump"
-          }
+          "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
         }
-      }
+      },
+      "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
     },
     "chats link reset": {
       "in": "all"
     },
     "chats link revoke": {
       "in": ["tg"],
-      "planned": {
-        "max": "max's next cli-messaging bump"
-      }
+      "reason": "MAX's protocol only resets a group's link: PyMax 53103f0 has rework_invite_link (CHAT_UPDATE, revokePrivateLink) and no create, list or revoke"
     },
     "chats link show": {
       "in": "all"
@@ -1994,100 +1924,36 @@
       }
     },
     "chats members fetch": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      },
+      "in": "all",
       "options": {
-        "--budget": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        },
-        "--track": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--budget": "all",
+        "--track": "all"
       }
     },
     "chats members history": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      },
+      "in": "all",
       "options": {
-        "--since-time": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--since-time": "all"
       }
     },
     "chats members list": {
       "in": "all",
       "options": {
-        "--all": {
-          "in": ["max"],
-          "planned": {
-            "tg": "T6"
-          }
-        },
-        "--limit": {
-          "in": ["max"],
-          "planned": {
-            "tg": "T6"
-          }
-        },
-        "--page": {
-          "in": ["max"],
-          "planned": {
-            "tg": "T6"
-          }
-        }
+        "--all": "all",
+        "--limit": "all",
+        "--page": "all"
       }
     },
     "chats members remove": {
       "in": "all"
     },
     "chats moderate": {
-      "in": ["max"],
-      "planned": {
-        "tg": "P2"
-      },
+      "in": "all",
       "options": {
-        "--allow-dangerous": {
-          "in": ["max"],
-          "planned": {
-            "tg": "P2"
-          }
-        },
-        "--dry-run": {
-          "in": ["max"],
-          "planned": {
-            "tg": "P2"
-          }
-        },
-        "--max-actions": {
-          "in": ["max"],
-          "planned": {
-            "tg": "P2"
-          }
-        },
-        "--since-time": {
-          "in": ["max"],
-          "planned": {
-            "tg": "P2"
-          }
-        }
+        "--allow-dangerous": "all",
+        "--dry-run": "all",
+        "--max-actions": "all",
+        "--since-time": "all"
       }
     },
     "chats mute": {
@@ -2163,39 +2029,19 @@
       }
     },
     "chats tracking": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "chats tracking add": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "chats tracking list": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "chats tracking remove": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "chats tracking show": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "chats unmute": {
       "in": ["max"],
@@ -2257,53 +2103,23 @@
     "config set": {
       "in": "all",
       "options": {
-        "--bot": {
-          "in": [],
-          "planned": {
-            "max": "P8",
-            "tg": "P8"
-          }
-        },
+        "--bot": "all",
         "--defaults": "all",
-        "--personal": {
-          "in": [],
-          "planned": {
-            "max": "P8",
-            "tg": "P8"
-          }
-        }
+        "--personal": "all"
       }
     },
     "config show": {
       "in": "all",
       "options": {
-        "--bot": {
-          "in": [],
-          "planned": {
-            "max": "P8",
-            "tg": "P8"
-          }
-        }
+        "--bot": "all"
       }
     },
     "config unset": {
       "in": "all",
       "options": {
-        "--bot": {
-          "in": [],
-          "planned": {
-            "max": "P8",
-            "tg": "P8"
-          }
-        },
+        "--bot": "all",
         "--defaults": "all",
-        "--personal": {
-          "in": [],
-          "planned": {
-            "max": "P8",
-            "tg": "P8"
-          }
-        }
+        "--personal": "all"
       }
     },
     "contacts": {
@@ -2410,40 +2226,12 @@
       "in": "all"
     },
     "contacts timeline": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      },
+      "in": "all",
       "options": {
-        "--limit": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        },
-        "--scope": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        },
-        "--since-time": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        },
-        "--until-time": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--limit": "all",
+        "--scope": "all",
+        "--since-time": "all",
+        "--until-time": "all"
       }
     },
     "contacts unblock": {
@@ -2646,29 +2434,15 @@
       }
     },
     "flood": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "flood clear": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "inbox": {
       "in": "all",
       "options": {
-        "--all": {
-          "in": [],
-          "planned": {
-            "max": "T6",
-            "tg": "T6"
-          }
-        },
+        "--all": "all",
         "--kind": "all",
         "--limit": "all",
         "--mark-read": "all",
@@ -2682,32 +2456,19 @@
           },
           "reason": "old option removed as max mounts the shared command"
         },
-        "--since-time": {
-          "in": [],
-          "planned": {
-            "max": "T6",
-            "tg": "T6"
-          }
-        },
+        "--since-time": "all",
         "--transcribe": "all"
       }
     },
     "mcp": {
       "in": "all",
       "options": {
-        "--allow-dangerous": {
-          "in": [],
-          "planned": {
-            "max": "P7",
-            "tg": "P7"
-          }
-        },
+        "--allow-dangerous": "all",
         "--allow-delete": "all",
         "--allow-mark-read": "all",
         "--allow-moderate": {
-          "in": [],
+          "in": ["max"],
           "planned": {
-            "max": "P7",
             "tg": "P7"
           }
         },
@@ -2731,19 +2492,12 @@
     "mcp config": {
       "in": "all",
       "options": {
-        "--allow-dangerous": {
-          "in": [],
-          "planned": {
-            "max": "P7",
-            "tg": "P7"
-          }
-        },
+        "--allow-dangerous": "all",
         "--allow-delete": "all",
         "--allow-mark-read": "all",
         "--allow-moderate": {
-          "in": [],
+          "in": ["max"],
           "planned": {
-            "max": "P7",
             "tg": "P7"
           }
         },
@@ -2760,113 +2514,33 @@
       }
     },
     "mcp doctor": {
-      "in": [],
-      "planned": {
-        "max": "local MCP setup",
-        "tg": "local MCP setup"
-      },
+      "in": "all",
       "options": {
-        "--allow-dangerous": {
-          "in": [],
-          "planned": {
-            "tg": "local MCP setup"
-          },
-          "reason": "tg profiles use a separate dangerous-write override"
-        },
-        "--allow-delete": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
-        "--allow-mark-read": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
+        "--allow-dangerous": "all",
+        "--allow-delete": "all",
+        "--allow-mark-read": "all",
         "--allow-moderate": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup"
-          },
+          "in": ["max"],
           "reason": "max MCP offers a moderation flag"
         },
-        "--allow-send": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
-        "--confirm-send": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
+        "--allow-send": "all",
+        "--confirm-send": "all",
         "--permission": "all"
       }
     },
     "mcp setup": {
-      "in": [],
-      "planned": {
-        "max": "local MCP setup",
-        "tg": "local MCP setup"
-      },
+      "in": "all",
       "options": {
-        "--allow-dangerous": {
-          "in": [],
-          "planned": {
-            "tg": "local MCP setup"
-          },
-          "reason": "tg profiles use a separate dangerous-write override"
-        },
-        "--allow-delete": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
-        "--allow-mark-read": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
+        "--allow-dangerous": "all",
+        "--allow-delete": "all",
+        "--allow-mark-read": "all",
         "--allow-moderate": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup"
-          },
+          "in": ["max"],
           "reason": "max MCP offers a moderation flag"
         },
-        "--allow-send": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
-        "--allow-writes": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
-        "--confirm-send": {
-          "in": [],
-          "planned": {
-            "max": "local MCP setup",
-            "tg": "local MCP setup"
-          }
-        },
+        "--allow-send": "all",
+        "--allow-writes": "all",
+        "--confirm-send": "all",
         "--permission": "all"
       }
     },
@@ -2939,11 +2613,8 @@
       "in": "all",
       "options": {
         "--html": {
-          "in": [],
-          "reason": "MAX formats a personal message with Markdown only",
-          "planned": {
-            "tg": "feat/send-html-filename"
-          }
+          "in": ["tg"],
+          "reason": "MAX formats a personal message with Markdown only"
         },
         "--md": "all"
       }
@@ -2985,10 +2656,9 @@
         "--mark-read": "all",
         "--model": "all",
         "--topic": {
-          "in": [],
+          "in": ["tg"],
           "planned": {
-            "max": "feat/messages-list-topic",
-            "tg": "feat/messages-list-topic"
+            "max": "feat/messages-list-topic"
           }
         },
         "--transcribe": "all"
@@ -3025,18 +2695,12 @@
         },
         "--file": "all",
         "--filename": {
-          "in": [],
-          "reason": "MAX names an upload by its path",
-          "planned": {
-            "tg": "feat/send-html-filename"
-          }
+          "in": ["tg"],
+          "reason": "MAX names an upload by its path"
         },
         "--html": {
-          "in": [],
-          "reason": "MAX formats a personal message with Markdown only",
-          "planned": {
-            "tg": "feat/send-html-filename"
-          }
+          "in": ["tg"],
+          "reason": "MAX formats a personal message with Markdown only"
         },
         "--md": "all",
         "--no-preview": "all",
@@ -3089,12 +2753,7 @@
       "options": {
         "--chat": "all",
         "--limit": "all",
-        "--only-missing": {
-          "in": ["tg"],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--only-missing": "all"
       }
     },
     "models": {
@@ -3298,23 +2957,11 @@
     "review": {
       "in": "all",
       "options": {
-        "--all": {
-          "in": [],
-          "planned": {
-            "max": "T6",
-            "tg": "T6"
-          }
-        },
+        "--all": "all",
         "--chat": "all",
         "--kind": "all",
         "--mark-read": "all",
-        "--model": {
-          "in": [],
-          "planned": {
-            "max": "T6",
-            "tg": "T6"
-          }
-        },
+        "--model": "all",
         "--new": "all",
         "--no-mark-read": "all",
         "--since": {
@@ -3324,13 +2971,7 @@
           },
           "reason": "old option removed as max mounts the shared command"
         },
-        "--since-time": {
-          "in": [],
-          "planned": {
-            "max": "T6",
-            "tg": "T6"
-          }
-        },
+        "--since-time": "all",
         "--transcribe": "all",
         "--unanswered": "all"
       }
@@ -3622,38 +3263,16 @@
       }
     },
     "setup": {
-      "in": [],
-      "planned": {
-        "tg": "guided first-run onboarding",
-        "max": "guided first-run onboarding"
-      },
+      "in": "all",
       "options": {
-        "--agent": {
-          "in": [],
-          "planned": {
-            "tg": "guided first-run onboarding",
-            "max": "guided first-run onboarding"
-          }
-        },
+        "--agent": "all",
         "--app": {
-          "in": [],
-          "planned": {
-            "tg": "guided first-run onboarding"
-          },
+          "in": ["tg"],
           "reason": "Telegram requires an application from my.telegram.org; MAX has no application registration step"
         },
-        "--method": {
-          "in": [],
-          "planned": {
-            "tg": "guided first-run onboarding",
-            "max": "guided first-run onboarding"
-          }
-        },
+        "--method": "all",
         "--qr-file": {
-          "in": [],
-          "planned": {
-            "tg": "guided first-run onboarding"
-          },
+          "in": ["tg"],
           "reason": "Telegram can expose its temporary QR login token as a PNG"
         }
       }
@@ -3662,19 +3281,9 @@
       "in": "all"
     },
     "skill install": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's cli-core 0.11.0 bump",
-        "tg": "each CLI's cli-core 0.11.0 bump"
-      },
+      "in": "all",
       "options": {
-        "--for": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's cli-core 0.11.0 bump",
-            "tg": "each CLI's cli-core 0.11.0 bump"
-          }
-        }
+        "--for": "all"
       }
     },
     "skill show": {
@@ -3970,11 +3579,7 @@
       }
     },
     "store copies": {
-      "in": [],
-      "planned": {
-        "max": "max's next cli-messaging bump",
-        "tg": "tg's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "store copies delete": {
       "in": "all"
@@ -4050,27 +3655,16 @@
       "in": "all"
     },
     "store jobs clear": {
-      "in": ["tg"],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump"
-      }
+      "in": "all"
     },
     "store jobs list": {
       "in": "all",
       "options": {
-        "--state": {
-          "in": ["tg"],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--state": "all"
       }
     },
     "store jobs retry": {
-      "in": ["tg"],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump"
-      },
+      "in": "all",
       "options": {
         "--failed": "all"
       }
@@ -4082,10 +3676,7 @@
       "in": "all"
     },
     "store reindex": {
-      "in": ["max"],
-      "planned": {
-        "tg": "tg: cli-messaging 0.97.0 bump"
-      }
+      "in": "all"
     },
     "store repair": {
       "in": "all",
