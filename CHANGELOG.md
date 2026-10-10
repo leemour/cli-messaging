@@ -4,6 +4,15 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+## 0.220.0 — 10.10.2026
+
+### Added
+
+- **`ORGANIZATION_KINDS`, `PROJECT_TYPES` and `SCOPES` from `@wirecat/cli-messaging/store`**, so a caller such as
+  cli-memo names the allowed values in its help from the store instead of a copy.
+- **`@wirecat/cli-tasks` 0.3.0**, whose `TaskStore` has `answer` and `judge`; the store takes `TASK_VERDICTS` from
+  it, and the task rules always record a question's answer.
+
 ## 0.219.0 — 10.10.2026
 
 ### Added
@@ -12,10 +21,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   search without changing `searchAll` or current CLI/MCP clients. Meeting hits retain numeric
   source identities, unsupported query syntax is reported per resource, and bounded scans expose
   unknown coverage and a meeting-only continuation without skipping unreturned rows.
-- **`ORGANIZATION_KINDS`, `PROJECT_TYPES` and `SCOPES` from `@wirecat/cli-messaging/store`**, so a caller such as
-  cli-memo names the allowed values in its help from the store instead of a copy.
-- **`@wirecat/cli-tasks` 0.3.0**, whose `TaskStore` has `answer` and `judge`; the store takes `TASK_VERDICTS` from
-  it, and the task rules always record a question's answer.
 - **`store reset`**, for a store this build cannot migrate: it backs the store up beside itself
   (`wirecat.db.backup-<time>`, by `VACUUM INTO`), prints the backup's path, then deletes the store with its `-wal`
   and `-shm` and creates it empty at the current schema. It asks on a terminal; `--yes` skips the question, and
