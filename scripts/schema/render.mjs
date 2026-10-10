@@ -1,16 +1,11 @@
 import { writeFileSync } from "node:fs"
-import { dropped, indexes, model } from "./spec.mjs"
+import { indexes, model } from "./spec.mjs"
 
 const mdPath = process.argv[2] ?? new URL("../../docs/storage/schema.md", import.meta.url).pathname
 const groups = model()
 const all = groups.flatMap((g) => g.tables)
 const base = all.filter((t) => !t.virtual)
-const stats = {
-  tables: base.length,
-  indexes: all.length - base.length,
-  added: all.filter((t) => t.status === "new").length,
-  dropped: Object.keys(dropped).length,
-}
+const stats = { tables: base.length, indexes: all.length - base.length }
 
 const CONVENTIONS = [
   "Tables plural, snake_case. Primary key `id`. Foreign key `<singular>_id`. No `pk`, no `uid`.",
@@ -39,8 +34,7 @@ const md = [
   "`drizzle/` must agree with it. `pnpm schema:check` fails when they do not, and `src/store/sqlite/schema.test.ts`",
   "checks every table and column of a new store against this page.",
   "",
-  `${stats.tables} tables, ${stats.indexes} full-text indexes; ${stats.added} new, ${stats.dropped} of today's dropped or merged.`,
-  "Status: **new** — added; **changed** — merged, split or reshaped; **renamed** — naming rules and timestamps only; **kept** — as today.",
+  `${stats.tables} tables, ${stats.indexes} full-text indexes.`,
   "",
   "## Conventions",
   "",
@@ -52,17 +46,11 @@ const md = [
     g.blurb,
     "",
     ...g.tables.flatMap((t) => {
-      const head = [
-        `### \`${t.name}\` — ${t.status}${t.was ? ` (was \`${t.was}\`)` : ""}`,
-        "",
-        t.doc ? `${t.doc}` : "",
-        t.note ? `\n*Change:* ${t.note}` : "",
-        "",
-      ]
+      const head = [`### \`${t.name}\``, "", t.doc ? `${t.doc}` : "", ""]
       if (t.virtual) return [...head, "```sql", t.sql, "```", ""]
       const rows = t.cols.map(
         (col) =>
-          `| \`${col.name}\`${col.was ? ` ← \`${col.was}\`` : ""} | ${col.type} | ${flags(col)} | ${col.ref ? `→ \`${col.ref}\`` : ""} | ${mdEsc(col.note)} |`,
+          `| \`${col.name}\` | ${col.type} | ${flags(col)} | ${col.ref ? `→ \`${col.ref}\`` : ""} | ${mdEsc(col.note)} |`,
       )
       const keys = [...(t.keys ?? []), ...indexes(t)]
       return [
@@ -75,12 +63,6 @@ const md = [
       ]
     }),
   ]),
-  "## Dropped or merged",
-  "",
-  "| Today | Where it goes |",
-  "|---|---|",
-  ...Object.entries(dropped).map(([k, v]) => `| \`${k}\` | ${v} |`),
-  "",
 ].filter((line, i, a) => !(line === "" && a[i - 1] === ""))
 
 writeFileSync(mdPath, `${md.join("\n").trimEnd()}\n`)

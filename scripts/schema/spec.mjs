@@ -35,7 +35,12 @@ const EDITS = {
     ],
     note: "Gains the integrations that were tables of their own (`note_folders`).",
   },
-  persons: { cols: { is_self: "owner" }, drop: ["uid"], note: "`uid` goes: `id` everywhere (owner)." },
+  persons: {
+    cols: { is_self: "owner" },
+    drop: ["uid"],
+    note: "`uid` goes: `id` everywhere (owner).",
+    doc: "A real person, whatever accounts they write from: their identities point here. `owner` marks the owner.",
+  },
   identities: { cols: { is_bot: "bot", first_seen_at: "created_at" } },
   identity_links: {
     cols: { linked_at: "created_at", linked_by: "author" },
@@ -87,6 +92,7 @@ const EDITS = {
     note: "`contact_aliases` → `aliases`, polymorphic (owner); several aliases per thing, one of them shown.",
   },
   chats: {
+    doc: "A chat, group or channel of one account, with what the messenger last said about it.",
     cols: { is_searchable: "searchable", members_tracked_at: "members_tracked_at" },
     add: [
       ["description", "text", { note: "the chat's description, as the messenger gives it" }],
@@ -272,6 +278,7 @@ const EDITS = {
       ["task_id", "integer", { notnull: true, ref: "tasks.id" }],
     ],
     note: "`uid` → integer `id`; points at a task row.",
+    doc: "When to remind the owner of a task, and whether the reminder has gone out.",
     keys: ["INDEX (account_id, state, due_at)"],
   },
 }
