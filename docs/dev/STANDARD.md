@@ -453,6 +453,7 @@ its meaning, and this table is regenerated from it. **Bold** marks a clash still
 | `--newest` |  | newest first instead of best first |  | `bot search messages`, `search mail`, `search messages`, `searches create` |
 | `--no-approval` |  | anyone with it joins at once |  | `chats link update` (tg-only) |
 | `--no-as-reply` |  | send without linking to the matched message |  | `replies edit` |
+| `--no-backup` |  | delete the store without backing it up first |  | `store reset` (planned) |
 | `--no-ban` |  | remove without banning; by default a removed person cannot come back by the link |  | `bot chats moderate` |
 | `--no-catch-up` |  | skip local preparation after this fetch |  | `store fetch`, `store gaps repair` |
 | `--no-contacts-only` |  | do not require a contact |  | `replies edit` |

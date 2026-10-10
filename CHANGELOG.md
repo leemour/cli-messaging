@@ -4,6 +4,13 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+## Unreleased
+
+### Added
+
+- **`store reset --no-backup`** deletes the store and starts an empty one without the `VACUUM INTO` copy beside
+  it; the result has `backup: null` and `backedUp: null`. Without it, `store reset` backs up first as before.
+
 ## 0.220.0 — 10.10.2026
 
 ### Added

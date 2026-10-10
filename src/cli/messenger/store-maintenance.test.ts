@@ -418,6 +418,19 @@ describe("store reset", () => {
     expect(await messagesIn(path)).toBe(0)
   })
 
+  it("**--no-backup** resets without a copy beside the store", async () => {
+    const env = envFor()
+    ;(await seeded(env)).close()
+    const path = String(env.MESSAGING_STORE)
+
+    const { code, answer, stderr } = await call(["store", "reset", "--no-backup", "--yes", "--json"], env)
+    expect(code).toBe(0)
+    expect(answer).toMatchObject({ path, reset: true, schema: latest, backup: null, backedUp: null })
+    expect(stderr.join("\n")).toContain("there is no backup")
+    expect(readdirSync(dirname(path)).some((name) => name.includes(".backup-"))).toBe(false)
+    expect(await messagesIn(path)).toBe(0)
+  })
+
   it("**a migration that fails names `store reset`**, keeping SQLite's own words", async () => {
     const env = envFor()
     const database = await seeded(env)

@@ -715,7 +715,8 @@ const resetCommand = (messenger: Messenger): Command =>
     .description(
       "back the store up beside itself, then delete it and start an empty one at this build's schema; asks first, or --yes",
     )
-    .action(async function (this: Command) {
+    .option("--no-backup", "delete the store without backing it up first")
+    .action(async function (this: Command, { backup: keep }: { backup: boolean }) {
       const { renderer } = outputFor(this)
       const { command } = messenger.app
       const path = storePath(environmentOf(this).env ?? process.env)
@@ -728,27 +729,33 @@ const resetCommand = (messenger: Messenger): Command =>
       }
       refuseWhileServing(this, messenger)
       if (this.optsWithGlobals<{ yes?: boolean }>().yes !== true) {
-        const what = `this deletes the store at ${path} and starts an empty one, after a backup beside it`
+        const what = `this deletes the store at ${path} and starts an empty one, ${keep ? "after a backup beside it" : "with no backup"}`
         const answer = await answerOf(this, `${what}. Go ahead? [y/N] `)
         if (answer === null) throw new CliError("confirmation_required", `${what} — add --yes to go ahead`)
         if (!/^\s*y(es)?\s*$/i.test(answer)) throw new CliError("cancelled", "cancelled — the store is unchanged")
       }
       await quiesce(path, messenger, "reset", (message) => renderer.warn(message))
 
-      const backup = `${path}.backup-${stampNow()}`
-      try {
-        await vacuumInto(path, backup)
-      } catch (error) {
-        throw new CliError("validation_error", `could not back the store up, so it was not reset: ${messageOf(error)}`)
-      }
-      const backedUp = await reading(backup, (database) => {
-        const schema = schemaOf(database).version
-        return {
-          schema,
-          rows: schema > 0 ? { chats: count(database, "chats"), messages: count(database, "messages") } : {},
+      const backup = keep ? `${path}.backup-${stampNow()}` : null
+      let backedUp = null
+      if (backup) {
+        try {
+          await vacuumInto(path, backup)
+        } catch (error) {
+          throw new CliError(
+            "validation_error",
+            `could not back the store up, so it was not reset: ${messageOf(error)}`,
+          )
         }
-      })
-      renderer.note(`backed the store up to ${backup}`)
+        backedUp = await reading(backup, (database) => {
+          const schema = schemaOf(database).version
+          return {
+            schema,
+            rows: schema > 0 ? { chats: count(database, "chats"), messages: count(database, "messages") } : {},
+          }
+        })
+        renderer.note(`backed the store up to ${backup}`)
+      }
 
       for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: true })
       await (await openStore({ path, command })).close()
@@ -756,7 +763,9 @@ const resetCommand = (messenger: Messenger): Command =>
 
       renderer.result({ path, exists: true, reset: true, backup, backedUp, schema })
       renderer.note(
-        `the store is empty at schema ${schema}; \`${command} store restore ${backup}\` puts the old one back once a build can read it`,
+        backup
+          ? `the store is empty at schema ${schema}; \`${command} store restore ${backup}\` puts the old one back once a build can read it`
+          : `the store is empty at schema ${schema}; there is no backup`,
       )
     })
 
