@@ -1,69 +1,90 @@
 import { CliError } from "@wirecat/cli-core"
-import type { Meeting, MeetingDetails, MeetingStore, Transcript, TranscriptRow } from "@wirecat/cli-meetings"
+import type { Meeting, Transcript, TranscriptRow } from "@wirecat/cli-meetings"
 import { formatMeetingReference, type MeetingReference, parseMeetingReference } from "../domain/meeting-reference.js"
+import type { MeetingReadCapabilities } from "../store/sqlite/meeting-reads.js"
 
-export type MeetingReadStore = Pick<MeetingStore, "meeting">
+export type MeetingReadStore = MeetingReadCapabilities
+export interface MeetingReferenceReadOptions {
+  maxReadBytes?: number
+  signal?: AbortSignal
+}
 export interface ResolvedMeetingReference {
   reference: string
   meeting: Meeting
   transcript: Transcript | null
   cue: TranscriptRow | null
   revision: "current" | "superseded" | null
-  /** The existing port loads all meeting parts before selecting this reference. */
-  input: "materialized-meeting"
+  input: "bounded-meeting-pages"
 }
-
 const missing = () => new CliError("not_found", "the meeting evidence is unavailable for this account")
-export const authorizedMeetingDetails = async (
+export const authorizedMeetingMetadata = async (
   store: MeetingReadStore,
   accountId: number,
   reference: string,
-): Promise<{ parsed: MeetingReference; details: MeetingDetails }> => {
+  options: MeetingReferenceReadOptions = {},
+): Promise<{ parsed: MeetingReference; meeting: Meeting }> => {
   const parsed = parseMeetingReference(reference)
   if (!Number.isSafeInteger(accountId) || accountId < 1)
     throw new CliError("validation_error", "the authorized account ID must be a positive safe integer")
-  // Reject a foreign reference before the port can read any meeting rows.
   if (parsed.accountId !== accountId) throw missing()
-  const details = await store.meeting(parsed.meetingId)
   if (
-    !details ||
-    details.meeting.id !== parsed.meetingId ||
-    details.meeting.accountId !== accountId ||
-    details.meeting.deletedAt !== null
+    typeof store.meetingMetadata !== "function" ||
+    typeof store.transcriptMetadata !== "function" ||
+    typeof store.transcripts !== "function" ||
+    typeof store.transcriptRows !== "function"
   )
-    throw missing()
-  return { parsed, details }
+    throw new CliError("configuration_error", "Meeting evidence requires bounded meeting read capabilities")
+  const { maxReadBytes, signal } = options
+  const readOptions = { ...(maxReadBytes === undefined ? {} : { maxReadBytes }), ...(signal ? { signal } : {}) }
+  const meeting = await store.meetingMetadata({ ...readOptions, accountId, meetingId: parsed.meetingId })
+  if (meeting.id !== parsed.meetingId || meeting.accountId !== accountId || meeting.deletedAt !== null) throw missing()
+  return { parsed, meeting }
 }
-
 export const resolveMeetingReference = async (
   store: MeetingReadStore,
   accountId: number,
   reference: string,
+  options: MeetingReferenceReadOptions = {},
 ): Promise<ResolvedMeetingReference> => {
-  const { parsed, details } = await authorizedMeetingDetails(store, accountId, reference)
-  const part =
+  const { maxReadBytes, signal } = options
+  const readOptions = { ...(maxReadBytes === undefined ? {} : { maxReadBytes }), ...(signal ? { signal } : {}) }
+  const { parsed, meeting } = await authorizedMeetingMetadata(store, accountId, reference, readOptions)
+  const scope = { ...readOptions, accountId, meetingId: parsed.meetingId }
+  const transcript =
     parsed.transcriptId === undefined
-      ? undefined
-      : details.transcripts.find(
-          ({ transcript }) =>
-            transcript.id === parsed.transcriptId &&
-            transcript.meetingId === details.meeting.id &&
-            transcript.deletedAt === null,
-        )
-  if (parsed.transcriptId !== undefined && !part) throw missing()
-  const cue =
-    parsed.cuePosition === undefined
       ? null
-      : (part?.rows.find(
-          (row) => row.position === parsed.cuePosition && row.meetingTranscriptId === part.transcript.id,
-        ) ?? null)
-  if (parsed.cuePosition !== undefined && !cue) throw missing()
+      : await store.transcriptMetadata({ ...scope, transcriptId: parsed.transcriptId, includeHistorical: true })
+  if (
+    transcript &&
+    (transcript.id !== parsed.transcriptId || transcript.meetingId !== meeting.id || transcript.deletedAt !== null)
+  )
+    throw missing()
+  let cue: TranscriptRow | null = null
+  if (parsed.cuePosition !== undefined && transcript) {
+    const page = await store.transcriptRows({
+      ...scope,
+      transcriptId: transcript.id,
+      includeHistorical: true,
+      limit: 1,
+      ...(parsed.cuePosition === 0 ? {} : { afterPosition: parsed.cuePosition - 1 }),
+    })
+    cue = page.rows[0] ?? null
+    if (
+      !cue ||
+      cue.position !== parsed.cuePosition ||
+      cue.meetingTranscriptId !== transcript.id ||
+      page.meeting.id !== meeting.id ||
+      page.meeting.accountId !== accountId ||
+      page.transcript.id !== transcript.id
+    )
+      throw missing()
+  }
   return {
     reference: formatMeetingReference(parsed),
-    meeting: details.meeting,
-    transcript: part?.transcript ?? null,
+    meeting,
+    transcript,
     cue,
-    revision: part ? (part.transcript.supersededAt === null ? "current" : "superseded") : null,
-    input: "materialized-meeting",
+    revision: transcript ? (transcript.supersededAt === null ? "current" : "superseded") : null,
+    input: "bounded-meeting-pages",
   }
 }

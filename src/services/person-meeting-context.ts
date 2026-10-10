@@ -12,12 +12,13 @@ export interface PersonMeetingContextOptions {
   bytes?: number
   scanLimit?: number
   since?: number
+  maxReadBytes?: number
   signal?: AbortSignal
 }
 export interface PersonMeetingContextItem {
   reference: string
   cues: MeetingEvidenceCue[]
-  cueCoverage: { included: number; omitted: number; hasMore: boolean }
+  cueCoverage: { included: number; omitted: number | null; hasMore: boolean }
 }
 export interface PersonMeetingContext {
   person: { uid: string; name: string | null }
@@ -31,7 +32,7 @@ export interface PersonMeetingContext {
     truncatedBy: "meetings" | "bytes" | null
     skippedUnavailable: number
     complete: false
-    input: "materialized-meeting"
+    input: "bounded-meeting-pages"
   }
 }
 export type PersonMeetingReadStore = Pick<MessageStore, "personByUid" | "personSeenInAccounts" | "involvements"> & {
@@ -106,6 +107,7 @@ export const personMeetingContext = async (
       evidence = await readMeetingEvidence(store.meetings, row.accountId, reference, {
         cues,
         bytes,
+        ...(options.maxReadBytes === undefined ? {} : { maxReadBytes: options.maxReadBytes }),
         ...(signal ? { signal } : {}),
       })
     } catch (error) {
@@ -145,7 +147,7 @@ export const personMeetingContext = async (
       truncatedBy,
       skippedUnavailable,
       complete: false,
-      input: "materialized-meeting",
+      input: "bounded-meeting-pages",
     },
   }
 }

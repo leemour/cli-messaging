@@ -81,11 +81,13 @@ describe("person meeting account authorization", () => {
         message: null,
       },
     ])
-    const meeting = vi.fn((id: number) => store.meetings.meeting(id))
+    const meeting = vi.fn((input: Parameters<typeof store.meetings.meetingMetadata>[0]) =>
+      store.meetings.meetingMetadata(input),
+    )
     const port: PersonMeetingReadStore = {
       personByUid: (uid) => store.personByUid(uid),
       personSeenInAccounts,
-      meetings: { ...store.meetings, meeting },
+      meetings: { ...store.meetings, meetingMetadata: meeting },
       involvements: { ...store.involvements, forPerson },
     }
     await personMeetingContext(port, `person:${ownPerson.uid}`, { accountIds: accounts })
