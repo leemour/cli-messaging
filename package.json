@@ -105,7 +105,8 @@
     "check:agent-process": "pnpm build && node --experimental-strip-types scripts/check-agent-process.ts",
     "standards:check": "node config/wirecat/check.mjs",
     "docs:lint": "markdownlint-cli2",
-    "docs:spell": "cspell lint --config cspell.json --no-progress README.md"
+    "docs:spell": "cspell lint --config cspell.json --no-progress README.md",
+    "ci:quick": "pnpm typecheck"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",

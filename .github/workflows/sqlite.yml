@@ -2,6 +2,8 @@ name: SQLite
 # Builds @wirecat/cli-messaging-sqlite (packages/sqlite), checks every library on the systems it is
 # for, and publishes it when started by hand with `publish` — npm trusts this file by name.
 on:
+  schedule:
+    - cron: "37 3 1 * *"
   workflow_dispatch:
     inputs:
       publish:
