@@ -1,5 +1,10 @@
 import { formatLocator } from "../../domain/locator.js"
-import { formatReference, parseReference, type Reference } from "../../domain/references.js"
+import {
+  canonicalMeetingReference,
+  formatMeetingReference,
+  parseMeetingReference,
+} from "../../domain/meeting-reference.js"
+import { canonicalReference, formatReference, parseReference, type Reference } from "../../domain/references.js"
 import type { CacheDatabase } from "../driver.js"
 import { ENTITY_TABLES, type EntityType, isEntityType } from "./entity-types.js"
 
@@ -43,6 +48,23 @@ const storeId = (text: string) => (/^[1-9]\d{0,15}$/.test(text) ? Number(text) :
  * `messages.db` (a ULID, an `entity:`) is simply not found: it is never guessed at.
  */
 export const thingOf = (database: CacheDatabase, reference: Reference | string): Thing | undefined => {
+  if (typeof reference === "string" && reference.trim().startsWith("meeting:")) {
+    const parsed = parseMeetingReference(reference)
+    const meeting = database
+      .prepare("SELECT id FROM meetings WHERE id=? AND account_id=? AND deleted_at IS NULL")
+      .get(parsed.meetingId, parsed.accountId)
+    if (!meeting) return undefined
+    if (parsed.transcriptId === undefined) return { type: "meeting", id: parsed.meetingId }
+    const transcript = database
+      .prepare("SELECT id FROM meeting_transcripts WHERE id=? AND meeting_id=? AND deleted_at IS NULL")
+      .get(parsed.transcriptId, parsed.meetingId)
+    if (!transcript) return undefined
+    if (parsed.cuePosition === undefined) return { type: "meeting_transcript", id: parsed.transcriptId }
+    const row = database
+      .prepare("SELECT id FROM meeting_transcript_rows WHERE meeting_transcript_id=? AND position=?")
+      .get(parsed.transcriptId, parsed.cuePosition)
+    return row ? { type: "meeting_transcript_row", id: Number(row.id) } : undefined
+  }
   const parsed = typeof reference === "string" ? parseReference(reference) : reference
   const found = (type: EntityType, row: Record<string, unknown> | undefined) =>
     row ? { type, id: Number(row.id) } : undefined
@@ -123,6 +145,27 @@ export const emailThreadOf = (database: CacheDatabase, account: string, thread: 
 
 /** The reference people and agents read for a row; `undefined` once the row is gone. */
 export const referenceOfThing = (database: CacheDatabase, thing: Thing): string | undefined => {
+  if (["meeting", "meeting_transcript", "meeting_transcript_row"].includes(thing.type)) {
+    const join =
+      thing.type === "meeting"
+        ? "FROM meetings m WHERE m.id=?"
+        : thing.type === "meeting_transcript"
+          ? "FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id WHERE t.id=?"
+          : "FROM meeting_transcript_rows r JOIN meeting_transcripts t ON t.id=r.meeting_transcript_id JOIN meetings m ON m.id=t.meeting_id WHERE r.id=?"
+    const columns =
+      thing.type === "meeting"
+        ? "m.account_id,m.id AS meeting_id,m.deleted_at AS meeting_deleted"
+        : `m.account_id,m.id AS meeting_id,m.deleted_at AS meeting_deleted,t.id AS transcript_id,t.deleted_at AS transcript_deleted${thing.type === "meeting_transcript_row" ? ",r.position" : ""}`
+    const row = database.prepare(`SELECT ${columns} ${join}`).get(thing.id)
+    if (!row) return undefined
+    return formatMeetingReference({
+      type: "meeting",
+      accountId: Number(row.account_id),
+      meetingId: Number(row.meeting_id),
+      ...(row.transcript_id == null ? {} : { transcriptId: Number(row.transcript_id) }),
+      ...(row.position == null ? {} : { cuePosition: Number(row.position) }),
+    })
+  }
   switch (thing.type) {
     case "message": {
       const row = database
@@ -201,6 +244,24 @@ export const referenceOfThing = (database: CacheDatabase, thing: Thing): string 
 
 export const stateOfThing = (database: CacheDatabase, thing: Thing | undefined): ThingState => {
   if (!thing) return "unavailable"
+  if (["meeting", "meeting_transcript", "meeting_transcript_row"].includes(thing.type)) {
+    const source =
+      thing.type === "meeting"
+        ? "FROM meetings m WHERE m.id=?"
+        : thing.type === "meeting_transcript"
+          ? "FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id WHERE t.id=?"
+          : "FROM meeting_transcript_rows r JOIN meeting_transcripts t ON t.id=r.meeting_transcript_id JOIN meetings m ON m.id=t.meeting_id WHERE r.id=?"
+    const row = database
+      .prepare(
+        `SELECT m.deleted_at AS meeting_deleted${thing.type === "meeting" ? "" : ",t.deleted_at AS transcript_deleted"} ${source}`,
+      )
+      .get(thing.id)
+    return !row
+      ? "unavailable"
+      : row.meeting_deleted != null || row.transcript_deleted != null
+        ? "deleted"
+        : "available"
+  }
   const known = referable(thing.type)
   if (!known) return "unavailable"
   const row = database
@@ -220,3 +281,6 @@ export const taskIdOf = (database: CacheDatabase, rowId: number): string | undef
   const row = database.prepare("SELECT key, package_id AS id FROM tasks WHERE id = ?").get(rowId)
   return row ? String(row.id ?? row.key) : undefined
 }
+
+export const canonicalThingReference = (reference: string): string =>
+  reference.trim().startsWith("meeting:") ? canonicalMeetingReference(reference) : canonicalReference(reference)

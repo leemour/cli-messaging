@@ -15,6 +15,8 @@ export const ENTITY_TABLES = {
   email_thread: "email_threads",
   identity: "identities",
   meeting: "meetings",
+  meeting_transcript: "meeting_transcripts",
+  meeting_transcript_row: "meeting_transcript_rows",
   memory: "memories",
   message: "messages",
   note: "notes",

@@ -237,6 +237,27 @@ additional coordination. Proposal generation never calls this helper.
 200 text characters. A deleted source returns `state: "unavailable"` and `source: null`; other source
 errors propagate. The task itself retains its reference rather than transcript text.
 
+Canonical meeting, revision and cue references can also be stored in memory and decision evidence
+and in note links. Cue references use the actual cue position, and keep pointing to their retained
+revision after a correction. Deleted parents refuse new links; existing evidence retains its source
+reference so callers can report that it is unavailable.
+
+`store.meetingVectors` shares the existing text chunks and model/content-hash embedding cache.
+Explicit `rebuild({ accountId })` creates bindings for current live transcripts; `chunksToEmbed(model,
+{ accountId, limit })` reads missing texts, and `saveCurrent(model, dims, rows, { accountId })`
+rechecks their current account ownership atomically before caching model results. It acknowledges
+saved and skipped hashes and never replaces an existing vector. No operation chooses a model,
+downloads one or calls a provider.
+Rebuild retires inactive transcript bindings and their orphaned model vectors atomically, while
+preserving every hash still used by another corpus or live meeting binding.
+
+Vector operations default to a 4 MiB aggregate text budget and 10,000 rows per transcript, with
+explicit maxima of 64 MiB and 100,000 rows. Oversized rebuilds roll back the complete batch.
+`nearest(model, query, { accountId, limit, maxChunks? })` defaults to scanning at most 1000 chunks
+and ranks only those candidates. Its `ranking: "scanned-candidates"`, `scanned`, `complete`,
+`hasMore` and `nextChunkId` fields distinguish a complete scan from continuation; continuation
+pages do not promise a global ranking. Vector writes and scans additionally cap payloads at 16 MiB.
+
 These helpers add no CLI or MCP command. Persisting meeting references through existing memory
 or decision evidence links needs separate store integration.
 
