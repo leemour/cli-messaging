@@ -6,6 +6,8 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+## 0.218.0 — 10.10.2026
+
 ### Added
 
 - **`contacts timeline <person>` and the MCP tool `contacts_timeline`**: everything one person took part in, in every
