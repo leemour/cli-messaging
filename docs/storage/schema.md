@@ -907,6 +907,18 @@ versions and rows, preserving existing occurrence fields, events, series, cursor
 Source/hash replay matches retained history without reactivating it. Rows are detached from
 participants, and the returned details acknowledge identities without created/skipped counts.
 
+`MessageStore.meetings` implements `MeetingReadCapabilities` in addition to the shared meeting port.
+`meetingMetadata` and `transcriptMetadata` read scoped metadata; `transcripts` and `transcriptRows`
+use revision-id and cue-position seek pages. Limits are 1–1000 and `hasMore` uses one lookahead row.
+Deleted parents reject with `not_found`; retained superseded revisions require `includeHistorical`.
+`maxReadBytes` defaults to 4 MiB and bounds the raw stored UTF-8 text and metadata of the selected
+page, including lookahead and returned parents. Preflight and full reads share one read snapshot,
+without draining write queues. Oversized pages reject; evidence is never truncated. This budget
+covers stored TEXT bytes, rather than total heap use or rendered JSON; callers still bound output.
+Cancellation is cooperative: the signal is checked before and between queries and after value reads.
+An active synchronous SQLite query completes before cancellation is reported; callers await the
+read before closing its connection.
+
 
 ### `event_series`
 
