@@ -193,7 +193,7 @@ stored evidence contract describes pagination and coverage.
 Meeting semantic helpers from `./services` reuse the shared chunk and embedding cache. Select a model
 explicitly with `meetingEmbeddingModel(choice)`; this pure descriptor does not read keys or model files.
 `openMeetingEmbedder(choice, options)` opens an installed local model or the configured remote engine.
-There is no model download or fallback. Remote calls refuse redirects and retry, bound UTF-8 input and
+There is no model download or fallback. Remote calls refuse redirects and retries, bound UTF-8 input and
 streamed JSON response bytes, and validate finite nonzero vectors. Close the returned embedder after use.
 
 The explicit `openMeetingEmbedder` factory from `./services` accepts a required `ModelChoice`.
@@ -203,7 +203,9 @@ are accessed. The existing general embedding engine keeps its separate concurren
 
 `readMeetingSemantic(store.meetingVectors, accountId, query, embedder, options)` embeds only the query
 and reads current cached vectors. Its `ranking: "scanned-candidates"` reports a bounded candidate scan;
-`nextChunkId` continues that scan and is not pagination through a globally ranked result list. Hits retain
+`nextChunkId` continues that scan and is not pagination through a globally ranked result list.
+`complete` and `coverage.candidateScanComplete` describe only current indexed vectors of the selected
+model. Index and archive completeness remain unknown, including meetings whose chunks were never built. Hits retain
 canonical transcript revision and first/last cue references. Querying never rebuilds or generates vectors.
 
 `proposeMeetingEmbedding(store.meetingVectors, accountId, descriptor)` previews existing chunk counts

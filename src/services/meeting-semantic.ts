@@ -114,7 +114,18 @@ export const readMeetingSemantic = async (
       lastCueReference: formatMeetingReference({ ...ref, cuePosition: hit.lastPosition }),
     }
   })
-  return { ...result, accountId: accountIdSnapshot, model, items }
+  return {
+    ...result,
+    accountId: accountIdSnapshot,
+    model,
+    items,
+    coverage: {
+      scope: "current-indexed-vectors" as const,
+      candidateScanComplete: result.complete,
+      indexCompleteness: "unknown" as const,
+      archiveCompleteness: "unknown" as const,
+    },
+  }
 }
 /** Counts existing current chunks without opening a model or writing to the store. */
 export const proposeMeetingEmbedding = async (

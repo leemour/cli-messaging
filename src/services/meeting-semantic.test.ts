@@ -56,6 +56,12 @@ describe("explicit meeting semantic services", () => {
     expect(applied).toMatchObject({ saved: 1, skipped: 0, hasMore: false })
     const found = await readMeetingSemantic(store.meetingVectors, accountId, "invented draft", model, { maxChunks: 1 })
     expect(found.ranking).toBe("scanned-candidates")
+    expect(found.coverage).toEqual({
+      scope: "current-indexed-vectors",
+      candidateScanComplete: found.complete,
+      indexCompleteness: "unknown",
+      archiveCompleteness: "unknown",
+    })
     expect(found.items[0]).toMatchObject({
       reference: `meeting:${accountId}/${meeting.meeting.id}/${meeting.transcripts[0]?.transcript.id}`,
       firstCueReference: `meeting:${accountId}/${meeting.meeting.id}/${meeting.transcripts[0]?.transcript.id}/0`,
