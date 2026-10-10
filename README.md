@@ -213,7 +213,7 @@ completeness remains unknown.
 participation for explicitly authorized accounts. It returns current meeting context, without
 claiming that the person spoke every returned cue. Defaults are 10 meetings, 5 cues per meeting,
 64 KiB for the JSON `items` array, and a scan of at most 1000 mixed involvement rows. Coverage
-reports the scan cap and queued changes; it never claims complete history or matches people by
+reports the scan cap, queued changes and skipped unavailable meetings; it never claims complete history or matches people by
 name or email. The helper does not rebuild the derived index.
 
 A task proposal has a stable source-and-kind ID and `applied: false`; it creates no task or message.

@@ -28,6 +28,7 @@ export interface PersonMeetingContext {
     scanLimitReached: boolean
     pending: number
     truncatedBy: "meetings" | "bytes" | null
+    skippedUnavailable: number
     complete: false
     input: "materialized-meeting"
   }
@@ -74,6 +75,7 @@ export const personMeetingContext = async (
   let contentBytes = 2
   let truncatedBy: "meetings" | "bytes" | null = null
   const items: PersonMeetingContextItem[] = []
+  let skippedUnavailable = 0
   for (const row of rows) {
     checkMeetingCancelled(signal)
     if (row.subjectType !== "meeting" || row.accountId === null || !allowed.has(row.accountId)) continue
@@ -84,11 +86,20 @@ export const personMeetingContext = async (
       truncatedBy = "meetings"
       break
     }
-    const evidence = await readMeetingEvidence(store.meetings, row.accountId, reference, {
-      cues,
-      bytes,
-      ...(signal ? { signal } : {}),
-    })
+    let evidence: Awaited<ReturnType<typeof readMeetingEvidence>>
+    try {
+      evidence = await readMeetingEvidence(store.meetings, row.accountId, reference, {
+        cues,
+        bytes,
+        ...(signal ? { signal } : {}),
+      })
+    } catch (error) {
+      if (error instanceof CliError && error.code === "not_found") {
+        skippedUnavailable++
+        continue
+      }
+      throw error
+    }
     const item = {
       reference,
       cues: evidence.items,
@@ -117,6 +128,7 @@ export const personMeetingContext = async (
       scanLimitReached: rows.length >= scanLimit,
       pending,
       truncatedBy,
+      skippedUnavailable,
       complete: false,
       input: "materialized-meeting",
     },

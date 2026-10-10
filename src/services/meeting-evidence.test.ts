@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { CliError } from "@wirecat/cli-core"
 import { memoryMeetingStore, sampleMeeting } from "@wirecat/cli-meetings/testing"
 import { describe, expect, it, vi } from "vitest"
 import {
@@ -269,4 +270,52 @@ it("person context honors explicit account scope and reports mixed-index scan li
   await expect(personMeetingContext(port, "person:1", { accountIds: [] })).rejects.toMatchObject({
     code: "validation_error",
   })
+})
+
+it("person context skips stale missing meetings while preserving other typed failures", async () => {
+  const { store: meetings, input, details } = await fixture()
+  const row = {
+    personId: 1,
+    identityId: null,
+    subjectType: "meeting",
+    subjectId: 999,
+    role: "participant",
+    occurredAt: 1,
+    scope: "work",
+    accountId: input.meeting.accountId,
+    projectId: null,
+    provider: "example",
+    account: "alice-example",
+    chat: null,
+    message: null,
+  }
+  const port: PersonMeetingReadStore = {
+    meetings,
+    personByUid: async () => ({ uid: "1", name: "Alice Example", identities: [] }),
+    involvements: {
+      pending: () => 1,
+      forPerson: () => [row, { ...row, subjectId: details.meeting.id }],
+      rebuild: () => {
+        throw new Error("must not rebuild")
+      },
+      drain: () => {
+        throw new Error("must not drain")
+      },
+    },
+  }
+  const result = await personMeetingContext(port, "person:1", { accountIds: [input.meeting.accountId] })
+  expect(result.items).toHaveLength(1)
+  expect(result.coverage.skippedUnavailable).toBe(1)
+  const broken = {
+    ...port,
+    meetings: {
+      ...meetings,
+      meeting: async () => {
+        throw new CliError("invalid_response", "invented source error")
+      },
+    },
+  }
+  await expect(
+    personMeetingContext(broken, "person:1", { accountIds: [input.meeting.accountId] }),
+  ).rejects.toMatchObject({ code: "invalid_response" })
 })
