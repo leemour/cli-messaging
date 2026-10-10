@@ -3364,7 +3364,7 @@
       "in": "all"
     },
     "runs search": {
-      "in": "all",
+      "in": [],
       "options": {
         "--error-code": "all",
         "--limit": "all",
@@ -3373,6 +3373,10 @@
         "--profile": "all",
         "--since-time": "all",
         "--status": "all"
+      },
+      "planned": {
+        "max": "max-cli: adopt the attachment-budget maintenance release",
+        "tg": "tg-cli: adopt the attachment-budget maintenance release"
       }
     },
     "runs show": {
