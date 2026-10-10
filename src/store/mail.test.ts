@@ -205,6 +205,45 @@ describe("mail store", () => {
     expect((await mail.email(1, "<first@example.com>"))?.attachments).toHaveLength(1)
   })
 
+  it("drops a deleted email's text and attachment text, and a save brings the email back", async () => {
+    const { database, mail } = await seeded()
+    const file = {
+      position: 0,
+      kind: "file",
+      mime: "text/plain",
+      name: "notes.txt",
+      title: null,
+      url: null,
+      size: 5,
+      width: null,
+      height: null,
+      duration: null,
+      providerRef: null,
+      localPath: null,
+      text: "Secret plan",
+      normalizedText: null,
+      extraction: "text",
+      extractor: "plain",
+      extractionError: null,
+      contentSha256: null,
+      extractedAt: 1500,
+    }
+    await mail.saveThread(thread([email({ bodyHtml: "<p>roadmap</p>", snippet: "Let us", attachments: [file] })]))
+    await mail.markDeleted(1, ["<first@example.com>"], 3000)
+
+    const gone = await mail.email(1, "<first@example.com>")
+    expect(gone).toMatchObject({ deletedAt: 3000, bodyText: null, bodyHtml: null, snippet: null })
+    expect(gone?.attachments[0]).toMatchObject({ text: null, normalizedText: null })
+    expect(database.prepare("SELECT rowid FROM attachment_words WHERE attachment_words MATCH 'secret'").all()).toEqual(
+      [],
+    )
+
+    const back = await mail.saveThread(thread([email()], 4000))
+    expect(back.emails[0]).toMatchObject({ deletedAt: null, bodyText: "Let us agree on the roadmap." })
+    expect(back.thread).toMatchObject({ deletedAt: null, emailsCount: 1 })
+    expect((await mail.search("roadmap")).map(({ externalId }) => externalId)).toEqual(["<first@example.com>"])
+  })
+
   it("refuses an empty key and leaves nothing behind", async () => {
     const { mail } = await seeded()
     await expect(mail.saveThread(thread([email(), email({ externalId: "" })]))).rejects.toThrow("Invalid email key")

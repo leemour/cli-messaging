@@ -166,7 +166,7 @@ export interface MailStore {
     found: ReadonlyMap<string, string[]>,
     now: number,
   ): Promise<number>
-  /** Marks emails gone at the source; answers how many changed. */
+  /** Marks emails gone at the source and drops their text; saving one again brings it back. Answers how many changed. */
   markDeleted(accountId: number, externalIds: string[], now: number): Promise<number>
   /** Every word of the query, as a prefix, in the subject or body; newest first. */
   search(query: string, filter?: Omit<EmailFilter, "includeDeleted">): Promise<Email[]>
@@ -352,7 +352,9 @@ const saveEmail = (database: CacheDatabase, accountId: number, threadId: number,
   if (found) {
     emailId = Number(found.id)
     database
-      .prepare(`UPDATE emails SET ${values.map(([c]) => `${c} = ?`).join(", ")}, updated_at = ? WHERE id = ?`)
+      .prepare(
+        `UPDATE emails SET ${values.map(([c]) => `${c} = ?`).join(", ")}, deleted_at = NULL, updated_at = ? WHERE id = ?`,
+      )
       .run(...values.map(([, v]) => v), now, emailId)
   } else {
     const columns = ["account_id", "external_id", ...values.map(([c]) => c), "created_at", "updated_at"]
@@ -566,11 +568,18 @@ export const mailStoreOver = ({ database }: Pick<StoreContext, "database">): Mai
   async markDeleted(accountId, externalIds, now) {
     return inBatch(database, () => {
       const mark = database.prepare(
-        `UPDATE emails SET deleted_at = ?, updated_at = ? WHERE account_id = ? AND external_id = ? AND deleted_at IS NULL
-           RETURNING email_thread_id`,
+        `UPDATE emails SET deleted_at = ?, body_text = NULL, body_html = NULL, snippet = NULL, updated_at = ?
+           WHERE account_id = ? AND external_id = ? AND deleted_at IS NULL
+           RETURNING id, email_thread_id`,
+      )
+      const forget = database.prepare(
+        "UPDATE attachments SET text = NULL, normalized_text = NULL WHERE attachable_type = 'email' AND attachable_id = ?",
       )
       const threads = externalIds.flatMap((id) =>
-        mark.all(now, now, accountId, id).map((r) => Number(r.email_thread_id)),
+        mark.all(now, now, accountId, id).map((r) => {
+          forget.run(Number(r.id))
+          return Number(r.email_thread_id)
+        }),
       )
       for (const id of new Set(threads)) recount(database, id, now)
       return threads.length
