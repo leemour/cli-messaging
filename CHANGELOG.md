@@ -13,6 +13,8 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - Read-only meeting reference resolution, cue evidence, explicitly scoped person meeting context and
   inspectable task proposals preserve historical provenance and report byte limits and incomplete coverage.
   These library services add no CLI command and do not create tasks or messages.
+- `createTaskFromMeeting` explicitly saves a local task after authorizing its stored account and retained
+  source; `readMeetingTask` reads the source preview on demand. Proposal generation stays read-only.
 
 ### Security
 
