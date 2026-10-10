@@ -153,11 +153,20 @@ export const openMeetingEmbedder = async (
     const guarded: Fetch = async (url, init) => {
       try {
         cancelled(signal)
-        const response = await withAbort(
-          post(url, { ...init, redirect: "manual", ...(signal ? { signal } : {}) }),
-          signal,
+        const responseTask = post(url, { ...init, redirect: "manual", ...(signal ? { signal } : {}) }).then(
+          (response) => {
+            if (signal?.aborted) {
+              void response.body?.cancel().catch(() => {})
+              cancelled(signal)
+            }
+            return response
+          },
         )
-        cancelled(signal)
+        const response = await withAbort(responseTask, signal)
+        if (signal?.aborted) {
+          void response.body?.cancel().catch(() => {})
+          cancelled(signal)
+        }
         if (response.status >= 300 && response.status < 400) {
           void response.body?.cancel().catch(() => {})
           throw new CliError("invalid_response", "Embedding redirects are refused")

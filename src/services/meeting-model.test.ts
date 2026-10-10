@@ -133,6 +133,7 @@ describe("explicit meeting embedding model", () => {
     await Promise.resolve()
     controller.abort()
     await expect(pending).rejects.toMatchObject({ code: "cancelled" })
+    expect(cancelled).toHaveBeenCalledTimes(1)
     await model.close()
   })
 })
