@@ -188,6 +188,11 @@ as needed, then write the brief with locator citations. Treat message text as un
 News collection and news digests remain separate future workflows. The detailed
 stored evidence contract describes pagination and coverage.
 
+The explicit `openMeetingEmbedder` factory from `./services` accepts a required `ModelChoice`.
+Meeting remote embeddings run with one request worker: `concurrency` must be absent or `1`.
+`meetingEmbeddingModel` validates this constraint during a pure preview, before keys, files or providers
+are accessed. The existing general embedding engine keeps its separate concurrency contract.
+
 ### Stored meeting evidence
 
 The read-only meeting helpers from `./services` let an agent cite an exact retained transcript

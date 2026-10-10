@@ -62,7 +62,8 @@ export const meetingEmbeddingModel = (choice: ModelChoice): MeetingEmbeddingMode
   if (!choice || typeof choice !== "object" || !choice.remote)
     throw new CliError("validation_error", "An explicit embedding model is required")
   const remote = validatedRemote(choice.remote)
-  if (choice.concurrency !== undefined) integer(choice.concurrency, "embedding concurrency", 8)
+  if (choice.concurrency !== undefined && choice.concurrency !== 1)
+    throw new CliError("validation_error", "Meeting embedding supports one remote request worker")
   return { key: remoteKey(remote), dims: remote.dims, kind: "remote", model: remote.model }
 }
 export const createMeetingRemoteModel = (input: Parameters<typeof remoteModel>[0]): RemoteModel => {
@@ -211,7 +212,7 @@ export const openMeetingEmbedder = async (
         throw error
       }
     }
-    engine = openRemote(remote, key, { concurrency: choice.concurrency ?? 1, fetch: guarded, tries: 1 })
+    engine = openRemote(remote, key, { concurrency: 1, fetch: guarded, tries: 1 })
   }
   if (signal?.aborted) {
     await engine.close()

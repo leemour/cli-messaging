@@ -206,3 +206,11 @@ it("keeps a cancelled local inference alive until it settles before cleanup", as
   await cleanup
   expect(close).toHaveBeenCalledTimes(1)
 })
+
+it("rejects parallel meeting request workers before opening or contacting a provider", async () => {
+  const choice = { ...remote(), concurrency: 2 }
+  const fetch = vi.fn(async () => answer())
+  expect(() => meetingEmbeddingModel(choice)).toThrow(expect.objectContaining({ code: "validation_error" }))
+  await expect(openMeetingEmbedder(choice, { fetch })).rejects.toMatchObject({ code: "validation_error" })
+  expect(fetch).not.toHaveBeenCalled()
+})
