@@ -44,6 +44,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - Meeting evidence, reference resolution, person context and explicit task provenance now require bounded
   account-scoped meeting read capabilities. Evidence uses separate stored-text page and output JSON budgets,
   seek continuation and observed coverage; capped reads do not claim exact omitted totals or a cross-page snapshot.
+- Explicit meeting embedding model descriptors and factories reuse installed local models and the remote
+  embedding engine, with bounded input and response bytes, cancellation and refused redirects. No model
+  is opened, downloaded or inferred during a descriptor preview.
+
 
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
