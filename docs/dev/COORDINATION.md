@@ -12,6 +12,11 @@ Migration 29 is reserved for the bounded direct-reply search index by `feat/comb
 
 ## Releases
 
+- **Announce before you merge into `main` or start a release** — in
+  [issue #849](https://github.com/WireCatLabs/cli-messaging/issues/849), one line, after reading its latest
+  comments and `gh run list --workflow release.yml`. Two sessions merge and release here, and on 2026-10-10
+  one released 0.219.0 from a `main` one merge short of the other's work (owner's rule, 2026-10-11).
+- Release only through `bin/release`: `gh workflow run release.yml` started by hand skips the lock below.
 - Each session releases its own merged work: `git fetch`, `npm view`, a `chore: release` pull request
   that raises the version from what npm really has, then `bin/release`.
 - `bin/release` in every repository takes one machine-wide lock (`$XDG_RUNTIME_DIR/leemour-release.lock`),
