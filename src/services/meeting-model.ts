@@ -193,7 +193,10 @@ export const openMeetingEmbedder = async (
         const indices = body.data.map((entry) => entry.index).sort((a, b) => a - b)
         if (indices.some((index, position) => index !== position))
           throw new CliError("invalid_response", "Embedding response contains invalid vector indices")
-        return new Response(JSON.stringify({ data: body.data }), { status: response.status })
+        return new Response(
+          JSON.stringify({ data: body.data.map((entry) => ({ index: entry.index, embedding: entry.embedding })) }),
+          { status: response.status },
+        )
       } catch (error) {
         remoteFailure = error
         throw error
@@ -207,6 +210,8 @@ export const openMeetingEmbedder = async (
   }
   let closed = false
   let running = false
+  let active: Promise<void> | null = null
+  let closing: Promise<void> | null = null
   return {
     ...descriptor,
     async embed(texts, kind) {
@@ -226,6 +231,10 @@ export const openMeetingEmbedder = async (
         throw new CliError("validation_error", "Meeting embedding input or vector payload exceeds its byte budget")
       if (running) throw new CliError("validation_error", "A meeting embedding request is already running")
       running = true
+      let settled: () => void = () => {}
+      active = new Promise<void>((resolve) => {
+        settled = resolve
+      })
       remoteFailure = undefined
       try {
         const vectors = await engine.embed([...texts], kind)
@@ -233,7 +242,10 @@ export const openMeetingEmbedder = async (
         if (
           vectors.length !== texts.length ||
           vectors.some(
-            (vector) => vector.length !== descriptor.dims || [...vector].some((value) => !Number.isFinite(value)),
+            (vector) =>
+              vector.length !== descriptor.dims ||
+              !vector.some((value) => value !== 0) ||
+              [...vector].some((value) => !Number.isFinite(value)),
           )
         )
           throw new CliError("invalid_response", "Meeting embedder returned invalid vectors")
@@ -245,13 +257,19 @@ export const openMeetingEmbedder = async (
         throw new CliError("provider_error", "Meeting embedding failed")
       } finally {
         running = false
+        settled()
+        active = null
       }
     },
     async close() {
-      if (!closed) {
+      if (!closing) {
         closed = true
-        await engine.close()
+        closing = (async () => {
+          await active
+          await engine.close()
+        })()
       }
+      await closing
     },
   }
 }

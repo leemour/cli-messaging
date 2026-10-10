@@ -1,9 +1,12 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import * as engineModule from "../embeddings/embed.js"
+import { textModel } from "../embeddings/models.js"
 import { createMeetingRemoteModel, meetingEmbeddingModel, openMeetingEmbedder } from "./meeting-model.js"
 
+afterEach(() => vi.restoreAllMocks())
 const remote = () => ({
   remote: createMeetingRemoteModel({ model: "synthetic", baseUrl: "https://example.invalid/v1", dims: 3 }),
 })
@@ -132,4 +135,44 @@ describe("explicit meeting embedding model", () => {
     await expect(pending).rejects.toMatchObject({ code: "cancelled" })
     await model.close()
   })
+})
+
+it("waits for active local inference before closing its engine exactly once", async () => {
+  const order: string[] = []
+  let finish: (value: Float32Array[]) => void = () => {}
+  const inference = new Promise<Float32Array[]>((resolve) => {
+    finish = resolve
+  })
+  const close = vi.fn(async () => {
+    order.push("close")
+  })
+  vi.spyOn(engineModule, "isTextModelInstalled").mockReturnValue(true)
+  vi.spyOn(engineModule, "openEmbedder").mockResolvedValue({
+    model: textModel("e5-small"),
+    embed: async () => {
+      order.push("inference")
+      return inference
+    },
+    close,
+  })
+  const model = await openMeetingEmbedder("e5-small", {
+    directory: mkdtempSync(join(tmpdir(), "zm-test-model-close-")),
+  })
+  const embedding = model.embed(["Alice Example"], "query")
+  const firstClose = model.close()
+  const secondClose = model.close()
+  await Promise.resolve()
+  expect(close).not.toHaveBeenCalled()
+  expect(order).toEqual(["inference"])
+  finish([new Float32Array(Array.from({ length: 384 }, (_, index) => (index === 0 ? 1 : 0)))])
+  await embedding
+  await Promise.all([firstClose, secondClose])
+  expect(order).toEqual(["inference", "close"])
+  expect(close).toHaveBeenCalledTimes(1)
+})
+
+it("rejects zero vectors before semantic scoring", async () => {
+  const model = await openMeetingEmbedder(remote(), { fetch: async () => answer([{ index: 0, embedding: [0, 0, 0] }]) })
+  await expect(model.embed(["Alice Example"], "query")).rejects.toMatchObject({ code: "invalid_response" })
+  await model.close()
 })
