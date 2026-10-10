@@ -8,7 +8,7 @@ import {
 } from "../embeddings/embed.js"
 import { textModel } from "../embeddings/models.js"
 import { type Fetch, OPENAI_URL, openRemote, type RemoteModel, remoteKey, remoteModel } from "../embeddings/remote.js"
-import type { ModelChoice } from "./embeddings.js"
+import { type ModelChoice, vectorModelKey } from "./embeddings.js"
 
 export interface MeetingEmbeddingModel {
   key: string
@@ -57,7 +57,7 @@ const validatedRemote = (remote: RemoteModel): RemoteModel => {
 export const meetingEmbeddingModel = (choice: ModelChoice): MeetingEmbeddingModel => {
   if (typeof choice === "string") {
     const model = textModel(choice)
-    return { key: `local:${model.id}:${model.dims}`, dims: model.dims, kind: "local", model: model.id }
+    return { key: vectorModelKey(model), dims: model.dims, kind: "local", model: model.id }
   }
   if (!choice || typeof choice !== "object" || !choice.remote)
     throw new CliError("validation_error", "An explicit embedding model is required")
@@ -167,7 +167,13 @@ export const openMeetingEmbedder = async (
           return new Response("{}", { status: response.status })
         }
         const body = await boundedResponse(response, maxResponseBytes, signal)
-        if (!body || typeof body !== "object" || !("data" in body) || !Array.isArray(body.data))
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("data" in body) ||
+          !Array.isArray(body.data) ||
+          body.data.length > 256
+        )
           throw new CliError("invalid_response", "Embedding response lacks vector data")
         for (const entry of body.data) {
           if (
@@ -187,7 +193,7 @@ export const openMeetingEmbedder = async (
         const indices = body.data.map((entry) => entry.index).sort((a, b) => a - b)
         if (indices.some((index, position) => index !== position))
           throw new CliError("invalid_response", "Embedding response contains invalid vector indices")
-        return new Response(JSON.stringify(body), { status: response.status })
+        return new Response(JSON.stringify({ data: body.data }), { status: response.status })
       } catch (error) {
         remoteFailure = error
         throw error
