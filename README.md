@@ -10,6 +10,15 @@ resolution, the SQLite seam that runs under Node and Bun, and the first part of 
 skeleton with the shared read commands, the send guard, run records and the message store — see
 [the platform proposal](docs/dev/BACKLOG.md).
 
+## Retained meeting references
+
+`parseMeetingReference`, `formatMeetingReference` and `canonicalMeetingReference` name local meeting
+records as `meeting:<accountId>/<meetingId>`, a retained transcript revision with `/<transcriptId>`,
+and one cue with `/<cuePosition>`. IDs are positive safe integers; cue positions start at zero.
+These references stay within one store and retain the exact revision after a correction.
+They use a dedicated parser; the general `parseReference` and existing knowledge targets do not
+accept them yet. A reader must verify the caller's authorized account before returning content.
+
 ## The rule this package keeps
 
 **Nothing here knows a messenger.** An adapter translates its provider's objects into these types,
