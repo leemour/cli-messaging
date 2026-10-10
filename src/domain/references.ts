@@ -110,3 +110,11 @@ const folderPath = (path: string): string | null => {
 
 /** The stored spelling of a reference, so two spellings of one thing compare equal. */
 export const canonicalReference = (text: string): string => formatReference(parseReference(text))
+
+// Meeting evidence is intentionally separate until every polymorphic store target supports it.
+export {
+  canonicalMeetingReference,
+  formatMeetingReference,
+  type MeetingReference,
+  parseMeetingReference,
+} from "./meeting-reference.js"

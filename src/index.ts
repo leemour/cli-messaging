@@ -9,6 +9,12 @@ export {
 } from "./domain/formatting.js"
 export { formatLocator, isLocator, type MessageLocator, parseLocator } from "./domain/locator.js"
 export { type Markup, parseMarkdown } from "./domain/markdown.js"
+export {
+  canonicalMeetingReference,
+  formatMeetingReference,
+  type MeetingReference,
+  parseMeetingReference,
+} from "./domain/meeting-reference.js"
 export type { MessageLink, MessagePermalink } from "./domain/message-link.js"
 export type * from "./domain/models.js"
 export type { RankingGraphEvidence, RankingGraphLink } from "./domain/rankings-graph.js"
