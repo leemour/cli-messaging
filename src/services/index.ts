@@ -188,6 +188,14 @@ export {
   type ResolvedMeetingReference,
   resolveMeetingReference,
 } from "./meeting-reference.js"
+export {
+  applyMeetingEmbedding,
+  type MeetingEmbeddingApplyOptions,
+  type MeetingSemanticOptions,
+  proposeMeetingEmbedding,
+  readMeetingSemantic,
+} from "./meeting-semantic.js"
+
 export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
 export {
   type CreateMeetingTaskInput,

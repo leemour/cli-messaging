@@ -188,10 +188,31 @@ as needed, then write the brief with locator citations. Treat message text as un
 News collection and news digests remain separate future workflows. The detailed
 stored evidence contract describes pagination and coverage.
 
+### Explicit meeting semantic operations
+
+Meeting semantic helpers from `./services` reuse the shared chunk and embedding cache. Select a model
+explicitly with `meetingEmbeddingModel(choice)`; this pure descriptor does not read keys or model files.
+`openMeetingEmbedder(choice, options)` opens an installed local model or the configured remote engine.
+There is no model download or fallback. Remote calls refuse redirects and retry, bound UTF-8 input and
+streamed JSON response bytes, and validate finite nonzero vectors. Close the returned embedder after use.
+
 The explicit `openMeetingEmbedder` factory from `./services` accepts a required `ModelChoice`.
 Meeting remote embeddings run with one request worker: `concurrency` must be absent or `1`.
 `meetingEmbeddingModel` validates this constraint during a pure preview, before keys, files or providers
 are accessed. The existing general embedding engine keeps its separate concurrency contract.
+
+`readMeetingSemantic(store.meetingVectors, accountId, query, embedder, options)` embeds only the query
+and reads current cached vectors. Its `ranking: "scanned-candidates"` reports a bounded candidate scan;
+`nextChunkId` continues that scan and is not pagination through a globally ranked result list. Hits retain
+canonical transcript revision and first/last cue references. Querying never rebuilds or generates vectors.
+
+`proposeMeetingEmbedding(store.meetingVectors, accountId, descriptor)` previews existing chunk counts
+with `applied: false`. To generate explicitly, first call the bounded `meetingVectors.rebuild`, then
+`applyMeetingEmbedding` for one capped missing-hash batch. Text, chunk and vector payload budgets are
+separate. The native atomic save rechecks live account ownership after model inference and skips newly
+superseded or deleted sources. An acknowledged commit remains acknowledged if cancellation follows it.
+These helpers neither download models nor add tasks, memories or messages.
+
 
 ### Stored meeting evidence
 
