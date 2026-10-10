@@ -172,8 +172,15 @@ export type BotNotice =
   /** An update this adapter does not decode, under the messenger's own type name. */
   | { event: "other"; type: string; chatId: Id | null }
 
-/** One update as `bot watch` prints it. */
-export type BotEvent = MessageEvent | BotNotice
+/** The messenger's own id for the update an event came in, so `bot watch` can recognise a redelivery. */
+export interface BotUpdateRef {
+  id: string
+  /** The update's type, in the messenger's words. */
+  kind: string
+}
+
+/** One update as `bot watch` prints it; without `update`, a redelivery is printed and kept again. */
+export type BotEvent = (MessageEvent | BotNotice) & { update?: BotUpdateRef }
 
 export interface BotUpdatesPage {
   events: BotEvent[]

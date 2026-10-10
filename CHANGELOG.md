@@ -12,6 +12,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   account-scoped current-revision reads and scan continuation. No model setup or network call runs automatically.
 - Memories and decisions retain canonical meeting, transcript revision and cue evidence across reopen
   and corrections.
+- **`bot watch` recognises a redelivered update.** An event that names its update (the new optional
+  `BotEvent.update`, `{ id, kind }` in the messenger's words) is recorded in the store's bot updates, marked
+  handled once kept and printed, or failed when it was not kept, and skipped when it comes again after being
+  handled. `--events --jsonl` lines carry `update` when the adapter fills it. Events without it behave as before.
+- `BotUpdateStore.handledOf(account, externalIds)` answers which of the ids were handled already.
 
 ## 0.223.0 — 11.10.2026
 

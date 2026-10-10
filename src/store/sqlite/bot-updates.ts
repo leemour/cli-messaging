@@ -23,6 +23,8 @@ export interface BotUpdateStore {
   handled(account: AccountKey, externalId: string): void
   failed(account: AccountKey, externalId: string, error: string): void
   replayed(account: AccountKey, externalId: string): void
+  /** Which of these were handled already: a redelivery to skip. A failed one is not among them. */
+  handledOf(account: AccountKey, externalIds: readonly string[]): Set<string>
   recent(account: AccountKey, limit?: number): BotUpdate[]
 }
 
@@ -68,6 +70,17 @@ export const botUpdateStoreOver = (context: StoreContext, afterSave: () => void 
         throw new CliError("not_found", "no stored bot update with that id")
     },
     replayed: (account, externalId) => change(account, externalId, "replayed_at"),
+    handledOf: (account, externalIds) => {
+      const accountId = findAccountPk(context, account)
+      if (accountId === undefined || externalIds.length === 0) return new Set()
+      const rows = database
+        .prepare(
+          "SELECT external_id FROM bot_updates WHERE account_id=? AND handled_at IS NOT NULL " +
+            "AND external_id IN (SELECT value FROM json_each(?))",
+        )
+        .all(accountId, JSON.stringify(externalIds))
+      return new Set(rows.map((row) => String(row.external_id)))
+    },
     recent: (account, limit = 100) => {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
         throw new CliError("validation_error", "update limit takes 1–1000")

@@ -3,6 +3,7 @@ import type { Chat, Message, Provider } from "../../domain/models.js"
 import { isBotProvider } from "../../search/query.js"
 import type { AccountKey, IngestedVia, MessageStore, PersonFacts } from "../../store/index.js"
 import { openStore } from "../../store/index.js"
+import type { BotEvent } from "./port.js"
 
 const CHAT_ID = /^-?\d+$/
 
@@ -78,6 +79,43 @@ export const botCopy = (provider: Provider) => {
     forget: async (botId: string, chatId: string, messageIds: string[], warn: (message: string) => void) => {
       if (!CHAT_ID.test(chatId) || messageIds.length === 0) return true
       return quietly((store) => store.markDeleted(accountOf(botId), messageIds, { chatId }), warn)
+    },
+
+    /**
+     * Records each event that names its update, and answers which of them were handled before. A
+     * store that fails answers none, so the batch is kept and printed as if new.
+     */
+    received: async (botId: string, events: readonly BotEvent[], warn: (message: string) => void) => {
+      const updates = events.flatMap((event) => (event.update ? [{ ...event.update, event }] : []))
+      let handled = new Set<string>()
+      if (updates.length === 0) return handled
+      await quietly(async (store) => {
+        for (const { id, kind, event } of updates) {
+          store.botUpdates.save(accountOf(botId), { externalId: id, kind, payload: event })
+        }
+        handled = store.botUpdates.handledOf(
+          accountOf(botId),
+          updates.map(({ id }) => id),
+        )
+      }, warn)
+      return handled
+    },
+
+    /** Marks the updates of these events handled, or failed with `error`. */
+    settle: async (
+      botId: string,
+      events: readonly BotEvent[],
+      error: string | null,
+      warn: (message: string) => void,
+    ) => {
+      const ids = events.flatMap((event) => (event.update ? [event.update.id] : []))
+      if (ids.length === 0) return
+      await quietly(async (store) => {
+        for (const id of ids) {
+          if (error === null) store.botUpdates.handled(accountOf(botId), id)
+          else store.botUpdates.failed(accountOf(botId), id, error)
+        }
+      }, warn)
     },
 
     /** For a read the local copy answers: here the store is the answer, so a failure is the command's. */

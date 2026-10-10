@@ -96,7 +96,8 @@ const keep = async (
 /**
  * `bot watch`: what happens in the bot's chats, as it arrives, until Ctrl-C or `--timeout` — both a
  * normal end. Each batch is kept before it is printed, and the cursor moves only after that: an end
- * at any moment prints a batch twice at worst, never loses one. A read: it changes nothing anyone sees.
+ * at any moment never loses a batch. An update the messenger names by id is recorded and skipped when it
+ * comes again after being handled; one without an id may print twice. A read: it changes nothing anyone sees.
  */
 export const botWatchCommand = (bot: BotMessenger): Command =>
   new Command("watch")
@@ -193,15 +194,17 @@ export const botWatchCommand = (bot: BotMessenger): Command =>
                 await retry(`${bot.name ?? "the messenger"} did not answer (${code ?? "unknown"})`)
                 continue
               }
-              if (
-                page.events.length > 0 &&
-                !(await keep(this, context, bot, botId, page.events, adapter.senders?.()))
-              ) {
+              const warn = context.renderer.warn
+              const handled = await context.copy.received(botId, page.events, warn)
+              const fresh = page.events.filter((event) => !(event.update && handled.has(event.update.id)))
+              if (fresh.length > 0 && !(await keep(this, context, bot, botId, fresh, adapter.senders?.()))) {
+                await context.copy.settle(botId, fresh, "not_kept", warn)
                 await retry("the updates were not kept")
                 continue
               }
               failures = 0
-              for (const event of page.events) print(event)
+              for (const event of fresh) print(event)
+              await context.copy.settle(botId, fresh, null, warn)
               const seen = [...new Set(page.events.flatMap((event) => chatOf(event) ?? []))].filter((id) =>
                 CHAT_ID.test(id),
               )
