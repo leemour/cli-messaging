@@ -176,3 +176,32 @@ it("rejects zero vectors before semantic scoring", async () => {
   await expect(model.embed(["Alice Example"], "query")).rejects.toMatchObject({ code: "invalid_response" })
   await model.close()
 })
+
+it("keeps a cancelled local inference alive until it settles before cleanup", async () => {
+  let finish: (value: Float32Array[]) => void = () => {}
+  const inference = new Promise<Float32Array[]>((resolve) => {
+    finish = resolve
+  })
+  const close = vi.fn(async () => {})
+  const controller = new AbortController()
+  vi.spyOn(engineModule, "isTextModelInstalled").mockReturnValue(true)
+  vi.spyOn(engineModule, "openEmbedder").mockResolvedValue({
+    model: textModel("e5-small"),
+    embed: async () => inference,
+    close,
+  })
+  const model = await openMeetingEmbedder("e5-small", {
+    directory: mkdtempSync(join(tmpdir(), "zm-test-model-abort-close-")),
+    signal: controller.signal,
+  })
+  const embedding = model.embed(["Alice Example"], "query")
+  const rejected = expect(embedding).rejects.toMatchObject({ code: "cancelled" })
+  controller.abort()
+  const cleanup = model.close()
+  await Promise.resolve()
+  expect(close).not.toHaveBeenCalled()
+  finish([new Float32Array(Array.from({ length: 384 }, (_, index) => (index === 0 ? 1 : 0)))])
+  await rejected
+  await cleanup
+  expect(close).toHaveBeenCalledTimes(1)
+})
