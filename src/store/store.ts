@@ -64,6 +64,7 @@ import { noteSearchOver } from "./sqlite/note-search.js"
 import { type NotesStore, notesStoreOver } from "./sqlite/notes.js"
 import { openSqlite, type StoreContext } from "./sqlite/open.js"
 import * as personLinks from "./sqlite/person-links.js"
+import { personSeenInAccounts } from "./sqlite/person-scope.js"
 import type { PrivateContact, PrivateContactNote } from "./sqlite/private-people.js"
 import * as privatePeople from "./sqlite/private-people.js"
 import { type ProposedActionsStore, proposedActionsStoreOver } from "./sqlite/proposed-actions.js"
@@ -508,6 +509,7 @@ export interface MessageStore {
   people(provider: Provider, options?: { account?: Id; accounts?: Id[] }): Promise<PeopleLookup>
   personOf(identity: IdentityRef): Promise<PersonRecord | undefined>
   /** The person a `person:<uid>` reference names. */
+  personSeenInAccounts(uid: string, accountIds: readonly number[]): Promise<boolean>
   personByUid(uid: string): Promise<PersonRecord | undefined>
   /** Records the decision in `identity_link_events`; `unlinkIdentity` undoes it. */
   linkIdentities(person: IdentityRef, other: IdentityRef, options: LinkOptions): Promise<PersonRecord>
@@ -897,6 +899,7 @@ const storeOver = (context: StoreContext): MessageStore => {
     },
 
     personOf: async (identity) => personLinks.personOf(context, identity),
+    personSeenInAccounts: async (uid, accountIds) => personSeenInAccounts(context, uid, accountIds),
     personByUid: async (uid) => personLinks.personByUid(context, uid),
     linkIdentities: async (person, other, options) => {
       let linked: PersonRecord | undefined

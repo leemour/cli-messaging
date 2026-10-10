@@ -212,7 +212,9 @@ selection, so this bounds retained/output cue data rather than database allocati
 completeness remains unknown.
 
 `personMeetingContext(store, "person:1", { accountIds: [1] })` reads linked meeting
-participation for explicitly authorized accounts. It returns current meeting context, without
+participation for explicitly authorized accounts. A native account-presence check runs before the global
+person lookup; a person seen only by other accounts returns `not_found` without exposing their name.
+The allowed accounts are snapshotted before asynchronous reads. It returns current meeting context, without
 claiming that the person spoke every returned cue. Defaults are 10 meetings, 5 cues per meeting,
 64 KiB for the JSON `items` array, and a scan of at most 1000 mixed involvement rows. Coverage
 reports the scan cap, queued changes and skipped unavailable meetings; it never claims complete history or matches people by

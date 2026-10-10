@@ -247,6 +247,7 @@ it("person context honors explicit account scope and reports mixed-index scan li
   }
   const port: PersonMeetingReadStore = {
     meetings,
+    personSeenInAccounts: async () => true,
     personByUid: vi.fn(async () => ({ uid: "1", name: "Alice Example", identities: [] })),
     involvements: {
       pending: () => 3,
@@ -291,6 +292,7 @@ it("person context skips stale missing meetings while preserving other typed fai
   }
   const port: PersonMeetingReadStore = {
     meetings,
+    personSeenInAccounts: async () => true,
     personByUid: async () => ({ uid: "1", name: "Alice Example", identities: [] }),
     involvements: {
       pending: () => 1,
