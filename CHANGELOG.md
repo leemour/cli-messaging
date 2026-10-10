@@ -4,10 +4,14 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+## Unreleased
+
+
+
 ## 0.222.0 — 11.10.2026
 
+### Added
 
-<<<<<<< HEAD
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
 - Read-only meeting reference resolution, cue evidence, explicitly scoped person meeting context and
@@ -52,33 +56,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   for every tool call.
 - **An inbox project learns its account when the messenger saves the account**, not only on the inbox's next
   task.
-||||||| parent of 756eaaa0 (feat: configure attachment budgets and retain actionable partial batches)
-- Dedicated canonical meeting references identify an account, meeting, retained transcript revision
-  and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
-- Read-only meeting reference resolution, cue evidence, explicitly scoped person meeting context and
-  inspectable task proposals preserve historical provenance and report byte limits and incomplete coverage.
-  These library services add no CLI command and do not create tasks or messages.
-- `createTaskFromMeeting` explicitly saves a local task after authorizing its stored account and retained
-  source; `readMeetingTask` reads the source preview on demand. Proposal generation stays read-only.
-
-- **`store check` reports orphan pointers** in `orphanPointers`: per table, pointer and type, how many
-  `<name>_type` + `<name>_id` pointers name a row that is gone, or hold a type the store does not know.
-  It reports and never repairs, and does not turn `ok` false.
-
-### Security
-
-- **The old `messages.db` is deleted** when the store opens at its default path: the unencrypted file the
-  store used before `wirecat.db`, with its `-wal` and `-shm`. One line on stderr names it. Kept when
-  `MESSAGING_STORE` is set, and while another process still holds it open (deleted on a later open).
-
-### Fixed
-
-- **The MCP server keeps one store open for its audit log**, instead of opening and migrating the store again
-  for every tool call.
-- **An inbox project learns its account when the messenger saves the account**, not only on the inbox's next
-  task.
-=======
->>>>>>> 756eaaa0 (feat: configure attachment budgets and retain actionable partial batches)
 
 
 - Explicitly associated stable meeting participant identities now have their own person and account association;
