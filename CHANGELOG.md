@@ -20,6 +20,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   `<name>_type` + `<name>_id` pointers name a row that is gone, or hold a type the store does not know.
   It reports and never repairs, and does not turn `ok` false.
 
+- `store.meetings.appendTranscripts` implements the optional shared atomic append capability:
+  account-scoped source/hash imports preserve existing meeting fields, owner links and unrelated
+  parts. Historical transcript replays stay historical, and a failed batch writes nothing.
+
 ### Security
 
 - **The old `messages.db` is deleted** when the store opens at its default path: the unencrypted file the
@@ -33,12 +37,19 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - **An inbox project learns its account when the messenger saves the account**, not only on the inbox's next
   task.
 
+
+- Stable meeting participant identities now have their own person and account association;
+  older orphan identities are repaired when ingested again. Existing owner links are preserved,
+  and participant names or emails never merge people or resolve document links.
+
+
 ## 0.221.0 — 11.10.2026
 
 ### Added
 
 - **`store reset --no-backup`** deletes the store and starts an empty one without the `VACUUM INTO` copy beside
   it; the result has `backup: null` and `backedUp: null`. Without it, `store reset` backs up first as before.
+
 
 ## 0.220.0 — 10.10.2026
 

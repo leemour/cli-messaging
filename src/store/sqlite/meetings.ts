@@ -1,23 +1,26 @@
 import type {
   Attachment,
   ChatLine,
-  IdentityInput,
   Meeting,
   MeetingDetails,
   MeetingFilter,
   MeetingSave,
   MeetingSeries,
   MeetingStore,
+  MeetingTranscriptStore,
   Participant,
   SearchHit,
   Summary,
   Transcript,
+  TranscriptAppend,
   TranscriptRow,
 } from "@wirecat/cli-meetings"
+import { MeetingError } from "@wirecat/cli-meetings"
 import type { CacheDatabase, SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
 import * as eventQueries from "./events.js"
 import { fromJson, int, page, str, toJson } from "./events.js"
+import { meetingIdentityPk } from "./identities.js"
 import type { StoreContext } from "./open.js"
 import { inBatch } from "./search-index.js"
 
@@ -216,28 +219,6 @@ const details = (database: CacheDatabase, id: number): MeetingDetails | null => 
   }
 }
 
-const identityId = (database: CacheDatabase, identity: IdentityInput, now: number): number => {
-  if (!identity.provider || !identity.externalId) throw new Error("Invalid identity key")
-  const found = database
-    .prepare("SELECT id, name FROM identities WHERE provider = ? AND external_id = ?")
-    .get(identity.provider, identity.externalId)
-  if (found) {
-    if (identity.name !== null && identity.name !== found.name)
-      database
-        .prepare("UPDATE identities SET name = ?, updated_at = ? WHERE id = ?")
-        .run(identity.name, now, found.id as number)
-    return Number(found.id)
-  }
-  return Number(
-    database
-      .prepare(
-        `INSERT INTO identities (provider, external_id, name, metadata, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
-      )
-      .get(identity.provider, identity.externalId, identity.name, toJson(identity.metadata), now, now)?.id,
-  )
-}
-
 /** Inserts or updates the row the key finds; `values` are the columns besides the key and the times. */
 const upsert = (
   database: CacheDatabase,
@@ -266,7 +247,8 @@ const upsert = (
   )
 }
 
-const save = (database: CacheDatabase, input: MeetingSave): number => {
+const save = (context: StoreContext, input: MeetingSave): number => {
+  const { database } = context
   const {
     meeting: { series: seriesInput, ...meeting },
     now,
@@ -322,7 +304,10 @@ const save = (database: CacheDatabase, input: MeetingSave): number => {
     upsert(
       database,
       "meeting_participants",
-      { meeting_id: meetingId, identity_id: identityId(database, identity, now) },
+      {
+        meeting_id: meetingId,
+        identity_id: meetingIdentityPk({ ...context, now: () => now }, meeting.accountId, identity),
+      },
       {
         display_name: p.displayName,
         email: p.email,
@@ -344,54 +329,7 @@ const save = (database: CacheDatabase, input: MeetingSave): number => {
     return id
   }
 
-  const sameContent = database.prepare(
-    "SELECT 1 FROM meeting_transcripts WHERE meeting_id = ? AND source = ? AND content_hash = ?",
-  )
-  const supersede = database.prepare(
-    `UPDATE meeting_transcripts SET superseded_at = ?, updated_at = ?
-       WHERE meeting_id = ? AND source = ? AND superseded_at IS NULL`,
-  )
-  const insertTranscript = database.prepare(
-    `INSERT INTO meeting_transcripts (meeting_id, source, format, language, content_hash, external_created_at,
-       metadata, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-  )
-  const insertRow = database.prepare(
-    `INSERT INTO meeting_transcript_rows (meeting_transcript_id, position, start_ms, end_ms, speaker_participant_id,
-       speaker_name, text, normalized_text, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  )
-  for (const { rows, ...t } of input.transcripts ?? []) {
-    if (t.contentHash !== null && sameContent.get(meetingId, t.source, t.contentHash)) continue
-    for (const row of rows)
-      if (!Number.isSafeInteger(row.position) || row.position < 0) throw new Error("Invalid transcript position")
-    supersede.run(now, now, meetingId, t.source)
-    const transcriptId = Number(
-      insertTranscript.get(
-        meetingId,
-        t.source,
-        t.format,
-        t.language,
-        t.contentHash,
-        t.externalCreatedAt,
-        toJson(t.metadata),
-        now,
-        now,
-        t.deletedAt,
-      )?.id,
-    )
-    for (const row of rows)
-      insertRow.run(
-        transcriptId,
-        row.position,
-        row.startMs,
-        row.endMs,
-        participantId(row.speakerParticipantPosition),
-        row.speakerName,
-        row.text,
-        row.normalizedText,
-        toJson(row.metadata),
-        now,
-      )
-  }
+  saveTranscripts(database, meetingId, input.transcripts ?? [], participantId, now)
 
   for (const { senderParticipantPosition, ...line } of input.chat ?? []) {
     const values = {
@@ -464,6 +402,132 @@ const save = (database: CacheDatabase, input: MeetingSave): number => {
       now,
     )
   return meetingId
+}
+
+const saveTranscripts = (
+  database: CacheDatabase,
+  meetingId: number,
+  transcripts: NonNullable<MeetingSave["transcripts"]>,
+  participantId: (position: number | null) => number | null,
+  now: number,
+): void => {
+  const sameContent = database.prepare(
+    "SELECT 1 FROM meeting_transcripts WHERE meeting_id = ? AND source = ? AND content_hash = ?",
+  )
+  const supersede = database.prepare(
+    `UPDATE meeting_transcripts SET superseded_at = ?, updated_at = ?
+       WHERE meeting_id = ? AND source = ? AND superseded_at IS NULL`,
+  )
+  const insertTranscript = database.prepare(
+    `INSERT INTO meeting_transcripts (meeting_id, source, format, language, content_hash, external_created_at,
+       metadata, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+  )
+  const insertRow = database.prepare(
+    `INSERT INTO meeting_transcript_rows (meeting_transcript_id, position, start_ms, end_ms, speaker_participant_id,
+       speaker_name, text, normalized_text, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+  for (const { rows, ...t } of transcripts) {
+    if (t.contentHash !== null && sameContent.get(meetingId, t.source, t.contentHash)) continue
+    for (const row of rows)
+      if (!Number.isSafeInteger(row.position) || row.position < 0) throw new Error("Invalid transcript position")
+    supersede.run(now, now, meetingId, t.source)
+    const transcriptId = Number(
+      insertTranscript.get(
+        meetingId,
+        t.source,
+        t.format,
+        t.language,
+        t.contentHash,
+        t.externalCreatedAt,
+        toJson(t.metadata),
+        now,
+        now,
+        t.deletedAt,
+      )?.id,
+    )
+    for (const row of rows)
+      insertRow.run(
+        transcriptId,
+        row.position,
+        row.startMs,
+        row.endMs,
+        participantId(row.speakerParticipantPosition),
+        row.speakerName,
+        row.text,
+        row.normalizedText,
+        toJson(row.metadata),
+        now,
+      )
+  }
+}
+
+const append = (context: StoreContext, input: TranscriptAppend): MeetingDetails => {
+  const invalid = (message: string): never => {
+    throw new MeetingError("validation_error", message)
+  }
+  if (
+    !Number.isSafeInteger(input.accountId) ||
+    input.accountId <= 0 ||
+    !input.externalId?.trim() ||
+    !Number.isSafeInteger(input.now) ||
+    !Array.isArray(input.transcripts) ||
+    input.transcripts.length === 0
+  )
+    invalid("Invalid transcript append")
+  if (
+    input.create &&
+    (!Number.isSafeInteger(input.create.startedAt) || Math.abs(input.create.startedAt) > 8640000000000000)
+  )
+    invalid("Invalid meeting start")
+  const sources = new Set<string>()
+  for (const transcript of input.transcripts) {
+    if (!transcript.source?.trim() || !transcript.contentHash?.trim() || sources.has(transcript.source))
+      invalid("Expected distinct transcript sources and nonempty hashes")
+    sources.add(transcript.source)
+    for (const row of transcript.rows)
+      if ("speakerParticipantPosition" in row || "speakerParticipantId" in row)
+        invalid("Appended transcript rows must be unlinked")
+  }
+  const { database } = context
+  return inBatch(database, () => {
+    const existing = database
+      .prepare("SELECT id, deleted_at FROM meetings WHERE account_id = ? AND external_id = ?")
+      .get(input.accountId, input.externalId)
+    if (existing?.deleted_at != null || (!existing && !input.create))
+      throw new MeetingError("not_found", "Meeting not found")
+    const meetingId = existing
+      ? Number(existing.id)
+      : save(context, {
+          meeting: {
+            accountId: input.accountId,
+            externalId: input.externalId,
+            title: input.create?.title ?? null,
+            startedAt: input.create?.startedAt ?? null,
+            timezone: input.create?.timezone ?? null,
+            description: null,
+            location: null,
+            joinUrl: null,
+            endedAt: null,
+            durationMs: null,
+            hostIdentityId: null,
+            participantsCount: null,
+            metadata: null,
+            deletedAt: null,
+          },
+          now: input.now,
+        })
+    saveTranscripts(
+      database,
+      meetingId,
+      input.transcripts.map((t) => ({
+        ...t,
+        rows: t.rows.map((row) => ({ ...row, speakerParticipantPosition: null })),
+      })),
+      () => null,
+      input.now,
+    )
+    return details(database, meetingId) as MeetingDetails
+  })
 }
 
 const filtered = (filter: MeetingFilter = {}) => {
@@ -589,57 +653,63 @@ const participants = (database: CacheDatabase, query: string, accountId?: number
 }
 
 /** The `MeetingStore` of `@wirecat/cli-meetings` over the shared store. */
-export const meetingStoreOver = ({ database }: Pick<StoreContext, "database">): MeetingStore => ({
-  async saveMeeting(input) {
-    const id = inBatch(database, () => save(database, input))
-    return details(database, id) as MeetingDetails
-  },
-  async meetings(filter) {
-    const { sql, params } = filtered(filter)
-    return database
-      .prepare(sql)
-      .all(...params)
-      .map(meetingOf)
-  },
-  async meeting(id) {
-    return details(database, id)
-  },
-  async participants(query, accountId) {
-    return participants(database, query, accountId)
-  },
-  async search(query, filter) {
-    return search(database, query, filter)
-  },
-  async events() {
-    return eventQueries.events(database)
-  },
-  async eventCandidates(filter) {
-    return eventQueries.eventCandidates(database, filter)
-  },
-  async createEvent(input, now) {
-    return eventQueries.createEvent(database, input, now)
-  },
-  async createEventSeries(input, now) {
-    return eventQueries.createEventSeries(database, input, now)
-  },
-  async setEventSeries(meetingSeriesId, eventSeriesId, now) {
-    eventQueries.setEventSeries(database, meetingSeriesId, eventSeriesId, now)
-  },
-  async linkMeeting(id, eventId, now, mode) {
-    eventQueries.linkMeeting(database, id, eventId, now, mode)
-  },
-  async cursor(accountId) {
-    return str(
-      database.prepare("SELECT value FROM sync_cursors WHERE account_id = ? AND key = ?").get(accountId, CURSOR_KEY)
-        ?.value,
-    )
-  },
-  async setCursor(accountId, value, now) {
-    database
-      .prepare(
-        `INSERT INTO sync_cursors (account_id, key, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT (account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+export const meetingStoreOver = (context: StoreContext): MeetingStore & MeetingTranscriptStore => {
+  const { database } = context
+  return {
+    async appendTranscripts(input) {
+      return append(context, input)
+    },
+    async saveMeeting(input) {
+      const id = inBatch(database, () => save(context, input))
+      return details(database, id) as MeetingDetails
+    },
+    async meetings(filter) {
+      const { sql, params } = filtered(filter)
+      return database
+        .prepare(sql)
+        .all(...params)
+        .map(meetingOf)
+    },
+    async meeting(id) {
+      return details(database, id)
+    },
+    async participants(query, accountId) {
+      return participants(database, query, accountId)
+    },
+    async search(query, filter) {
+      return search(database, query, filter)
+    },
+    async events() {
+      return eventQueries.events(database)
+    },
+    async eventCandidates(filter) {
+      return eventQueries.eventCandidates(database, filter)
+    },
+    async createEvent(input, now) {
+      return eventQueries.createEvent(database, input, now)
+    },
+    async createEventSeries(input, now) {
+      return eventQueries.createEventSeries(database, input, now)
+    },
+    async setEventSeries(meetingSeriesId, eventSeriesId, now) {
+      eventQueries.setEventSeries(database, meetingSeriesId, eventSeriesId, now)
+    },
+    async linkMeeting(id, eventId, now, mode) {
+      eventQueries.linkMeeting(database, id, eventId, now, mode)
+    },
+    async cursor(accountId) {
+      return str(
+        database.prepare("SELECT value FROM sync_cursors WHERE account_id = ? AND key = ?").get(accountId, CURSOR_KEY)
+          ?.value,
       )
-      .run(accountId, CURSOR_KEY, value, now, now)
-  },
-})
+    },
+    async setCursor(accountId, value, now) {
+      database
+        .prepare(
+          `INSERT INTO sync_cursors (account_id, key, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT (account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        )
+        .run(accountId, CURSOR_KEY, value, now, now)
+    },
+  }
+}

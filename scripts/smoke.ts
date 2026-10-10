@@ -182,7 +182,9 @@ for (const kind of ["odt", "ods", "xlsx", "pptx", "epub"] as const) {
 
 let missingChecked = false
 for (const { name, run } of meetingStoreContract(async () => {
-  const { database: meetings } = await openSqlite(join(mkdtempSync(join(tmpdir(), "cli-messaging-smoke-")), "m.db"))
+  const { database: meetings, orm } = await openSqlite(
+    join(mkdtempSync(join(tmpdir(), "cli-messaging-smoke-")), "m.db"),
+  )
   migrate(meetings)
   const account = meetings.prepare(
     "INSERT INTO accounts (id, provider, external_id, name, created_at, updated_at) VALUES (?, 'example', ?, ?, 1, 1)",
@@ -196,7 +198,7 @@ for (const { name, run } of meetingStoreContract(async () => {
       meetings.prepare("SELECT id FROM accounts WHERE id = 3").get() === undefined,
     )
   }
-  return meetingStoreOver({ database: meetings })
+  return meetingStoreOver({ database: meetings, orm, now: () => 3000 })
 }))
   check(
     `meeting contract "${name}" passes under ${runtime}`,

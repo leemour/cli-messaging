@@ -1,4 +1,5 @@
 import { CliError } from "@wirecat/cli-core"
+import type { IdentityInput } from "@wirecat/cli-meetings"
 import type { Contact, Id, Page, PersonAlias, Provider } from "../../domain/models.js"
 import type { PeopleLookup } from "../../resolve.js"
 import { fold } from "../normalize.js"
@@ -22,6 +23,7 @@ import {
 import { toIso } from "./values.js"
 
 type Facts = Omit<PersonFacts, "id" | "name"> & {
+  metadata?: IdentityInput["metadata"]
   /** The messenger's marks, given only by a full profile read (a member list): its name and username are then the whole truth. */
   marks?: Record<string, boolean>
 }
@@ -49,8 +51,10 @@ const prepare = (orm: Orm) => ({
       isBot: identities.bot,
       description: identities.description,
       updatedAt: identities.updatedAt,
+      personId: identityLinks.personId,
     })
     .from(identities)
+    .leftJoin(identityLinks, eq(identityLinks.identityId, identities.id))
     .where(
       and(
         eq(identities.provider, sql.placeholder("provider")),
@@ -119,68 +123,11 @@ const revise = (orm: Orm, identity: number, next: Profile, at: number, before?: 
   return last !== undefined
 }
 
-/** Every new identity gets its own person; linking two is a later, recorded act. */
-export const identityOf = (
-  context: StoreContext,
-  provider: Provider,
-  nativeId: Id,
-  name: string | null,
-  facts: Facts = {},
-): number => saveIdentity(context, provider, nativeId, name, facts).pk
-
-const saveIdentity = (
-  { orm, now, database }: StoreContext,
-  provider: Provider,
-  nativeId: Id,
-  name: string | null,
-  facts: Facts,
-): SavedIdentity => {
-  const found = statementsOf(orm).find.get({ provider, externalId: nativeId })
-  const marks = facts.marks ? JSON.stringify(facts.marks) : undefined
-  if (found) {
-    const changed = {
-      name: name ?? found.name,
-      username: facts.username ?? found.username,
-      bot: flag(facts.isBot) ?? found.isBot,
-      description: facts.description ?? found.description,
-    }
-    // Only on a real change: the search trigger rewrites the index row on every update of `name`.
-    if (
-      changed.name !== found.name ||
-      changed.username !== found.username ||
-      changed.bot !== found.isBot ||
-      changed.description !== found.description
-    ) {
-      orm
-        .update(identities)
-        .set({ ...changed, updatedAt: now() })
-        .where(eq(identities.id, found.pk))
-        .run()
-    }
-    const renamed = changed.name !== found.name || changed.username !== found.username
-    if (renamed) resolvePersonLinks(database, [changed.name, changed.username])
-    if (marks === undefined && !renamed) return { pk: found.pk, revised: false }
-    const next = marks === undefined ? changed : { name, username: facts.username ?? null, marks }
-    const before = renamed ? { name: found.name, username: found.username, at: found.updatedAt } : undefined
-    return { pk: found.pk, revised: revise(orm, found.pk, next, now(), before) }
-  }
-  const at = now()
-  const identity = Number(
-    orm
-      .insert(identities)
-      .values({
-        provider,
-        externalId: nativeId,
-        name,
-        username: facts.username ?? null,
-        bot: flag(facts.isBot),
-        description: facts.description ?? null,
-        createdAt: at,
-        updatedAt: at,
-      })
-      .returning({ pk: identities.id })
-      .get()?.pk,
+const ensurePerson = (orm: Orm, identity: number, name: string | null, at: number): void => {
+  if (
+    orm.select({ id: identityLinks.identityId }).from(identityLinks).where(eq(identityLinks.identityId, identity)).get()
   )
+    return
   const person = Number(
     orm.insert(persons).values({ name, createdAt: at, updatedAt: at }).returning({ pk: persons.id }).get()?.pk,
   )
@@ -207,8 +154,76 @@ const saveIdentity = (
       author: "ingest",
     })
     .run()
+}
+
+/** Every new identity gets its own person; linking two is a later, recorded act. */
+export const identityOf = (
+  context: StoreContext,
+  provider: Provider,
+  nativeId: Id,
+  name: string | null,
+  facts: Facts = {},
+): number => saveIdentity(context, provider, nativeId, name, facts).pk
+
+const saveIdentity = (
+  { orm, now, database }: StoreContext,
+  provider: Provider,
+  nativeId: Id,
+  name: string | null,
+  facts: Facts,
+  resolveLinks = true,
+): SavedIdentity => {
+  const found = statementsOf(orm).find.get({ provider, externalId: nativeId })
+  const marks = facts.marks ? JSON.stringify(facts.marks) : undefined
+  if (found) {
+    if (found.personId === null) ensurePerson(orm, found.pk, found.name, now())
+    const changed = {
+      name: name ?? found.name,
+      username: facts.username ?? found.username,
+      bot: flag(facts.isBot) ?? found.isBot,
+      description: facts.description ?? found.description,
+    }
+    // Only on a real change: the search trigger rewrites the index row on every update of `name`.
+    if (
+      changed.name !== found.name ||
+      changed.username !== found.username ||
+      changed.bot !== found.isBot ||
+      changed.description !== found.description
+    ) {
+      orm
+        .update(identities)
+        .set({ ...changed, updatedAt: now() })
+        .where(eq(identities.id, found.pk))
+        .run()
+    }
+    const renamed = changed.name !== found.name || changed.username !== found.username
+    if (renamed && resolveLinks) resolvePersonLinks(database, [changed.name, changed.username])
+    if (marks === undefined && !renamed) return { pk: found.pk, revised: false }
+    const next = marks === undefined ? changed : { name, username: facts.username ?? null, marks }
+    const before = renamed ? { name: found.name, username: found.username, at: found.updatedAt } : undefined
+    return { pk: found.pk, revised: revise(orm, found.pk, next, now(), before) }
+  }
+  const at = now()
+  const identity = Number(
+    orm
+      .insert(identities)
+      .values({
+        provider,
+        externalId: nativeId,
+        name,
+        metadata: facts.metadata == null ? null : JSON.stringify(facts.metadata),
+        username: facts.username ?? null,
+        bot: flag(facts.isBot),
+        description: facts.description ?? null,
+        createdAt: at,
+        updatedAt: at,
+      })
+      .returning({ pk: identities.id })
+      .get()?.pk,
+  )
+  ensurePerson(orm, identity, name, at)
   if (marks !== undefined) revise(orm, identity, { name, username: facts.username ?? null, marks }, at)
-  resolvePersonLinks(database, [name, facts.username])
+  if (resolveLinks) resolvePersonLinks(database, [name, facts.username])
   return { pk: identity, revised: false }
 }
 
@@ -430,3 +445,18 @@ const aliasOf = (name: string | null, username: string | null) => ({
   ...(name === null ? {} : { name }),
   ...(username === null ? {} : { username }),
 })
+
+/** Stable provider identity only; participant labels never resolve or merge other people. */
+export const meetingIdentityPk = (context: StoreContext, accountId: number, identity: IdentityInput): number => {
+  if (!identity.provider || !identity.externalId) throw new CliError("validation_error", "Invalid identity key")
+  const saved = saveIdentity(
+    context,
+    identity.provider,
+    identity.externalId,
+    identity.name,
+    { metadata: identity.metadata },
+    false,
+  )
+  statementsOf(context.orm).seen.run({ accountId, identityId: saved.pk, createdAt: context.now() })
+  return saved.pk
+}

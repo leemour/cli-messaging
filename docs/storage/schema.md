@@ -899,6 +899,15 @@ Rows of memories waiting to be indexed: triggers enqueue, JS normalizes, stems a
 
 The owner's events, and each meeting app's record of them.
 
+`MessageStore.meetings` implements both `MeetingStore` and the optional `MeetingTranscriptStore`
+from `@wirecat/cli-meetings`. `appendTranscripts` runs in one immediate transaction, matching the
+numeric account and external occurrence id. Explicit creation fields apply only to a missing
+occurrence; a deleted occurrence rejects with `not_found`. Appending changes only transcript
+versions and rows, preserving existing occurrence fields, events, series, cursors and other parts.
+Source/hash replay matches retained history without reactivating it. Rows are detached from
+participants, and the returned details acknowledge identities without created/skipped counts.
+
+
 ### `event_series`
 
 A repeating event, above any one provider's recurrence.
@@ -987,12 +996,16 @@ One occurrence: it happened once, at one time.
 ### `meeting_participants`
 
 One person in one meeting, as that meeting saw them; the name and email stay with this meeting.
+Stable provider/external identity keys use the normal identity, person and account-presence path.
+An older identity missing its person link receives its own initial link when ingested again;
+existing owner links remain intact. Meeting labels never merge identities or resolve document
+names, and an absent stable identity key is rejected rather than guessed from a name or email.
 
 | Column | Type | Constraints | References | Meaning |
 |---|---|---|---|---|
 | `id` | integer | PK |  |  |
 | `meeting_id` | integer | not null | → `meetings.id` | the `meeting` it belongs to |
-| `identity_id` | integer | not null | → `identities.id` | keyed by the provider's user id, else email, else name@meeting |
+| `identity_id` | integer | not null | → `identities.id` | keyed by the provider and supplied external identity id |
 | `display_name` | text |  |  | the name shown in this meeting; a later rename does not change it |
 | `email` | text |  |  | the address the provider gives, when it gives one |
 | `role` | text |  |  | host, co-host, attendee, panelist, guest |
