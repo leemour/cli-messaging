@@ -2,6 +2,7 @@ import { CliError } from "@wirecat/cli-core"
 import { formatMeetingReference } from "../domain/meeting-reference.js"
 import type { MessageStore } from "../store/store.js"
 import { checkMeetingCancelled, type MeetingEvidenceCue, readMeetingEvidence } from "./meeting-evidence.js"
+import type { MeetingReadStore } from "./meeting-reference.js"
 
 export interface PersonMeetingContextOptions {
   /** Authorized by the caller; never inferred from matching names or email addresses. */
@@ -33,7 +34,9 @@ export interface PersonMeetingContext {
     input: "materialized-meeting"
   }
 }
-export type PersonMeetingReadStore = Pick<MessageStore, "personByUid" | "involvements" | "meetings">
+export type PersonMeetingReadStore = Pick<MessageStore, "personByUid" | "involvements"> & {
+  meetings: MeetingReadStore
+}
 
 /** Identity-linked meeting context only; reads the derived index without rebuilding it. */
 export const personMeetingContext = async (
