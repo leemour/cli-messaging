@@ -6,6 +6,7 @@ import type { AccountKey } from "../store.js"
 import { ulid } from "../ulid.js"
 import { ownerPerson } from "./actors.js"
 import { atomic } from "./atomic.js"
+import { linkKind, RELATION_KINDS } from "./link-kinds.js"
 import { insertLink, type Link, linkOf } from "./notes.js"
 import type { StoreContext } from "./open.js"
 import {
@@ -82,7 +83,7 @@ export interface KnowledgeRelation {
   id: string
   from: string
   to: string
-  kind: "member-of" | "related-to" | "assigned-to"
+  kind: (typeof RELATION_KINDS)[number]
   role: string | null
   evidence: string | null
   confirmed: boolean
@@ -197,7 +198,6 @@ const oneOf = <T extends string>(value: string, allowed: readonly T[], what: str
   return value as T
 }
 
-const RELATION_KINDS = ["member-of", "related-to", "assigned-to"] as const
 /** What a relationship may connect. */
 const RELATED = ["person", "organization", "project", "task"]
 /** What a label without an account may sit on; a chat, contact or message is the messenger's tag. */
@@ -294,7 +294,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
     database
       .prepare(
         "SELECT t.name FROM links l JOIN tags t ON t.id = l.to_id WHERE l.from_type = 'account' AND l.from_id = ? " +
-          "AND l.kind = 'labelled' AND l.to_type = 'tag' AND l.anchor = ? ORDER BY t.name",
+          `AND l.kind = ${linkKind("labelled")} AND l.to_type = 'tag' AND l.anchor = ? ORDER BY t.name`,
       )
       .all(folder, path)
       .map((row) => String(row.name))
@@ -357,7 +357,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
     confidenceCategory: link.confirmed ? "owner-confirmed" : "weak",
     createdAt: link.createdAt,
   })
-  const RELATIONS = `SELECT * FROM links WHERE kind IN (${RELATION_KINDS.map((kind) => `'${kind}'`).join(",")}) AND to_id IS NOT NULL`
+  const RELATIONS = `SELECT * FROM links WHERE kind IN (${RELATION_KINDS.map(linkKind).join(",")}) AND to_id IS NOT NULL`
   const relation = (id: string) => {
     const row = /^\d+$/.test(id) ? database.prepare(`${RELATIONS} AND id = ?`).get(Number(id)) : undefined
     if (!row) throw new CliError("not_found", "no relationship with that id")
@@ -507,7 +507,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
           database
             .prepare(
               "INSERT INTO links (from_type, from_id, to_type, to_id, kind, anchor, source, confirmed, created_at, author, updated_at) " +
-                "VALUES ('account', ?, 'tag', ?, 'labelled', ?, 'owner', 1, ?, 'owner', ?)",
+                `VALUES ('account', ?, 'tag', ?, ${linkKind("labelled")}, ?, 'owner', 1, ?, 'owner', ?)`,
             )
             .run(thing.id, tag.id, path, at, at)
           return true
@@ -523,7 +523,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
         (name) =>
           database
             .prepare(
-              "DELETE FROM links WHERE from_type = 'account' AND from_id = ? AND kind = 'labelled' AND to_type = 'tag' AND anchor = ? " +
+              `DELETE FROM links WHERE from_type = 'account' AND from_id = ? AND kind = ${linkKind("labelled")} AND to_type = 'tag' AND anchor = ? ` +
                 "AND to_id IN (SELECT id FROM tags WHERE name = ?)",
             )
             .run(thing.id, path, name).changes > 0,
@@ -549,7 +549,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
             "SELECT DISTINCT g.taggable_type AS type, g.taggable_id AS id, NULL AS path FROM taggings g JOIN tags t ON t.id = g.tag_id " +
             `WHERE g.taggable_type IN (${types.map(() => "?").join(",") || "NULL"}) AND (? IS NULL OR t.name = ?) ` +
             "UNION SELECT DISTINCT 'account' AS type, l.from_id AS id, l.anchor AS path FROM links l JOIN tags t ON t.id = l.to_id " +
-            "WHERE ? = 1 AND l.from_type = 'account' AND l.kind = 'labelled' AND l.to_type = 'tag' AND (? IS NULL OR t.name = ?)" +
+            `WHERE ? = 1 AND l.from_type = 'account' AND l.kind = ${linkKind("labelled")} AND l.to_type = 'tag' AND (? IS NULL OR t.name = ?)` +
             ") ORDER BY type = 'account', type, id, path LIMIT ? OFFSET ?",
         )
         .all(...types, tag, tag, subfolders ? 1 : 0, tag, tag, limit + 1, offset)

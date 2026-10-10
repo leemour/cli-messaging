@@ -6,23 +6,13 @@ import { fold } from "../normalize.js"
 import { ulid } from "../ulid.js"
 import { ownerPerson } from "./actors.js"
 import { atomic } from "./atomic.js"
+import { LINK_KINDS, linkKind } from "./link-kinds.js"
 import type { NoteSearch } from "./note-search.js"
 import type { StoreContext } from "./open.js"
 import { addTags, ensureTag, type Label, labelsOf } from "./tags.js"
 import { referenceOfThing, type Thing, thingOf } from "./things.js"
 
 export const NOTE_FORMATS = ["obsidian", "markdown"] as const
-export const LINK_KINDS = [
-  "links-to",
-  "about",
-  "member-of",
-  "related-to",
-  "assigned-to",
-  "answered-by",
-  "duplicate-of",
-  "evidence",
-  "created-from",
-] as const
 export const LINK_ORIGINS = ["file", "owner", "suggested"] as const
 
 /** A notes folder: an `accounts` row of provider `folder`. Where it is on disk is this computer's config. */
@@ -529,7 +519,7 @@ export const notesStoreOver = (context: StoreContext): Omit<NotesStore, keyof No
           : database
               .prepare(
                 "SELECT d.* FROM documents d WHERE d.deleted_at IS NULL AND (? IS NULL OR d.account_id = ?) " +
-                  "AND (? IS NULL OR EXISTS (SELECT 1 FROM links l WHERE l.from_type = 'document' AND l.from_id = d.id AND l.kind = 'about' AND l.to_type = ? AND l.to_id = ?)) " +
+                  `AND (? IS NULL OR EXISTS (SELECT 1 FROM links l WHERE l.from_type = 'document' AND l.from_id = d.id AND l.kind = ${linkKind("about")} AND l.to_type = ? AND l.to_id = ?)) ` +
                   "AND (? IS NULL OR instr(lower(coalesce(d.body, '')), lower(?)) > 0) ORDER BY d.created_at DESC, d.id DESC LIMIT ?",
               )
               .all(folder, folder, aboutType, aboutType, aboutId, search, search, limit + offset + 1)
@@ -540,7 +530,7 @@ export const notesStoreOver = (context: StoreContext): Omit<NotesStore, keyof No
           : database
               .prepare(
                 "SELECT n.* FROM notes n WHERE n.deleted_at IS NULL " +
-                  "AND (? IS NULL OR (n.notable_type = ? AND n.notable_id = ?) OR EXISTS (SELECT 1 FROM links l WHERE l.from_type = 'note' AND l.from_id = n.id AND l.kind = 'about' AND l.to_type = ? AND l.to_id = ?)) " +
+                  `AND (? IS NULL OR (n.notable_type = ? AND n.notable_id = ?) OR EXISTS (SELECT 1 FROM links l WHERE l.from_type = 'note' AND l.from_id = n.id AND l.kind = ${linkKind("about")} AND l.to_type = ? AND l.to_id = ?)) ` +
                   "AND (? IS NULL OR instr(lower(n.body), lower(?)) > 0) ORDER BY n.created_at DESC, n.id DESC LIMIT ?",
               )
               .all(aboutType, aboutType, aboutId, aboutType, aboutId, search, search, limit + offset + 1)

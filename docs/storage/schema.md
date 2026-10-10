@@ -40,7 +40,7 @@ Every integration the owner connects: a messenger account, a mailbox, Zoom, a no
 | `settings` | text |  |  | JSON: per-integration settings, e.g. a folder's path and format |
 | `status` | text |  |  | active, paused, failed |
 | `updated_at` | integer | not null |  | when this row last changed here |
-| `scope` | text | not null |  | `personal` or `work`; what a context query may read for a given purpose, so a work question never pulls private chats (owner) |
+| `scope` | text | not null |  | `personal` or `work`; what a context query may read for a given purpose, so a work question never pulls private chats |
 | `organization_id` | integer |  | → `organizations.id` | the organization a work account belongs to |
 
 *Keys and indexes:* `UNIQUE (provider, external_id)`, `INDEX (organization_id)`
@@ -164,7 +164,7 @@ Humans, the per-source identities they have, the organizations they belong to, a
 | `identity_id` ← `identity_pk` | integer | PK | → `identities.id` |  |
 | `person_id` ← `person_pk` | integer | not null | → `persons.id` | the `person` it belongs to |
 | `method` | text | not null |  | How the identity was assigned to its person: `initial` when first seen, or a caller's label such as `manual` or `same-email`. |
-| `confidence` | real | not null |  | How sure the link is, from 0 to 1; 1 for every link written today. |
+| `confidence` | real | not null |  | How sure the link is, from 0 to 1; 1 for every link the store writes. |
 | `created_at` ← `linked_at` | integer | not null |  | when this row was saved here |
 | `author` ← `linked_by` | text | not null |  | Who decided the link: `ingest` for the automatic first link, otherwise `owner` or the name of a program. |
 | `source` | text |  |  | which integration or importer proposed it |
@@ -252,7 +252,7 @@ A company, team, family or community the owner deals with. Projects, work accoun
 | `id` | integer | PK |  |  |
 | `kind` | text | not null |  | company, team, family, community |
 | `name` | text | not null |  |  |
-| `scope` | text | not null |  | `personal` or `work`; what a context query may read for a given purpose, so a work question never pulls private chats (owner) |
+| `scope` | text | not null |  | `personal` or `work`; what a context query may read for a given purpose, so a work question never pulls private chats |
 | `metadata` | text |  |  | JSON: what the source sends that has no column, and is not searched |
 | `created_at` | integer | not null |  | when this row was saved here |
 | `updated_at` | integer | not null |  | when this row last changed here |
@@ -303,10 +303,10 @@ What messengers bring.
 | `username` | text |  |  | The chat's public handle (without `@`) where it has one, e.g. a public channel. |
 | `membership_state` | text |  |  | `NULL` is unknown. Searchable does not follow from it: a chat left keeps its messages. |
 | `searchable` ← `is_searchable` | integer | not null |  | 1 if the chat's messages appear in searches that do not name it, 0 if only a search naming the chat sees them. |
-| `message_count` | integer | not null |  | Kept by triggers, so phase 2 can choose per query how a filter reaches the index. |
+| `message_count` | integer | not null |  | Kept by triggers, so a query can choose how a filter reaches the index. |
 | `members_tracked_at` | integer |  |  | When the owner asked `serve` to fetch its member list daily; `NULL` when not tracked. |
-| `description` | text |  |  | from `chat_metadata` |
-| `details_fetched_at` | integer |  |  | when title, username and description were last read; from `chat_metadata.fetched_at` |
+| `description` | text |  |  | the chat's description, as the messenger gives it |
+| `details_fetched_at` | integer |  |  | when title, username and description were last read |
 | `created_at` | integer | not null |  | when this row was saved here |
 | `parent_chat_id` | integer |  | → `chats.id` | the chat this one sits inside: a forum topic in its group, a channel's discussion group, a channel in a workspace |
 | `scope` | text |  |  | overrides the account's scope for this chat; null takes the account's |
@@ -421,7 +421,7 @@ Each candidate for "the earlier message this one answers", and where it came fro
 | `confidence` | real | not null |  | How sure the source is that this is the right parent, from 0 to 1. |
 | `method` | text | not null |  | The rule's name, or the agent's model. |
 | `version` | text |  |  | For provider and rule links, the linking-rules version that wrote it (as text); for agent links, the agent's skill version, if given. |
-| `batch` | text |  |  | Which agent batch wrote it (phase 4). |
+| `batch` | text |  |  | Which agent batch wrote it. |
 | `build` | integer |  |  | The rebuild that wrote a provider or rule link; `NULL` for an agent's, which outlive rebuilds. |
 | `created_at` | integer | not null |  | when this row was saved here |
 | `stale_at` | integer |  |  | An end of the link changed after it was written; never chosen until asked again. |
@@ -691,9 +691,9 @@ A file of a message, an email or a meeting, with its extracted text.
 | `duration` | real |  |  | Length in seconds for audio and video. |
 | `provider_ref` | text |  |  | Opaque JSON the messenger adapter needs to fetch the bytes later; meaningless outside that adapter. |
 | `local_path` | text |  |  | Where `messages download` saved the file on this computer; NULL when it was never downloaded. |
-| `text` | text |  |  | extracted text; from `attachment_texts` |
+| `text` | text |  |  | the text extracted from the file |
 | `normalized_text` | text |  |  | the text folded for search: lower case, accents removed; filled by the indexer |
-| `extraction` | text |  |  | `text`, `ocr`, `agent`, `failed`; was `attachment_texts.origin` |
+| `extraction` | text |  |  | how the text was got: `text`, `ocr`, `agent`, `failed` |
 | `extractor` | text |  |  | What produced the attachment's text: `plain`, `docx:mammoth@1.13.0`, `pdf:unpdf@1.8.1`, an OCR engine, or an agent's own label. |
 | `extraction_error` | text |  |  | Short reason code why no text came out (e.g. `no_text`), never a line of the file; NULL on success. |
 | `content_sha256` | text |  |  | Hex SHA-256 of the file bytes that were read, so an unchanged file is not read again. |
@@ -1171,7 +1171,7 @@ A place for tasks, with the short key their ids start with (`MEET-12`).
 | `type` | text | not null |  | work, client, personal, oss, other; tags group projects beyond that |
 | `organization_id` | integer |  | → `organizations.id` | the `organization` it belongs to |
 | `account_id` | integer |  | → `accounts.id` | the account an inbox project collects tasks for; null for a project of the owner's own |
-| `scope` | text | not null |  | `personal` or `work`; what a context query may read for a given purpose, so a work question never pulls private chats (owner) |
+| `scope` | text | not null |  | `personal` or `work`; what a context query may read for a given purpose, so a work question never pulls private chats |
 | `owner_type` | text |  |  | `person` or `bot` |
 | `owner_id` | integer |  |  | the row in the `owner_type` table |
 | `tasks_count` | integer | not null |  | the last number given out; the next task takes +1 in the same transaction |
@@ -1194,7 +1194,7 @@ A task or ticket, for people and agents alike. Everything it concerns — people
 | `key` | text | not null, unique |  | `<project key>-<number>`, the id people and agents use |
 | `title` | text | not null |  | one line saying what is to be done |
 | `description` | text |  |  | the detail, in Markdown |
-| `type` | text | not null |  | bug, feature, chore, question, request, mention, promise — the last four are today's task kinds |
+| `type` | text | not null |  | bug, feature, chore, question, request, mention, promise — the last four are what the task package finds in messages |
 | `status` | text | not null |  | open, in_progress, blocked, done, dismissed |
 | `priority` | integer |  |  | 0 urgent … 4 low |
 | `parent_id` | integer |  | → `tasks.id` | a subtask's parent |
@@ -1206,7 +1206,7 @@ A task or ticket, for people and agents alike. Everything it concerns — people
 | `close_reason` | text |  |  | why it was closed, in a few words, e.g. no-reply-needed |
 | `author_type` | text | not null |  | `person` or `bot` |
 | `author_id` | integer | not null |  | the row in the `author_type` table |
-| `source` | text | not null |  | owner, agent, rule (today's `origin`), or an import |
+| `source` | text | not null |  | owner, agent, rule, or an import |
 | `package_id` | text | unique |  | the task package's own id for the task; null for a task made here |
 | `source_locator` | text |  |  | what the task came from: a message locator, never its text |
 | `source_kind` | text |  |  | the kind of thing `source_locator` names |
@@ -1361,7 +1361,7 @@ A tag's name, once (owner). Which things carry it is `taggings`.
 
 ### `links` — changed
 
-Every connection between two things that no column holds. Kinds written today: `links-to` (a document or note links to something, as written in it), `about` (a note or document is about a person, project, …), `member-of` (a chat or person belongs to a project or organization), `labelled` (a folder account → a tag, the subfolder's path in `anchor`, so every document under it carries the tag), `answered-by` (a question task → the message that answered it), `evidence` (a decision or memory → its source), `created-from` (a thing → what it was made from). Reserved, not yet written: `duplicate-of` (the same question asked again), `related-to`, `assigned-to`.
+Every connection between two things that no column holds. Kinds: `links-to` (a document or note links to something, as written in it), `about` (a note or document is about a person, project, …), `member-of` (a chat or person belongs to a project or organization), `labelled` (a folder account → a tag, the subfolder's path in `anchor`, so every document under it carries the tag), `answered-by` (a question task → the message that answered it), `evidence` (a decision or memory → its source), `created-from` (a thing → what it was made from). Kinds the store does not write yet: `duplicate-of` (the same question asked again), `related-to`, `assigned-to`.
 
 *Change:* String references → polymorphic columns, type as a string (owner).
 
@@ -1418,7 +1418,7 @@ One tag on one thing.
 | `taggable_type` | text | not null |  | `chat`, `identity`, `message`, `email`, `document`, `note`, `person`, `organization`, `project`, `task`, `event`, … |
 | `taggable_id` | integer | not null |  | the row in the `taggable_type` table |
 | `main` | integer | not null |  | 1 on the thing's main topic; at most one per thing |
-| `source` | text | not null |  | where it came from: owner, agent, auto, an import (owner) |
+| `source` | text | not null |  | where it came from: owner, agent, auto, an import |
 | `author_type` | text |  |  | `person` or `bot` |
 | `author_id` | integer |  |  | the row in the `author_type` table |
 | `created_at` | integer | not null |  | when this row was saved here |

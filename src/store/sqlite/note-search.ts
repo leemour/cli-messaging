@@ -13,6 +13,7 @@ import { exhausted, QUERY_LIMITS, queryError } from "../../search/lucene/types.j
 import type { Stemmer } from "../../search/stem.js"
 import type { SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
+import { linkKind } from "./link-kinds.js"
 import { prefixOf } from "./lucene.js"
 import { drainNoteIndex, type NoteIndexState, noteIndexState, noteIndexText } from "./note-index.js"
 import { documentOf, type Note, noteOf } from "./notes.js"
@@ -83,7 +84,7 @@ const CORPORA: Corpus[] = [
         "(n.id IN (SELECT g.taggable_id FROM taggings g JOIN tags t ON t.id = g.tag_id WHERE t.name = ? AND g.taggable_type = 'document') " +
           "OR n.folder_id IN (SELECT g.taggable_id FROM taggings g JOIN tags t ON t.id = g.tag_id WHERE t.name = ? AND g.taggable_type = 'account') " +
           "OR EXISTS (SELECT 1 FROM links l JOIN tags t ON t.id = l.to_id WHERE l.from_type = 'account' AND l.from_id = n.folder_id " +
-          "AND l.kind = 'labelled' AND l.to_type = 'tag' AND t.name = ? AND substr(n.path, 1, length(l.anchor) + 1) = l.anchor || '/'))",
+          `AND l.kind = ${linkKind("labelled")} AND l.to_type = 'tag' AND t.name = ? AND substr(n.path, 1, length(l.anchor) + 1) = l.anchor || '/'))`,
         tag,
         tag,
         tag,
