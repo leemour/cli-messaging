@@ -56,6 +56,7 @@ import { findRegex } from "./sqlite/legacy-regex.js"
 import { logPruner } from "./sqlite/log-pruning.js"
 import type { QueryGroup, QueryGrouping } from "./sqlite/lucene.js"
 import * as lucene from "./sqlite/lucene.js"
+import type { MeetingReadCapabilities } from "./sqlite/meeting-reads.js"
 import { meetingStoreOver } from "./sqlite/meetings.js"
 import { type MemoriesStore, memoriesStoreOver } from "./sqlite/memories.js"
 import * as messageWrites from "./sqlite/messages.js"
@@ -599,7 +600,7 @@ export interface MessageStore {
   /** One row per tool an agent called, never its arguments. */
   readonly agentActions: AgentActionsStore
   /** Meetings and calendar events: the port `@wirecat/cli-meetings` defines. */
-  readonly meetings: MeetingStore & MeetingTranscriptStore
+  readonly meetings: MeetingStore & MeetingTranscriptStore & MeetingReadCapabilities
   /** Email threads, emails, recipients and mailboxes. */
   readonly mail: MailStore
   close(): Promise<void>

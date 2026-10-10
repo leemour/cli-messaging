@@ -27,6 +27,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   nothing changes. `messages.searchAllWithMeetings` and `meetingAccountOf` are the service-level entry points.
   `--max-meetings <n|all>` (MCP `max_meetings`) sets how many meetings it looks through, newest first: 100 by
   default, `all` for every one; meetings have no search index yet, so each is two queries.
+- `store.meetings` exposes account-scoped metadata, revision and cue seek pages without loading a
+  whole meeting. Reads default to current revisions, allow explicit retained history and enforce
+  a stored text byte budget in one read snapshot; oversized pages reject without truncating evidence.
+
+
 
 - `store.meetings.appendTranscripts` implements the optional shared atomic append capability:
   account-scoped source/hash imports preserve existing meeting fields, owner links and unrelated
@@ -39,6 +44,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   `MESSAGING_STORE` is set, and while another process still holds it open (deleted on a later open).
 
 ### Fixed
+
+- Deleting a message no longer removes a shared embedding still used by a note, document or other
+  corpus chunk. Every model's cached vector remains until no other chunk uses that hash.
 
 - **The MCP server keeps one store open for its audit log**, instead of opening and migrating the store again
   for every tool call.

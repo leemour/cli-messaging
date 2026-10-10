@@ -34,6 +34,13 @@ export type {
   Reminder,
 } from "./sqlite/knowledge.js"
 export { ORGANIZATION_KINDS, PROJECT_TYPES, SCOPES } from "./sqlite/knowledge.js"
+export type {
+  MeetingReadCapabilities,
+  MeetingReadScope,
+  TranscriptPage,
+  TranscriptReadScope,
+  TranscriptRowPage,
+} from "./sqlite/meeting-reads.js"
 export type { Author, MemoriesStore, Memory, MemoryInput } from "./sqlite/memories.js"
 export type { NoteIndexState } from "./sqlite/note-index.js"
 export {

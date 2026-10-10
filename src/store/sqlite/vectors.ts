@@ -84,7 +84,7 @@ export const chunkFreshness = (
 
 /**
  * Drops every vector of a chunk that held this just-deleted message, of every model, unless a current chunk
- * with no deleted message still uses its text — in any chat or account, since vectors are keyed by text alone.
+ * with no deleted message or any other corpus chunk still uses its text: vectors are keyed by text alone.
  */
 export const purgeVectorHashes = (context: StoreContext, hashes: readonly string[]): void => {
   const { orm } = context
@@ -115,7 +115,9 @@ export const purgeVectorHashes = (context: StoreContext, hashes: readonly string
         break
       }
     }
-    if (!valid) orm.run(sql`DELETE FROM embeddings WHERE content_hash = ${hash}`)
+    if (!valid)
+      orm.run(sql`DELETE FROM embeddings WHERE content_hash = ${hash}
+        AND NOT EXISTS (SELECT 1 FROM chunks WHERE content_hash = ${hash} AND chunkable_type <> 'conversation')`)
   }
 }
 

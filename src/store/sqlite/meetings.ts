@@ -1,7 +1,6 @@
 import type {
   Attachment,
   ChatLine,
-  Meeting,
   MeetingDetails,
   MeetingFilter,
   MeetingSave,
@@ -11,9 +10,7 @@ import type {
   Participant,
   SearchHit,
   Summary,
-  Transcript,
   TranscriptAppend,
-  TranscriptRow,
 } from "@wirecat/cli-meetings"
 import { MeetingError } from "@wirecat/cli-meetings"
 import type { CacheDatabase, SqlValue } from "../driver.js"
@@ -21,6 +18,8 @@ import { normalize } from "../normalize.js"
 import * as eventQueries from "./events.js"
 import { fromJson, int, page, str, toJson } from "./events.js"
 import { meetingIdentityPk } from "./identities.js"
+import { type MeetingReadCapabilities, meetingReadsOver } from "./meeting-reads.js"
+import { meetingOf, transcriptOf, transcriptRowOf } from "./meeting-values.js"
 import type { StoreContext } from "./open.js"
 import { inBatch } from "./search-index.js"
 
@@ -35,28 +34,6 @@ const CURSOR_KEY = "meetings"
 const INDEX_CODES = { meeting_transcript_row: 1, meeting_chat_message: 2, meeting_summary: 3 } as const
 type Indexable = keyof typeof INDEX_CODES
 export const meetingRowid = (type: Indexable, id: number): number => id * 4 + INDEX_CODES[type]
-
-const meetingOf = (row: Row): Meeting => ({
-  id: Number(row.id),
-  accountId: Number(row.account_id),
-  meetingSeriesId: int(row.meeting_series_id),
-  eventId: int(row.event_id),
-  externalId: String(row.external_id),
-  title: str(row.title),
-  description: str(row.description),
-  location: str(row.location),
-  joinUrl: str(row.join_url),
-  startedAt: int(row.started_at),
-  endedAt: int(row.ended_at),
-  durationMs: int(row.duration_ms),
-  timezone: str(row.timezone),
-  hostIdentityId: int(row.host_identity_id),
-  participantsCount: int(row.participants_count),
-  metadata: fromJson(row.metadata),
-  deletedAt: int(row.deleted_at),
-  createdAt: Number(row.created_at),
-  updatedAt: Number(row.updated_at),
-})
 
 const seriesOf = (row: Row): MeetingSeries => ({
   id: Number(row.id),
@@ -90,35 +67,6 @@ const participantOf = (row: Row): Participant => ({
   metadata: fromJson(row.metadata),
   createdAt: Number(row.created_at),
   updatedAt: Number(row.updated_at),
-})
-
-const transcriptOf = (row: Row): Transcript => ({
-  id: Number(row.id),
-  meetingId: Number(row.meeting_id),
-  source: String(row.source),
-  format: str(row.format),
-  language: str(row.language),
-  contentHash: str(row.content_hash),
-  externalCreatedAt: int(row.external_created_at),
-  supersededAt: int(row.superseded_at),
-  metadata: fromJson(row.metadata),
-  deletedAt: int(row.deleted_at),
-  createdAt: Number(row.created_at),
-  updatedAt: Number(row.updated_at),
-})
-
-const transcriptRowOf = (row: Row): TranscriptRow => ({
-  id: Number(row.id),
-  meetingTranscriptId: Number(row.meeting_transcript_id),
-  position: Number(row.position),
-  startMs: Number(row.start_ms),
-  endMs: Number(row.end_ms),
-  speakerParticipantId: int(row.speaker_participant_id),
-  speakerName: str(row.speaker_name),
-  text: String(row.text),
-  normalizedText: str(row.normalized_text),
-  metadata: fromJson(row.metadata),
-  createdAt: Number(row.created_at),
 })
 
 const chatOf = (row: Row): ChatLine => ({
@@ -653,9 +601,12 @@ const participants = (database: CacheDatabase, query: string, accountId?: number
 }
 
 /** The `MeetingStore` of `@wirecat/cli-meetings` over the shared store. */
-export const meetingStoreOver = (context: StoreContext): MeetingStore & MeetingTranscriptStore => {
+export const meetingStoreOver = (
+  context: StoreContext,
+): MeetingStore & MeetingTranscriptStore & MeetingReadCapabilities => {
   const { database } = context
   return {
+    ...meetingReadsOver(context),
     async appendTranscripts(input) {
       return append(context, input)
     },
