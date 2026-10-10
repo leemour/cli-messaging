@@ -9,6 +9,7 @@ import { warmEmbedders } from "../embeddings/embed.js"
 import { guardFor } from "../sends/guard.js"
 import { levelFor, readKeysForCommand } from "../sends/permissions.js"
 import { openStore } from "../store/store.js"
+import { agentLog } from "./agent-log.js"
 import type { HttpOptions } from "./http/serve.js"
 import { instructions } from "./instructions.js"
 import { personalMcpTools } from "./personal.js"
@@ -82,6 +83,7 @@ export const createServer = (
     }),
   })
   const skill = messenger.skill ? skillResource(app, messenger.skill) : undefined
+  const log = agentLog(() => openStore({ env: context.env, command: app.command }))
 
   const build = (): McpServer => {
     const server = new McpServer(
@@ -106,12 +108,7 @@ export const createServer = (
         withStore: context.withStore,
         log: async (call) => {
           if (!recalledAccount(app, provider, settings.profile, context.env)) return
-          const store = await openStore({ env: context.env, command: app.command })
-          try {
-            await store.agentActions.record({ actor: { bot: `${app.command}-mcp` }, ...call })
-          } finally {
-            await store.close()
-          }
+          await log.record({ actor: { bot: `${app.command}-mcp` }, ...call })
         },
         around: (key, definition, work) => {
           refreshPermissions()
@@ -161,7 +158,7 @@ export const createServer = (
     }
     return server
   }
-  return { session, embedders, build }
+  return { session, embedders, build, log }
 }
 
 /**
@@ -175,7 +172,7 @@ export const serveOverStdio = async (
   messenger: Messenger,
   options: ServerOptions,
 ): Promise<void> => {
-  const { session, embedders, build } = createServer(command, context, messenger, options)
+  const { session, embedders, build, log } = createServer(command, context, messenger, options)
   const handle = serveStdio(build, { onerror: (error) => context.renderer.note(`mcp: ${error.message}`) })
 
   await new Promise<void>((resolve) => {
@@ -189,6 +186,7 @@ export const serveOverStdio = async (
     await handle.close()
     await session.close()
   } finally {
+    await log.close()
     await embedders.close()
   }
 }
@@ -201,7 +199,7 @@ export const serveOverHttpUntilStopped = async (
   options: ServerOptions,
   http: Omit<HttpOptions, "onCode" | "onError" | "appName">,
 ): Promise<void> => {
-  const { session, embedders, build } = createServer(command, context, messenger, options)
+  const { session, embedders, build, log } = createServer(command, context, messenger, options)
   const { serveOverHttp } = await import("./http/serve.js")
   const appName = messenger.app.command
   const listening = await serveOverHttp(build, {
@@ -215,6 +213,7 @@ export const serveOverHttpUntilStopped = async (
   }).catch(async (error: unknown) => {
     await session.close()
     await embedders.close()
+    await log.close()
     if ((error as NodeJS.ErrnoException).code === "EADDRINUSE")
       throw new CliError("configuration_error", `port ${http.port} is in use — pass another with --port`)
     throw error
@@ -232,6 +231,7 @@ export const serveOverHttpUntilStopped = async (
     await listening.close()
     await session.close()
   } finally {
+    await log.close()
     await embedders.close()
   }
 }

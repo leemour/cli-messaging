@@ -395,7 +395,7 @@ const connect = async (telegram: Scripted = scripted(), options: Partial<ServerO
   })
   provide(program, { streams, tty: false, env, app })
   await program.parseAsync(["probe", ...permission.flatMap((entry) => ["--permission", entry])], { from: "user" })
-  const { session, build } = made as ReturnType<typeof createServer>
+  const { session, build, log } = made as ReturnType<typeof createServer>
 
   if (http) {
     const loginCodes: string[] = []
@@ -414,6 +414,7 @@ const connect = async (telegram: Scripted = scripted(), options: Partial<ServerO
       await listening.close()
       await session.close()
       await embedders.close()
+      await log.close()
     })
     const commands = commandsClient(client.client, "chat")
     const call = async (name: string, args: Record<string, unknown> = {}) => {
@@ -461,6 +462,7 @@ const connect = async (telegram: Scripted = scripted(), options: Partial<ServerO
     await served?.close()
     await session.close()
     await embedders.close()
+    await log.close()
   })
   const commands = commandsClient(client, "chat")
   const call = async (name: string, args: Record<string, unknown> = {}) => {
