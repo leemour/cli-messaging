@@ -1841,7 +1841,7 @@ describe("the MCP server", () => {
 
     expect(quiet.isError).toBe(false)
     expect(quiet.body.registries).toEqual([])
-    expect(implicit.body.registries).toEqual([])
+    expect(implicit.body.registries.map((one: { answer: string }) => one.answer)).toEqual(["unknown", "unknown"])
     expect(quiet.body.notes).toContain("the ban lists were not asked")
     expect(asked.body.registries.map((one: { answer: string }) => one.answer)).toEqual(["unknown", "unknown"])
   })
@@ -2222,7 +2222,7 @@ describe("sending over MCP", () => {
   })
 
   it.each(["legacy", "modern"] as const)(
-    "keeps decoded HTML text visible and its spans aligned on the %s transport",
+    "preserves decoded HTML text and its spans on the %s transport",
     async (era) => {
       const decoded = "a\u{e0041}b"
       const written: { text: string; from: number; length: number }[] = []
@@ -2251,9 +2251,7 @@ describe("sending over MCP", () => {
       const args = { chat: "7", text: "a&#xE0041;<b>b</b>", html: true }
       expect((await call("chat_messages_send", args)).isError).toBe(false)
       expect((await call("chat_messages_edit", { ...args, message: "1" })).isError).toBe(false)
-      expect(written).toEqual(
-        Array.from({ length: 2 }, () => ({ text: "a\\u{e0041}b", from: "a\\u{e0041}".length, length: 1 })),
-      )
+      expect(written).toEqual(Array.from({ length: 2 }, () => ({ text: decoded, from: 3, length: 1 })))
       for (const row of written) expect(row.text.slice(row.from, row.from + row.length)).toBe("b")
     },
   )
@@ -2284,8 +2282,8 @@ describe("sending over MCP", () => {
       expect(read.body.items[0].text).toBe(visible + flag)
       expect((await call("chat_messages_send", { chat: "7", text: hidden + flag })).isError).toBe(false)
       expect((await call("chat_messages_edit", { chat: "7", message: "1", text: hidden + flag })).isError).toBe(false)
-      expect(sent).toEqual([visible + flag])
-      expect(edited).toEqual([visible + flag])
+      expect(sent).toEqual([hidden + flag])
+      expect(edited).toEqual([hidden + flag])
     },
   )
 

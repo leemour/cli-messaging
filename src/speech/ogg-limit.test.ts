@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import { checkOggDuration } from "./ogg-limit.js"
-import { decodeOgg } from "./recognize.js"
 
 const head = Buffer.alloc(19)
 head.write("OpusHead")
@@ -26,13 +25,12 @@ const recording = (audio: Uint8Array[], channels = 1) => {
 }
 
 describe("voice duration before decoding", () => {
-  it("counts audio packets even when all container granules claim zero duration", async () => {
+  it("allows recordings beyond ten minutes while validating packet framing", () => {
     const packet = new Uint8Array([(19 << 3) | 3, 6])
     const limit = recording(Array.from({ length: 5000 }, () => packet))
     expect(() => checkOggDuration(limit)).not.toThrow()
     const oversized = recording(Array.from({ length: 5001 }, () => packet))
-    expect(() => checkOggDuration(oversized)).toThrow("10 minutes")
-    await expect(decodeOgg(oversized)).rejects.toThrow("10 minutes")
+    expect(() => checkOggDuration(oversized)).not.toThrow()
   })
 
   it("accepts all frame durations and mono or stereo before decoding", () => {

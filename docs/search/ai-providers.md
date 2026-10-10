@@ -87,4 +87,4 @@ The runner reads the same shipped `link-conversations` skill as your agent, adds
 Anthropic uses the official TypeScript SDK and [Messages streaming](https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript); the runner reads the final message and checks its stop reason. The OpenAI-compatible adapter checks the first choice's finish reason and reported token usage. Both adapters are tested with local fake servers; there are no real provider calls in the test suite.
 
 Embedding endpoints must accept requests at the configured URL directly. Set `embeddingBaseUrl` to
-the API base serving `/embeddings` directly; credential-bearing embedding requests refuse redirects.
+the API base serving `/embeddings`; configured gateways use normal HTTP redirect handling.

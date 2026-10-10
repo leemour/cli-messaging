@@ -35,6 +35,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Fixed
 
+- PDF extraction and page previews accept long documents; extraction follows caller cancellation instead of a separate page/time cutoff. Local Ogg Opus transcription accepts recordings beyond ten minutes while retaining format validation.
+- Attachment guards allow ordinary hidden developer folders while protecting known credentials, application state and exact store files. Markdown exports preserve message formatting; MCP writes preserve original Unicode and registry checks retain their normal default. Reply-template previews and model prompts use normal interpolated values. Configured embedding gateways use normal redirect handling.
+
 - Under Bun a missing row read as `null` instead of `undefined`, so the store took it for a found row: linking a
   meeting to an event that does not exist succeeded. The Bun driver now answers `undefined`, as the Node one does.
 

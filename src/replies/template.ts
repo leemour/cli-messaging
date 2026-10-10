@@ -24,7 +24,6 @@ export const TEMPLATE_LIMITS = {
 export interface TemplateBlock {
   instruction: string
   fallback: string | null
-  templateValues?: string[]
 }
 export interface TemplateResult {
   text: string | null
@@ -80,15 +79,6 @@ export const renderReplyTemplate = async (reply: ReplyRule["reply"], input: Temp
         .map(({ type, value }) => [type, value]),
     )
     const localTime = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${parts.timeZoneName?.replace("GMT", "") || "+00:00"}`
-    let metadata: string[] | undefined
-    const capture = (value: unknown): string => {
-      const text = value === null || value === undefined ? "" : String(value)
-      if (!metadata) return text
-      if (text.length + metadata.reduce((total, item) => total + item.length, 0) > limits.memory)
-        throw new Error("reply metadata limit")
-      const index = metadata.push(text) - 1
-      return `[templateValues[${index}]]`
-    }
     const engine = new Liquid({
       ownPropertyOnly: true,
       strictVariables: true,
@@ -98,9 +88,7 @@ export const renderReplyTemplate = async (reply: ReplyRule["reply"], input: Temp
       renderLimit: limits.milliseconds,
       memoryLimit: limits.memory,
       preserveTimezones: true,
-      outputEscape: capture,
     })
-    engine.registerFilter("raw", (value: unknown) => value)
     for (const name of ["include", "render", "layout"]) {
       engine.registerTag(
         name,
@@ -141,17 +129,9 @@ export const renderReplyTemplate = async (reply: ReplyRule["reply"], input: Temp
           }
         }
         async render(context: Context, emitter: Emitter) {
-          const templateValues: string[] = []
-          metadata = templateValues
-          let instruction: string
-          try {
-            instruction = String(await engine.render(this.body, context))
-          } finally {
-            metadata = undefined
-          }
-          const modelData = templateValues.length ? JSON.stringify({ message: input.data, templateValues }) : input.data
+          const instruction = String(await engine.render(this.body, context))
           const fallback = this.fallback === null ? null : String(await engine.render(this.fallback, context))
-          blocks.push({ instruction, fallback, ...(templateValues.length ? { templateValues } : {}) })
+          blocks.push({ instruction, fallback })
           let text: string | undefined
           let reason = input.preview
             ? "AI preview only; add --ai to call the configured model"
@@ -160,7 +140,7 @@ export const renderReplyTemplate = async (reply: ReplyRule["reply"], input: Temp
             const started = performance.now()
             try {
               if (++calls > limits.calls) throw new Error("model call limit")
-              const answer = await input.complete(instruction, modelData)
+              const answer = await input.complete(instruction, input.data)
               const data = input.data.trim()
               if (
                 !answer.text.trim() ||

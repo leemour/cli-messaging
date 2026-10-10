@@ -81,7 +81,7 @@ const sendCommand = (bot: BotMessenger): Command =>
     .option("--photo <file>", "attach a .jpg, .png or .webp as a photo; the text becomes its caption")
     .option("--as-file", "send the --file as a file to download, a video included")
     .option("--voice <file>", "send an Ogg Opus file as a voice message, alone, with no text")
-    .option("--allow-any-file", "send a file even from a hidden folder, ~/.ssh or this CLI's own folders")
+    .option("--allow-any-file", "send a file even from credential folders or this CLI's own folders")
     .action(async function (this: Command, chat: string, text: string | undefined) {
       const context = botContext(this, bot)
       const options = this.opts<{

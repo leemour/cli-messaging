@@ -112,7 +112,7 @@ describe("replies test", () => {
     const preview = await replies(["replies", "test", "--since-time", "1d", "--json"], env)
     expect(JSON.parse(preview.stdout.join("")).rules[0].would[0]).toMatchObject({
       text: "Later",
-      blocks: [{ instruction: "Greet [templateValues[0]]", fallback: "Later" }],
+      blocks: [{ instruction: "Greet Ana", fallback: "Later" }],
     })
     expect(fetcher).not.toHaveBeenCalled()
     const modeled = await replies(["replies", "test", "--ai", "--json"], env)

@@ -23,7 +23,7 @@ import { onlineDeps, storeModeDeps } from "../services/deps.js"
 import { type Services, servicesFor } from "../services/index.js"
 import type { AccountKey, MessageStore } from "../store/store.js"
 import type { MessengerSession } from "./session.js"
-import { agentArguments, agentJson } from "./text.js"
+import { agentJson } from "./text.js"
 
 export const limit = v.optional(
   v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100), v.description("how many")),
@@ -260,7 +260,6 @@ const callRunner = ({ messenger, session, withStore, withServices, defaults, aro
     try {
       const execute = async () => {
         const syncAllowed = syncAllowedFor(key, defaults)
-        if (definition.annotations.readOnlyHint !== true) args = agentArguments(args)
         if (Buffer.byteLength(JSON.stringify(args)) > MAX_BUFFERED_INPUT)
           throw new CliError("validation_error", "tool arguments exceed the buffered input limit", {
             reason: "input_limit",

@@ -10,7 +10,7 @@ import { HTML_TOOL_HELP } from "./messages-send.js"
 export const messageActionTools = (messenger: Messenger): Record<string, AnyTool> => {
   const chat = chatOf(messenger)
   const messages = (adapter: MessengerAdapter, guard: SendGuard) =>
-    servicesFor({ ...onlineDeps(messenger, adapter, guard), agentText: true }).messages
+    servicesFor({ ...onlineDeps(messenger, adapter, guard) }).messages
   const forwardInput = {
     chat: v.pipe(v.string(), v.minLength(1), v.description("the chat the message is in")),
     message,
