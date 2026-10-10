@@ -6,6 +6,8 @@ import type { AccountKey, MessageStore } from "../store/store.js"
 
 export const TIMELINE_ITEMS = 50
 export const TIMELINE_MAX = 500
+/** How long one call may spend recomputing what changed since the last; the rest waits for the next call. */
+export const TIMELINE_DRAIN_MS = 2_000
 export const SCOPES = ["personal", "work"] as const
 export type Scope = (typeof SCOPES)[number]
 
@@ -28,6 +30,8 @@ export interface PersonTimeline {
   items: TimelineItem[]
   limits: { items: number }
   hasMore: boolean
+  /** Changes still queued when the time to recompute ran out; the items leave them out until a later call. */
+  pending: number
 }
 
 export interface TimelineOptions {
@@ -57,7 +61,8 @@ export const personTimeline = async (
   const record = await store.personOf({ provider: asked.provider, id: found.id })
   if (!record) throw new CliError("not_found", `no person ${found.id} in the store`)
   const personId = Number(record.uid)
-  store.involvements.rebuild(personId)
+  const stop = Date.now() + TIMELINE_DRAIN_MS
+  const { pending } = store.involvements.drain({ until: () => Date.now() >= stop })
   const rows = store.involvements.forPerson(personId, {
     ...(scope === undefined ? {} : { scope }),
     ...(since === undefined ? {} : { since }),
@@ -84,5 +89,6 @@ export const personTimeline = async (
     })),
     limits: { items: limit },
     hasMore: rows.length > limit,
+    pending,
   }
 }

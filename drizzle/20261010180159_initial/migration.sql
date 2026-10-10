@@ -464,6 +464,12 @@ CREATE TABLE `identity_revisions` (
 	CONSTRAINT `fk_identity_revisions_identity_id_identities_id_fk` FOREIGN KEY (`identity_id`) REFERENCES `identities`(`id`)
 );
 --> statement-breakpoint
+CREATE TABLE `involvement_pending` (
+	`id` integer NOT NULL,
+	`indexable_type` text NOT NULL,
+	CONSTRAINT `involvement_pending_pk` PRIMARY KEY(`indexable_type`, `id`)
+);
+--> statement-breakpoint
 CREATE TABLE `involvements` (
 	`id` integer PRIMARY KEY,
 	`person_id` integer,
@@ -1520,6 +1526,129 @@ CREATE TABLE search_term_trigrams (
   term    TEXT NOT NULL,
   PRIMARY KEY (trigram, length, term)
 ) WITHOUT ROWID;--> statement-breakpoint
+-- Who took part in what. A change only queues the thing it touches; the drain recomputes that thing's rows,
+-- so no write parses `mentions` and no sync rebuilds the whole index. A person relinked keeps their rows.
+CREATE TRIGGER involvement_message_ai AFTER INSERT ON messages BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('message', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_message_au AFTER UPDATE OF sender_identity_id, mentions, deleted_at, sent_at, chat_id ON messages
+  WHEN old.sender_identity_id IS NOT new.sender_identity_id OR old.mentions IS NOT new.mentions
+    OR old.deleted_at IS NOT new.deleted_at OR old.sent_at IS NOT new.sent_at OR old.chat_id IS NOT new.chat_id BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('message', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_message_ad AFTER DELETE ON messages BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('message', old.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_chat_member_ai AFTER INSERT ON chat_members BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('chat', new.chat_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_chat_member_ad AFTER DELETE ON chat_members BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('chat', old.chat_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_chat_scope AFTER UPDATE OF scope ON chats WHEN old.scope IS NOT new.scope BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('chat', new.id);
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'message', id FROM messages WHERE chat_id = new.id;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_account_scope AFTER UPDATE OF scope ON accounts WHEN old.scope IS NOT new.scope BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'chat', id FROM chats WHERE account_id = new.id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'message', id FROM messages WHERE account_id = new.id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'meeting', id FROM meetings WHERE account_id = new.id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'email', id FROM emails WHERE account_id = new.id;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_meeting_au AFTER UPDATE OF deleted_at, started_at ON meetings
+  WHEN old.deleted_at IS NOT new.deleted_at OR old.started_at IS NOT new.started_at BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('meeting', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_meeting_ad AFTER DELETE ON meetings BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('meeting', old.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_meeting_participant_ai AFTER INSERT ON meeting_participants BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('meeting', new.meeting_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_meeting_participant_au AFTER UPDATE OF identity_id ON meeting_participants WHEN old.identity_id IS NOT new.identity_id BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('meeting', new.meeting_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_meeting_participant_ad AFTER DELETE ON meeting_participants BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('meeting', old.meeting_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_email_ai AFTER INSERT ON emails BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('email', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_email_au AFTER UPDATE OF from_identity_id, deleted_at, sent_at, received_at ON emails
+  WHEN old.from_identity_id IS NOT new.from_identity_id OR old.deleted_at IS NOT new.deleted_at
+    OR old.sent_at IS NOT new.sent_at OR old.received_at IS NOT new.received_at BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('email', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_email_ad AFTER DELETE ON emails BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('email', old.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_email_recipient_ai AFTER INSERT ON email_recipients BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('email', new.email_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_email_recipient_ad AFTER DELETE ON email_recipients BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('email', old.email_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_task_ai AFTER INSERT ON tasks BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('task', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_task_au AFTER UPDATE OF author_type, author_id, deleted_at, project_id ON tasks
+  WHEN old.author_type IS NOT new.author_type OR old.author_id IS NOT new.author_id
+    OR old.deleted_at IS NOT new.deleted_at OR old.project_id IS NOT new.project_id BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('task', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_task_ad AFTER DELETE ON tasks BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('task', old.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_task_assignment_ai AFTER INSERT ON task_assignments BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('task', new.task_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_task_assignment_ad AFTER DELETE ON task_assignments BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('task', old.task_id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_project_scope AFTER UPDATE OF scope ON projects WHEN old.scope IS NOT new.scope BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('project', new.id);
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'task', id FROM tasks WHERE project_id = new.id;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_document_au AFTER UPDATE OF deleted_at ON documents WHEN old.deleted_at IS NOT new.deleted_at BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('document', new.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_document_ad AFTER DELETE ON documents BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES ('document', old.id);
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_link_ai AFTER INSERT ON links BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES (new.from_type, new.from_id);
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT new.to_type, new.to_id
+    WHERE new.from_type IN ('person', 'identity') AND new.to_id IS NOT NULL;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_link_au AFTER UPDATE ON links BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES (old.from_type, old.from_id);
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT old.to_type, old.to_id
+    WHERE old.from_type IN ('person', 'identity') AND old.to_id IS NOT NULL;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES (new.from_type, new.from_id);
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT new.to_type, new.to_id
+    WHERE new.from_type IN ('person', 'identity') AND new.to_id IS NOT NULL;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_link_ad AFTER DELETE ON links BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) VALUES (old.from_type, old.from_id);
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT old.to_type, old.to_id
+    WHERE old.from_type IN ('person', 'identity') AND old.to_id IS NOT NULL;
+END;--> statement-breakpoint
+-- One identity links to one person, so a relink moves its rows and an unlink drops them. A new link queues
+-- what the identity already took part in; a mention of it in an older message waits for `store reindex`.
+CREATE TRIGGER involvement_identity_link_ai AFTER INSERT ON identity_links BEGIN
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'message', id FROM messages WHERE sender_identity_id = new.identity_id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'chat', chat_id FROM chat_members WHERE identity_id = new.identity_id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'meeting', meeting_id FROM meeting_participants WHERE identity_id = new.identity_id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'email', id FROM emails WHERE from_identity_id = new.identity_id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT 'email', email_id FROM email_recipients WHERE identity_id = new.identity_id;
+  INSERT OR IGNORE INTO involvement_pending (indexable_type, id) SELECT from_type, from_id FROM links WHERE to_type = 'identity' AND to_id = new.identity_id;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_identity_link_au AFTER UPDATE OF person_id ON identity_links WHEN old.person_id IS NOT new.person_id BEGIN
+  UPDATE involvements SET person_id = new.person_id WHERE identity_id = new.identity_id;
+END;--> statement-breakpoint
+CREATE TRIGGER involvement_identity_link_ad AFTER DELETE ON identity_links BEGIN
+  DELETE FROM involvements WHERE identity_id = old.identity_id;
+END;--> statement-breakpoint
 -- A new file has nothing to fill: the words index is built at once. `analyzer` stays NULL until the first
 -- drain claims it.
 INSERT INTO search_index_state (name, watermark, filled_through, terms_through, normalizer_version, built_at, analyzer)

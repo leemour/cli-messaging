@@ -10,7 +10,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 - **`contacts timeline <person>` and the MCP tool `contacts_timeline`**: everything one person took part in, in every
   messenger linked to them, newest first, with `--scope personal|work`, `--since-time`, `--until-time` and `--limit`.
-  A message comes with its locator. `store.involvements.forPerson` takes `since` and `until`.
+  A message comes with its locator, and `pending` counts changes not yet indexed. `store.involvements.forPerson` takes
+  `since` and `until`. The index stays current: writes queue what they change (`involvement_pending`),
+  `store.involvements.drain()` recomputes only that, and `store reindex` rebuilds it whole.
 - `store.botUpdates` records Bot API deliveries once per account and update id, with handling, failure and replay state.
 - `store.involvements` rebuilds a person timeline across messages, chats, meetings, mail, tasks and person links; reads
   can filter scope and return newest first through the person index.

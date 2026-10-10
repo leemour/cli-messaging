@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "c1519e2d-c580-4204-8688-6ef6d8575f0f",
+  "id": "74db9b82-4f46-4916-9414-38fd547dd7b4",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -132,6 +132,10 @@
     },
     {
       "name": "identity_revisions",
+      "entityType": "tables"
+    },
+    {
+      "name": "involvement_pending",
       "entityType": "tables"
     },
     {
@@ -3391,6 +3395,26 @@
       "name": "created_at",
       "entityType": "columns",
       "table": "identity_revisions"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "involvement_pending"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "indexable_type",
+      "entityType": "columns",
+      "table": "involvement_pending"
     },
     {
       "type": "integer",
@@ -9071,6 +9095,16 @@
       "name": "fetch_leases_pk",
       "entityType": "pks",
       "table": "fetch_leases"
+    },
+    {
+      "columns": [
+        "indexable_type",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "involvement_pending_pk",
+      "entityType": "pks",
+      "table": "involvement_pending"
     },
     {
       "columns": [
