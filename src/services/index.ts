@@ -81,6 +81,8 @@ export type {
   SharedChat,
 } from "./person-context.js"
 export { CONTEXT_BYTES, CONTEXT_MESSAGES, identityIn, personContext } from "./person-context.js"
+export type { PersonTimeline, Scope, TimelineItem, TimelineOptions } from "./person-timeline.js"
+export { personTimeline, SCOPES, TIMELINE_ITEMS, TIMELINE_MAX } from "./person-timeline.js"
 export type { RankedRow, RankingFound, RankingQuery, RankingsService } from "./rankings.js"
 export { rankingsService } from "./rankings.js"
 export type { ResolvedSearch, SearchesService, SearchParams } from "./searches.js"

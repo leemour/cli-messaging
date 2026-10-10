@@ -1,4 +1,5 @@
 import type { CacheDatabase } from "../driver.js"
+import { drainInvolvementQueue } from "./involvement-queue.js"
 
 let depth = 0
 
@@ -14,6 +15,7 @@ export const atomic = <T>(database: CacheDatabase, body: () => T): T => {
   depth += 1
   try {
     const result = body()
+    if (outer) drainInvolvementQueue(database)
     database.exec(outer ? "COMMIT" : `RELEASE ${name}`)
     return result
   } catch (error) {

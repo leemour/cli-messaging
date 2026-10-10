@@ -48,6 +48,7 @@ import { applyCounterObservations, type CounterTarget, counterStates, counterTar
 import { type DecisionsStore, decisionsStoreOver } from "./sqlite/decisions.js"
 import { type MailStore, mailStoreOver } from "./sqlite/emails.js"
 import * as identities from "./sqlite/identities.js"
+import { drainInvolvementQueue } from "./sqlite/involvement-queue.js"
 import { type InvolvementStore, involvementStoreOver } from "./sqlite/involvements.js"
 import { type KnowledgeStore, knowledgeStoreOver } from "./sqlite/knowledge.js"
 import { findRegex } from "./sqlite/legacy-regex.js"
@@ -765,6 +766,7 @@ const storeOver = (context: StoreContext): MessageStore => {
     try {
       body()
       stems.drainStems(database, stemmerFor)
+      drainInvolvementQueue(database)
       database.exec("COMMIT")
     } catch (error) {
       database.exec("ROLLBACK")

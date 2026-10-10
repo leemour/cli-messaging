@@ -24,6 +24,7 @@ import { storePath } from "../../store/path.js"
 import { deleteCopy, type RepairReport, repairStore } from "../../store/repair.js"
 import { resetAttachmentWords } from "../../store/sqlite/attachment-texts.js"
 import { pendingNormalization } from "../../store/sqlite/backfill.js"
+import { involvementStoreOver } from "../../store/sqlite/involvements.js"
 import { drainNoteIndex, noteIndexState, resetNoteIndex } from "../../store/sqlite/note-index.js"
 import { fillSearchIndex, resetSearchIndex, searchIndexState } from "../../store/sqlite/search-index.js"
 import { fillStems, resetStems, stemmerCache, stemsState } from "../../store/sqlite/stems.js"
@@ -467,7 +468,7 @@ const buildNoteIndex = (database: CacheDatabase, note: (text: string) => void, {
 const reindexCommand = (messenger: Messenger): Command =>
   new Command("reindex")
     .description(
-      "rebuild the word index, its typo vocabulary, the stems, the files' word index and the notes' indexes from what is stored; loses nothing",
+      "rebuild the word index, its typo vocabulary, the stems, the files' word index, the notes' indexes and who took part in what, from what is stored; loses nothing",
     )
     .action(async function (this: Command) {
       const { renderer } = outputFor(this)
@@ -501,6 +502,7 @@ const reindexCommand = (messenger: Messenger): Command =>
           fileTexts,
           ...buildStems(database, (note) => renderer.note(note), { force: true }),
           ...buildNoteIndex(database, (note) => renderer.note(note), { reset: true }),
+          involvements: involvementStoreOver({ database, now: Date.now }).rebuild(),
         }
       })
       renderer.result(answer)

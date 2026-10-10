@@ -5,7 +5,7 @@ of the store plan's schema page, generated from the same spec; `src/store/sqlite
 hand-written SQL in `drizzle/` must agree with it, and `src/store/sqlite/schema.test.ts` checks every table
 and column of a new store against this page.
 
-77 tables, 16 full-text indexes; 50 new, 14 of today's dropped or merged.
+78 tables, 16 full-text indexes; 51 new, 14 of today's dropped or merged.
 Status: **new** — added; **changed** — merged, split or reshaped; **renamed** — naming rules and timestamps only; **kept** — as today.
 
 ## Conventions
@@ -1552,6 +1552,17 @@ Who took part in what, and when: one row per person or identity per message, ema
 | `created_at` | integer | not null |  | when this row was saved here |
 
 *Keys and indexes:* `INDEX (person_id, occurred_at DESC)`, `INDEX (identity_id, occurred_at DESC)`, `INDEX (subject_type, subject_id)`, `INDEX (account_id)`, `INDEX (project_id)`
+
+### `involvement_pending` — new
+
+Things whose `involvements` rows are stale: a message, chat, meeting, email, task or anything a link starts from. Triggers enqueue; the drain recomputes that thing's rows.
+
+| Column | Type | Constraints | References | Meaning |
+|---|---|---|---|---|
+| `id` | integer | not null |  |  |
+| `indexable_type` | text | not null |  | which table the waiting row belongs to |
+
+*Keys and indexes:* `PRIMARY KEY (indexable_type, id)`
 
 ### `chunks` — new
 

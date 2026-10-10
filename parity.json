@@ -862,6 +862,10 @@
       "value": "<name|id>",
       "meaning": "run a saved search, or an earlier run by its id; options typed with it replace its own, more words are AND-ed"
     },
+    "--scope": {
+      "value": "<personal|work>",
+      "meaning": "only what belongs to personal or to work accounts"
+    },
     "--score": {
       "value": "<helpful|active|engaging>",
       "meaning": "the named ranking score preset; not with an explicit --measure"
@@ -2404,6 +2408,43 @@
     },
     "contacts sync": {
       "in": "all"
+    },
+    "contacts timeline": {
+      "in": [],
+      "planned": {
+        "max": "each CLI's next cli-messaging bump",
+        "tg": "each CLI's next cli-messaging bump"
+      },
+      "options": {
+        "--limit": {
+          "in": [],
+          "planned": {
+            "max": "each CLI's next cli-messaging bump",
+            "tg": "each CLI's next cli-messaging bump"
+          }
+        },
+        "--scope": {
+          "in": [],
+          "planned": {
+            "max": "each CLI's next cli-messaging bump",
+            "tg": "each CLI's next cli-messaging bump"
+          }
+        },
+        "--since-time": {
+          "in": [],
+          "planned": {
+            "max": "each CLI's next cli-messaging bump",
+            "tg": "each CLI's next cli-messaging bump"
+          }
+        },
+        "--until-time": {
+          "in": [],
+          "planned": {
+            "max": "each CLI's next cli-messaging bump",
+            "tg": "each CLI's next cli-messaging bump"
+          }
+        }
+      }
     },
     "contacts unblock": {
       "in": "all"

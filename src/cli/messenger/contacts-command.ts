@@ -6,6 +6,7 @@ import { phoneOf } from "../../services/index.js"
 import { momentOf } from "../../services/moment.js"
 import { maskedAccount } from "../../services/people.js"
 import { CHAT_MESSAGES, CONTEXT_BYTES, CONTEXT_MESSAGES } from "../../services/person-context.js"
+import { SCOPES, type Scope, TIMELINE_ITEMS } from "../../services/person-timeline.js"
 import { readSecret } from "../../terminal/prompt.js"
 import { positiveCount, renderPage, window, withPaging } from "../paging.js"
 import { casKey } from "../registry-keys.js"
@@ -139,6 +140,39 @@ export const contactsCommand = (messenger: Messenger): Command => {
         )
       }
       if (found.hasMore) context.renderer.note("cut at --limit; a larger one shows more")
+      context.renderer.result(found)
+    })
+
+  contacts
+    .command("timeline")
+    .description(
+      "everything one person took part in, in every messenger linked to them — messages they wrote or were " +
+        "mentioned in, chats, mail, meetings, tasks — newest first, from the store; never connects",
+    )
+    .argument("<person>", "their id, @username, or part of their name")
+    .option("--scope <personal|work>", "only what belongs to personal or to work accounts")
+    .option("--since-time <time>", "nothing older than this ISO 8601 time, or 2h / 1d ago")
+    .option("--until-time <time>", "through this ISO 8601 time, or 2h / 1d ago")
+    .option("--limit <n>", `at most this many; ${TIMELINE_ITEMS} if not given`, positiveCount("--limit"))
+    .action(async function (this: Command, person: string) {
+      const { scope, sinceTime, untilTime, limit } = this.opts<{
+        scope?: string
+        sinceTime?: string
+        untilTime?: string
+        limit?: number
+      }>()
+      if (scope !== undefined && !(SCOPES as readonly string[]).includes(scope))
+        throw new CliError("validation_error", `--scope is personal or work, not "${scope}"`)
+      const context = messengerContext(this, messenger)
+      const found = await context.withServices((services) =>
+        services.people.timeline(person, {
+          ...(scope === undefined ? {} : { scope: scope as Scope }),
+          ...(sinceTime === undefined ? {} : { since: momentOf(sinceTime, "--since-time") }),
+          ...(untilTime === undefined ? {} : { until: momentOf(untilTime, "--until-time") }),
+          ...(limit === undefined ? {} : { limit }),
+        }),
+      )
+      if (found.hasMore) context.renderer.note("cut at --limit; a larger one or a narrower time range shows more")
       context.renderer.result(found)
     })
 

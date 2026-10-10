@@ -1547,6 +1547,16 @@ export const involvements = sqliteTable(
   ],
 )
 
+/** Things whose `involvements` rows are stale. Triggers fill it; the drain in JS recomputes and empties it. */
+export const involvementPending = sqliteTable(
+  "involvement_pending",
+  {
+    id: integer("id").notNull(),
+    indexableType: text("indexable_type").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.indexableType, table.id] })],
+)
+
 export const chunks = sqliteTable(
   "chunks",
   {

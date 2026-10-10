@@ -1,4 +1,6 @@
 import { CliError } from "@wirecat/cli-core"
+import type { CacheDatabase } from "../driver.js"
+import { drainInvolvementQueue, INSERT, sourcesOf } from "./involvement-queue.js"
 import type { StoreContext } from "./open.js"
 import { inBatch } from "./search-index.js"
 
@@ -12,64 +14,40 @@ export interface Involvement {
   scope: string
   accountId: number | null
   projectId: number | null
+  /** The account's and the chat's own ids, and the message's, where the subject is a message or a chat. */
+  provider: string | null
+  account: string | null
+  chat: string | null
+  message: string | null
 }
 
 export interface InvolvementStore {
+  /** Every row from scratch, or one person's; `store reindex` runs it, and it empties the queue. */
   rebuild(personId?: number): number
-  forPerson(personId: number, options?: { scope?: string; limit?: number }): Involvement[]
+  /** Recomputes what is still queued; every write already does this before it commits. */
+  drain(): { recomputed: number; pending: number }
+  /** How many changes wait in the queue: more than one write recomputes, left for the next one. */
+  pending(): number
+  /**
+   * `since` and `until` are ms, both inclusive. `only` keeps, of `only.provider`, that one account's rows —
+   * another account of the same messenger is somebody else's view; other providers and rows of no account stay.
+   */
+  forPerson(
+    personId: number,
+    options?: {
+      scope?: string
+      since?: number
+      until?: number
+      only?: { provider: string; account: string }
+      limit?: number
+    },
+  ): Involvement[]
 }
 
-const sources = `
-  SELECT il.person_id, m.sender_identity_id AS identity_id, 'message' AS subject_type, m.id AS subject_id,
-    'sender' AS role, m.sent_at AS occurred_at, coalesce(c.scope,a.scope) AS scope, m.account_id, NULL AS project_id
-    FROM messages m JOIN identity_links il ON il.identity_id=m.sender_identity_id
-    JOIN chats c ON c.id=m.chat_id JOIN accounts a ON a.id=m.account_id WHERE m.deleted_at IS NULL
-  UNION
-  SELECT il.person_id, i.id, 'message', m.id, 'mentioned', m.sent_at, coalesce(c.scope,a.scope), m.account_id, NULL
-    FROM messages m JOIN chats c ON c.id=m.chat_id JOIN accounts a ON a.id=m.account_id
-    JOIN json_each(m.mentions) mention JOIN identities i ON i.external_id=mention.value AND i.provider=a.provider
-    JOIN identity_links il ON il.identity_id=i.id WHERE m.deleted_at IS NULL
-  UNION
-  SELECT il.person_id, cm.identity_id, 'chat', c.id, 'participant', cm.created_at,
-    coalesce(c.scope,a.scope), c.account_id, NULL FROM chat_members cm
-    JOIN identity_links il ON il.identity_id=cm.identity_id JOIN chats c ON c.id=cm.chat_id JOIN accounts a ON a.id=c.account_id
-  UNION
-  SELECT il.person_id, mp.identity_id, 'meeting', m.id, 'participant', coalesce(m.started_at,m.created_at),
-    a.scope, m.account_id, NULL FROM meeting_participants mp JOIN identity_links il ON il.identity_id=mp.identity_id
-    JOIN meetings m ON m.id=mp.meeting_id JOIN accounts a ON a.id=m.account_id WHERE m.deleted_at IS NULL
-  UNION
-  SELECT il.person_id, e.from_identity_id, 'email', e.id, 'sender', coalesce(e.sent_at,e.received_at,e.created_at),
-    a.scope, e.account_id, NULL FROM emails e JOIN identity_links il ON il.identity_id=e.from_identity_id
-    JOIN accounts a ON a.id=e.account_id WHERE e.deleted_at IS NULL
-  UNION
-  SELECT il.person_id, er.identity_id, 'email', e.id, 'recipient', coalesce(e.sent_at,e.received_at,e.created_at),
-    a.scope, e.account_id, NULL FROM email_recipients er JOIN identity_links il ON il.identity_id=er.identity_id
-    JOIN emails e ON e.id=er.email_id JOIN accounts a ON a.id=e.account_id WHERE e.deleted_at IS NULL
-  UNION
-  SELECT ta.assignee_id, NULL, 'task', t.id, 'assignee', t.created_at, coalesce(p.scope,'personal'),
-    NULL, t.project_id FROM task_assignments ta JOIN tasks t ON t.id=ta.task_id JOIN projects p ON p.id=t.project_id
-    WHERE ta.assignee_type='person' AND t.deleted_at IS NULL
-  UNION
-  SELECT t.author_id, NULL, 'task', t.id, 'author', t.created_at, coalesce(p.scope,'personal'), NULL, t.project_id
-    FROM tasks t JOIN projects p ON p.id=t.project_id WHERE t.author_type='person' AND t.deleted_at IS NULL
-  UNION
-  SELECT CASE WHEN l.to_type='person' THEN l.to_id ELSE il.person_id END, CASE WHEN l.to_type='identity' THEN l.to_id END, l.from_type, l.from_id, coalesce(l.role,'linked'), l.created_at,
-    coalesce(c.scope,a.scope,p.scope,'personal'), coalesce(m.account_id,c.account_id,e.account_id,mt.account_id,d.account_id), p.id
-    FROM (SELECT from_type,from_id,to_type,to_id,role,created_at,confirmed FROM links
-      UNION ALL SELECT to_type,to_id,from_type,from_id,role,created_at,confirmed FROM links WHERE from_type IN ('person','identity') AND to_id IS NOT NULL) l
-    LEFT JOIN identity_links il ON l.to_type='identity' AND il.identity_id=l.to_id
-    LEFT JOIN messages m ON l.from_type='message' AND m.id=l.from_id
-    LEFT JOIN chats c ON c.id=CASE WHEN l.from_type='chat' THEN l.from_id ELSE m.chat_id END
-    LEFT JOIN emails e ON l.from_type='email' AND e.id=l.from_id
-    LEFT JOIN meetings mt ON l.from_type='meeting' AND mt.id=l.from_id
-    LEFT JOIN documents d ON l.from_type='document' AND d.id=l.from_id
-    LEFT JOIN tasks t ON l.from_type='task' AND t.id=l.from_id
-    LEFT JOIN projects p ON p.id=CASE WHEN l.from_type='project' THEN l.from_id ELSE t.project_id END
-    LEFT JOIN accounts a ON a.id=coalesce(m.account_id,c.account_id,e.account_id,mt.account_id,d.account_id)
-    WHERE l.to_type IN ('person','identity') AND l.to_id IS NOT NULL AND l.confirmed=1 AND (l.from_type<>'message' OR m.deleted_at IS NULL) AND (l.from_type<>'email' OR e.deleted_at IS NULL) AND (l.from_type<>'meeting' OR mt.deleted_at IS NULL) AND (l.from_type<>'task' OR t.deleted_at IS NULL) AND (l.from_type<>'document' OR d.deleted_at IS NULL)
-`
+const pendingInvolvements = (database: CacheDatabase): number =>
+  Number(database.prepare("SELECT count(*) AS n FROM involvement_pending").get()?.n ?? 0)
 
-export const involvementStoreOver = ({ database, now }: StoreContext): InvolvementStore => ({
+export const involvementStoreOver = ({ database, now }: Pick<StoreContext, "database" | "now">): InvolvementStore => ({
   rebuild: (personId) =>
     inBatch(database, () => {
       if (personId !== undefined && (!Number.isSafeInteger(personId) || personId < 1))
@@ -77,19 +55,36 @@ export const involvementStoreOver = ({ database, now }: StoreContext): Involveme
       database
         .prepare(`DELETE FROM involvements ${personId === undefined ? "" : "WHERE person_id=?"}`)
         .run(...(personId === undefined ? [] : [personId]))
+      if (personId === undefined) database.exec("DELETE FROM involvement_pending")
       return database
-        .prepare(`INSERT INTO involvements (person_id, identity_id, subject_type, subject_id, role, occurred_at, scope, account_id, project_id, created_at)
-      SELECT s.*, ? FROM (${sources}) s JOIN persons p ON p.id=s.person_id ${personId === undefined ? "" : "WHERE s.person_id=?"}`)
+        .prepare(`${INSERT}
+      SELECT s.*, ? FROM (${sourcesOf()}) s JOIN persons p ON p.id=s.person_id ${personId === undefined ? "" : "WHERE s.person_id=?"}`)
         .run(now(), ...(personId === undefined ? [] : [personId])).changes
     }),
-  forPerson: (personId, { scope, limit = 100 } = {}) => {
+  drain: () => {
+    const recomputed = inBatch(database, () => drainInvolvementQueue(database))
+    return { recomputed, pending: pendingInvolvements(database) }
+  },
+  pending: () => pendingInvolvements(database),
+  forPerson: (personId, { scope, since, until, only, limit = 100 } = {}) => {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new CliError("validation_error", "involvement limit takes 1–1000")
+    const filters = [
+      ...(scope === undefined ? [] : [["AND i.scope=?", scope] as const]),
+      ...(since === undefined ? [] : [["AND i.occurred_at>=?", since] as const]),
+      ...(until === undefined ? [] : [["AND i.occurred_at<=?", until] as const]),
+    ]
+    const account = only === undefined ? [] : [only.provider, only.account]
     return database
       .prepare(
-        `SELECT * FROM involvements WHERE person_id=? ${scope === undefined ? "" : "AND scope=?"} ORDER BY occurred_at DESC, id DESC LIMIT ?`,
+        `SELECT i.*, a.provider, a.external_id AS account, c.external_id AS chat, m.external_id AS message
+          FROM involvements i LEFT JOIN accounts a ON a.id=i.account_id
+          LEFT JOIN messages m ON i.subject_type='message' AND m.id=i.subject_id
+          LEFT JOIN chats c ON c.id=CASE WHEN i.subject_type='chat' THEN i.subject_id ELSE m.chat_id END
+          WHERE i.person_id=? ${filters.map(([sql]) => sql).join(" ")}
+          ${only === undefined ? "" : "AND (a.provider IS NULL OR a.provider<>? OR a.external_id=?)"} ORDER BY i.occurred_at DESC, i.id DESC LIMIT ?`,
       )
-      .all(personId, ...(scope === undefined ? [] : [scope]), limit)
+      .all(personId, ...filters.map(([, value]) => value), ...account, limit)
       .map((row) => ({
         personId: Number(row.person_id),
         identityId: row.identity_id == null ? null : Number(row.identity_id),
@@ -100,6 +95,10 @@ export const involvementStoreOver = ({ database, now }: StoreContext): Involveme
         scope: String(row.scope),
         accountId: row.account_id == null ? null : Number(row.account_id),
         projectId: row.project_id == null ? null : Number(row.project_id),
+        provider: row.provider == null ? null : String(row.provider),
+        account: row.account == null ? null : String(row.account),
+        chat: row.chat == null ? null : String(row.chat),
+        message: row.message == null ? null : String(row.message),
       }))
   },
 })

@@ -1,6 +1,7 @@
 import { trigrams } from "../../search/trigrams.js"
 import type { CacheDatabase } from "../driver.js"
 import { backfillNormalized, pendingNormalization } from "./backfill.js"
+import { drainInvolvementQueue } from "./involvement-queue.js"
 
 const INDEX = "message_words"
 
@@ -50,6 +51,7 @@ export const inBatch = <T>(database: CacheDatabase, body: () => T): T => {
   database.exec("BEGIN IMMEDIATE")
   try {
     const result = body()
+    drainInvolvementQueue(database)
     database.exec("COMMIT")
     return result
   } catch (error) {

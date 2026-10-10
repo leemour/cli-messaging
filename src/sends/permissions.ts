@@ -431,7 +431,7 @@ export const keyForCommand = (path: readonly string[]): PermissionKey | null | u
   // Which files a message has, and where they are saved, tells as much as a message does.
   if (top === "attachments" && next === "list") return "messages"
   if (top === "store" && (next === "gaps" || next === "jobs")) return path.join(".")
-  if (SHOW_MESSAGES.has(top) || (top === "contacts" && next === "context")) return "messages"
+  if (SHOW_MESSAGES.has(top) || (top === "contacts" && (next === "context" || next === "timeline"))) return "messages"
   if ((RESOURCES as readonly string[]).includes(top)) return path.join(".")
   return undefined
 }

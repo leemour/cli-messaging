@@ -20,6 +20,7 @@ import {
   personMessages,
 } from "./person-context.js"
 import { personProfile } from "./person-profile.js"
+import { type PersonTimeline, personTimeline, type TimelineOptions } from "./person-timeline.js"
 
 export interface ContactSync {
   added: number
@@ -50,6 +51,8 @@ export interface PeopleService {
   rename(person: string, firstName: string, lastName?: string): Promise<Operated<{ person: Member }>>
   /** What the store holds about them, across every messenger linked to them; never connects. */
   context(person: string, options?: ContextOptions): Promise<PersonContext>
+  /** Everything they took part in, from the store's involvement index; never connects. */
+  timeline(person: string, options?: TimelineOptions): Promise<PersonTimeline>
   /**
    * Their newest messages in each chat named, from the store; `fetch` reads them from the messenger
    * first — by sender where it can search so, the newest page of the chat where it cannot.
@@ -156,6 +159,8 @@ export const peopleService = (deps: ServiceDeps): PeopleService => {
     profile: (person) => personProfile(deps, person),
 
     context: async (person, options) => personContext(await deps.store(), await deps.account(), person, options),
+
+    timeline: async (person, options) => personTimeline(await deps.store(), await deps.account(), person, options),
 
     messagesIn: async (person, { chats, limit, detail, fetch = false }) => {
       const store = await deps.store()

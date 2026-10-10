@@ -235,6 +235,7 @@ describe("the word index", () => {
       fileTexts: 0,
       stemmed: 2,
       notesIndexed: 0,
+      involvements: 0,
     })
     expect(await words(env, "hola")).toBe(1)
     const { answer: info } = await call(["store", "info", "--json"], env)
