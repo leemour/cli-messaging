@@ -19,6 +19,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   handled more than 30 days ago keeps its row, so a redelivery is still recognised, but its payload becomes `null`.
   Member-list reads are kept, because retention is computed from them. `LOG_RETENTION` holds both periods.
 
+### Fixed
+
+- **A provider on `@wirecat/cli-meetings` 0.2.4 installed two copies of it**, because this package pinned 0.2.1. It
+  now pins 0.2.4; the `MeetingStore` port is unchanged, so zoom-cli 0.2.0 and later load one copy.
+
 ## 0.218.0 — 10.10.2026
 
 ### Added
