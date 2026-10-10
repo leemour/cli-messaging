@@ -13,6 +13,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - Memories and decisions retain canonical meeting, transcript revision and cue evidence across reopen
   and corrections.
 
+### Fixed
+
+- **`parity.json` lists `store reset` and `--no-backup` in both tg and max**, which have them since moving to
+  0.221.0; they were still marked planned.
+
 ## 0.223.0 — 11.10.2026
 
 ### Added
@@ -36,6 +41,7 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 - Person meeting context verifies recorded presence in an explicitly allowed account before reading global
   identity metadata, preventing a foreign-only person ID from exposing its name in fixed-account wrappers.
+||||||| parent of ca0596e4 (fix(parity): store reset is in tg and max)
 
 ## 0.222.0 — 11.10.2026
 
