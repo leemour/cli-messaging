@@ -133,7 +133,7 @@
     }
   },
   "tasks": {
-    "doc": "What `@leemour/cli-tasks` keeps: a question, request, mention or promise waiting on the owner. `source` is a locator (`msg:…`), never the message text. Times are milliseconds.",
+    "doc": "What `@wirecat/cli-tasks` keeps: a question, request, mention or promise waiting on the owner. `source` is a locator (`msg:…`), never the message text. Times are milliseconds.",
     "cols": {}
   },
   "contact_aliases": { "doc": "", "cols": {} },
