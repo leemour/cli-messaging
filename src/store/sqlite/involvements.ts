@@ -21,10 +21,19 @@ export interface Involvement {
 
 export interface InvolvementStore {
   rebuild(personId?: number): number
-  /** `since` and `until` are ms, both inclusive. */
+  /**
+   * `since` and `until` are ms, both inclusive. `only` keeps, of `only.provider`, that one account's rows —
+   * another account of the same messenger is somebody else's view; other providers and rows of no account stay.
+   */
   forPerson(
     personId: number,
-    options?: { scope?: string; since?: number; until?: number; limit?: number },
+    options?: {
+      scope?: string
+      since?: number
+      until?: number
+      only?: { provider: string; account: string }
+      limit?: number
+    },
   ): Involvement[]
 }
 
@@ -91,7 +100,7 @@ export const involvementStoreOver = ({ database, now }: StoreContext): Involveme
       SELECT s.*, ? FROM (${sources}) s JOIN persons p ON p.id=s.person_id ${personId === undefined ? "" : "WHERE s.person_id=?"}`)
         .run(now(), ...(personId === undefined ? [] : [personId])).changes
     }),
-  forPerson: (personId, { scope, since, until, limit = 100 } = {}) => {
+  forPerson: (personId, { scope, since, until, only, limit = 100 } = {}) => {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000)
       throw new CliError("validation_error", "involvement limit takes 1–1000")
     const filters = [
@@ -99,15 +108,17 @@ export const involvementStoreOver = ({ database, now }: StoreContext): Involveme
       ...(since === undefined ? [] : [["AND i.occurred_at>=?", since] as const]),
       ...(until === undefined ? [] : [["AND i.occurred_at<=?", until] as const]),
     ]
+    const account = only === undefined ? [] : [only.provider, only.account]
     return database
       .prepare(
         `SELECT i.*, a.provider, a.external_id AS account, c.external_id AS chat, m.external_id AS message
           FROM involvements i LEFT JOIN accounts a ON a.id=i.account_id
           LEFT JOIN messages m ON i.subject_type='message' AND m.id=i.subject_id
           LEFT JOIN chats c ON c.id=CASE WHEN i.subject_type='chat' THEN i.subject_id ELSE m.chat_id END
-          WHERE i.person_id=? ${filters.map(([sql]) => sql).join(" ")} ORDER BY i.occurred_at DESC, i.id DESC LIMIT ?`,
+          WHERE i.person_id=? ${filters.map(([sql]) => sql).join(" ")}
+          ${only === undefined ? "" : "AND (a.provider IS NULL OR a.provider<>? OR a.external_id=?)"} ORDER BY i.occurred_at DESC, i.id DESC LIMIT ?`,
       )
-      .all(personId, ...filters.map(([, value]) => value), limit)
+      .all(personId, ...filters.map(([, value]) => value), ...account, limit)
       .map((row) => ({
         personId: Number(row.person_id),
         identityId: row.identity_id == null ? null : Number(row.identity_id),

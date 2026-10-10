@@ -2223,6 +2223,11 @@ describe("the shared read commands", () => {
     await store.saveMessages(tg, "31", [said("1", "2026-09-01T10:00:00.000Z"), said("2", "2026-09-03T10:00:00.000Z")], {
       via: "test",
     })
+    const other = { provider: "telegram", account: "600" }
+    await store.saveChats(other, [
+      { id: "31", title: "Example group", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 2 },
+    ])
+    await store.saveMessages(other, "31", [said("3", "2026-09-04T10:00:00.000Z")], { via: "test" })
     await store.close()
     const never = async (): Promise<MessengerAdapter> => {
       throw new Error("contacts timeline must never connect")

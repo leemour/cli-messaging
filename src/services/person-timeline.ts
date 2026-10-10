@@ -62,6 +62,7 @@ export const personTimeline = async (
     ...(scope === undefined ? {} : { scope }),
     ...(since === undefined ? {} : { since }),
     ...(until === undefined ? {} : { until }),
+    only: asked,
     limit: limit + 1,
   })
   return {
