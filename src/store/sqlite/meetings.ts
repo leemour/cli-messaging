@@ -7,6 +7,7 @@ import type {
   MeetingSeries,
   MeetingStore,
   MeetingTranscriptStore,
+  NewRecord,
   Participant,
   SearchHit,
   Summary,
@@ -101,7 +102,7 @@ const summaryOf = (row: Row): Summary => ({
   updatedAt: Number(row.updated_at),
 })
 
-const attachmentOf = (row: Row): Attachment => ({
+export const attachmentOf = (row: Row): Attachment => ({
   id: Number(row.id),
   attachableType: "meeting",
   attachableId: Number(row.attachable_id),
@@ -194,6 +195,44 @@ const upsert = (
       .get(...Object.values(key), ...Object.values(values), now, now)?.id,
   )
 }
+
+/** An attachment as its parent's save gives it: the parent sets the type and id. */
+export type AttachmentInput = Omit<NewRecord<Attachment>, "attachableType" | "attachableId">
+
+/** Inserts or updates an attachment of any parent, found by its position. */
+export const saveAttachment = (
+  database: CacheDatabase,
+  type: string,
+  parentId: number,
+  a: AttachmentInput,
+  now: number,
+): number =>
+  upsert(
+    database,
+    "attachments",
+    { attachable_type: type, attachable_id: parentId, position: a.position },
+    {
+      kind: a.kind,
+      mime: a.mime,
+      name: a.name,
+      title: a.title,
+      url: a.url,
+      size: a.size,
+      width: a.width,
+      height: a.height,
+      duration: a.duration,
+      provider_ref: toJson(a.providerRef),
+      local_path: a.localPath,
+      text: a.text,
+      normalized_text: a.normalizedText,
+      extraction: a.extraction,
+      extractor: a.extractor,
+      extraction_error: a.extractionError,
+      content_sha256: a.contentSha256,
+      extracted_at: a.extractedAt,
+    },
+    now,
+  )
 
 const save = (context: StoreContext, input: MeetingSave): number => {
   const { database } = context
@@ -322,33 +361,7 @@ const save = (context: StoreContext, input: MeetingSave): number => {
       now,
     )
 
-  for (const a of input.attachments ?? [])
-    upsert(
-      database,
-      "attachments",
-      { attachable_type: "meeting", attachable_id: meetingId, position: a.position },
-      {
-        kind: a.kind,
-        mime: a.mime,
-        name: a.name,
-        title: a.title,
-        url: a.url,
-        size: a.size,
-        width: a.width,
-        height: a.height,
-        duration: a.duration,
-        provider_ref: toJson(a.providerRef),
-        local_path: a.localPath,
-        text: a.text,
-        normalized_text: a.normalizedText,
-        extraction: a.extraction,
-        extractor: a.extractor,
-        extraction_error: a.extractionError,
-        content_sha256: a.contentSha256,
-        extracted_at: a.extractedAt,
-      },
-      now,
-    )
+  for (const a of input.attachments ?? []) saveAttachment(database, "meeting", meetingId, a, now)
   return meetingId
 }
 

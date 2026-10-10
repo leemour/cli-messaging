@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { migrate } from "./migrations.js"
-import { type EmailInput, mailStoreOver, type ThreadSave } from "./sqlite/emails.js"
+import { type EmailFilter, type EmailInput, mailStoreOver, type ThreadSave } from "./sqlite/emails.js"
 import { openSqlite } from "./sqlite/open.js"
 import { openStore } from "./store.js"
 
@@ -101,6 +101,108 @@ describe("mail store", () => {
     await mail.markDeleted(1, ["<first@example.com>"], 9000)
     expect(await mail.threads()).toEqual([])
     expect((await mail.threads({ includeDeleted: true }))[0]?.deletedAt).toBe(9000)
+  })
+
+  it("lists emails by thread, participant, mailbox and received time", async () => {
+    const { mail } = await seeded()
+    await mail.saveThread(
+      thread([
+        email(),
+        email({
+          externalId: "<second@example.com>",
+          from: { address: "carol@example.com", name: null },
+          to: [],
+          cc: [],
+          sentAt: 3000,
+          receivedAt: 3100,
+          mailboxes: [{ externalId: "Label_1", name: "Projects", kind: "label" }],
+        }),
+      ]),
+    )
+    await mail.saveThread({ ...thread([email({ externalId: "<other@example.com>", sentAt: 4000 })]), externalId: "t2" })
+    const ids = async (filter: EmailFilter) => (await mail.emails(filter)).map(({ externalId }) => externalId)
+
+    expect(await ids({ accountId: 1 })).toEqual(["<other@example.com>", "<second@example.com>", "<first@example.com>"])
+    expect(await ids({ threadExternalId: "thread-1" })).toEqual(["<second@example.com>", "<first@example.com>"])
+    expect(await ids({ participant: "Bob@Example.com" })).toEqual(["<other@example.com>", "<first@example.com>"])
+    expect(await ids({ participant: "carol@example.com" })).toEqual(["<second@example.com>"])
+    expect(await ids({ mailbox: "Label_1" })).toEqual(["<second@example.com>"])
+    expect(await ids({ since: 1100, until: 3100 })).toEqual(["<other@example.com>", "<first@example.com>"])
+    expect((await mail.mailboxes(1)).map(({ name }) => name)).toEqual(["Inbox", "Projects"])
+
+    await mail.markDeleted(1, ["<first@example.com>"], 5000)
+    expect(await ids({ threadExternalId: "thread-1" })).toEqual(["<second@example.com>"])
+    expect(await ids({ threadExternalId: "thread-1", includeDeleted: true })).toHaveLength(2)
+    const found = async (participant: string) =>
+      (await mail.search("roadmap", { participant })).map(({ externalId }) => externalId)
+    expect(await found("carol@example.com")).toEqual(["<second@example.com>"])
+    expect(await found("bob@example.com")).toEqual(["<other@example.com>"])
+  })
+
+  it("sets membership only among the scanned mailboxes", async () => {
+    const { mail } = await seeded()
+    const archive = { externalId: "Archive", name: "Archive", kind: "archive" }
+    await mail.saveThread(
+      thread([email({ mailboxes: [{ externalId: "INBOX", name: "Inbox", kind: "inbox" }, archive] })]),
+    )
+    const scanned = [{ externalId: "INBOX", name: "Inbox", kind: "inbox" }]
+
+    expect(await mail.setMailboxes(1, scanned, new Map([["<first@example.com>", []]]), 3000)).toBe(1)
+    expect((await mail.email(1, "<first@example.com>"))?.mailboxes.map(({ externalId }) => externalId)).toEqual([
+      "Archive",
+    ])
+
+    expect(await mail.setMailboxes(1, scanned, new Map([["<first@example.com>", ["INBOX"]]]), 4000)).toBe(1)
+    expect((await mail.email(1, "<first@example.com>"))?.mailboxes.map(({ externalId }) => externalId)).toEqual([
+      "INBOX",
+      "Archive",
+    ])
+    expect(await mail.setMailboxes(1, scanned, new Map([["<missing@example.com>", ["INBOX"]]]), 5000)).toBe(0)
+    await expect(mail.setMailboxes(1, scanned, new Map([["<first@example.com>", ["Archive"]]]), 6000)).rejects.toThrow(
+      "Mailbox Archive was not scanned",
+    )
+  })
+
+  it("replaces an email's attachments when given and finds their text by word", async () => {
+    const { database, mail } = await seeded()
+    const file = (position: number, name: string, text: string | null) => ({
+      position,
+      kind: "file",
+      mime: "application/pdf",
+      name,
+      title: null,
+      url: null,
+      size: 10,
+      width: null,
+      height: null,
+      duration: null,
+      providerRef: { part: position + 2 },
+      localPath: null,
+      text,
+      normalizedText: null,
+      extraction: text === null ? null : "text",
+      extractor: text === null ? null : "pdf:unpdf",
+      extractionError: text === null ? "no_text" : null,
+      contentSha256: null,
+      extractedAt: 1500,
+    })
+    await mail.saveThread(
+      thread([email({ attachments: [file(0, "plan.pdf", "Café budget"), file(1, "scan.pdf", null)] })]),
+    )
+    const saved = await mail.email(1, "<first@example.com>")
+    expect(
+      saved?.attachments.map(({ name, normalizedText, providerRef }) => [name, normalizedText, providerRef]),
+    ).toEqual([
+      ["plan.pdf", "cafe budget", { part: 2 }],
+      ["scan.pdf", null, { part: 3 }],
+    ])
+    const words = database.prepare("SELECT rowid FROM attachment_words WHERE attachment_words MATCH 'cafe'").all()
+    expect(words.map(({ rowid }) => Number(rowid))).toEqual([saved?.attachments[0]?.id])
+
+    await mail.saveThread(thread([email({ attachments: [file(0, "plan-v2.pdf", "Budget")] })], 3000))
+    expect((await mail.email(1, "<first@example.com>"))?.attachments.map(({ name }) => name)).toEqual(["plan-v2.pdf"])
+    await mail.saveThread(thread([email()], 4000))
+    expect((await mail.email(1, "<first@example.com>"))?.attachments).toHaveLength(1)
   })
 
   it("refuses an empty key and leaves nothing behind", async () => {

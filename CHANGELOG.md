@@ -6,7 +6,13 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+### Added
 
+- **`store.mail` can serve a mail importer.** `emails()` lists emails filtered by thread, participant address,
+  mailbox and received time; `mailboxes()` lists an account's folders; `setMailboxes()` sets which of the
+  scanned folders each email is in and leaves the others alone, so an importer can prove a deletion; and an
+  email's `attachments` are saved with it, replaced when given, their text word-indexed. `search` takes the
+  same filters.
 
 ## 0.222.0 — 11.10.2026
 
