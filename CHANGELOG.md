@@ -4,7 +4,7 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
-## Unreleased
+## 0.223.0 — 11.10.2026
 
 ### Added
 
@@ -17,6 +17,16 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   and a tag target of one, now names the row in `emails` or `email_threads` when one is there, and falls back
   to the message or chat that older imports saved. The reference format does not change; `email_thread` is a
   new entity type.
+- **Attachment limits are settings, and a partial batch keeps its work.** `MESSAGING_ATTACHMENT_MAX_MIB`,
+  `MESSAGING_PDF_PREVIEW_MAX_MIB` and `MESSAGING_PDF_PREVIEW_MAX_PIXELS` (defaults 50, 8, 4000) set the file and
+  PDF preview budgets. A download or backfill that fails part-way now returns what it finished, with the
+  failed ids, the stage, a stable error code and the next step; rate limits and login errors stop new work,
+  and an uncertain write is never repeated. `runs search` finds past runs ([attachments](docs/attachments.md)).
+
+### Fixed
+
+- Person meeting context verifies recorded presence in an explicitly allowed account before reading global
+  identity metadata, preventing a foreign-only person ID from exposing its name in fixed-account wrappers.
 
 ## 0.222.0 — 11.10.2026
 
@@ -73,9 +83,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   older orphan identities are repaired when ingested again. Existing owner links are preserved,
   and participant names or emails never merge people or resolve document links. Unmarked or explicitly
   unassociated guests retain their detached identity without creating a person.
-
-- Person meeting context verifies recorded presence in an explicitly allowed account before reading global
-  identity metadata, preventing a foreign-only person ID from exposing its name in fixed-account wrappers.
 
 
 ## 0.221.0 — 11.10.2026
