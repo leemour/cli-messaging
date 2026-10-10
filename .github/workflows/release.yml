@@ -21,6 +21,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validation:
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
   checks:
     if: github.ref == 'refs/heads/main'
     permissions:
@@ -28,7 +34,7 @@ jobs:
     uses: WireCatLabs/cli-core/.github/workflows/release-checks.yml@b36a30fb6037b457001bd2db860949f64512ecdd # v0.17.3
 
   build:
-    needs: checks
+    needs: [checks, validation]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:

@@ -1,9 +1,8 @@
-name: CI
+name: Full validation
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -91,3 +90,6 @@ jobs:
           [ "$next" != "$pr" ] || exit 0
           echo "::warning file=package.json::version $pr is not above both main ($main) and npm's latest ($latest)" \
             "— bin/release will publish it as $next"
+
+  parity:
+    uses: ./.github/workflows/parity.yml

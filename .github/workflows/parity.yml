@@ -4,15 +4,7 @@ name: Parity
 # gets wrong shows up there weeks later. This checks both CLIs' main against this manifest now.
 # Their main, not npm: a row lists a CLI in `in` once its main has it, and a release always trails that.
 on:
-  pull_request:
-    paths:
-      - parity.json
-      - src/parity/**
-      - .github/workflows/parity.yml
-  push:
-    branches: [main]
-  schedule:
-    - cron: "17 6 * * *"
+  workflow_call:
   workflow_dispatch:
 
 permissions:

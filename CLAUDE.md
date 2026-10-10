@@ -41,9 +41,17 @@ date — and do the removals in one batch after the owner confirms. Never kill a
 Conventional commits. Before committing:
 
 ```sh
-pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm docs:check
+pnpm standards:check && pnpm lint
 ```
 
 A branch off `main`, in a worktree, and a pull request. A user-visible change gets a line under
 `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md). `bin/release` publishes; when the version is
 already taken it moves to the next free one and renames the changelog heading with it.
+
+## Development check budget
+
+Keep commit and push hooks fast. Ordinary development and PRs use standards
+verification, lint, Markdown, and secret detection. Full typechecking, tests,
+coverage, builds, parity, browser and platform suites run for releases or an
+explicit manual validation. See the
+[shared policy](https://github.com/WireCatLabs/community/blob/main/standards/README.md#ci-and-hooks).
