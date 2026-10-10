@@ -1,31 +1,38 @@
 import { formatLocator } from "../../domain/locator.js"
 import { formatReference, parseReference, type Reference } from "../../domain/references.js"
 import type { CacheDatabase } from "../driver.js"
+import { ENTITY_TABLES, type EntityType, isEntityType } from "./entity-types.js"
 
 /** A row of the store as polymorphic columns name it: the singular table name and the row's id. */
 export interface Thing {
-  type: string
+  type: EntityType
   id: number
 }
 
+/** A pointer as a row holds it. An unknown type is not refused on read: `store check` reports it. */
+export const storedThing = (type: unknown, id: unknown): Thing => ({ type: String(type) as EntityType, id: Number(id) })
+
 export type ThingState = "available" | "deleted" | "unavailable"
 
-/** Tables a simple reference names by id, and whether a row can be marked gone. */
-const TABLES: Record<string, { table: string; tombstone: boolean }> = {
-  note: { table: "notes", tombstone: true },
-  document: { table: "documents", tombstone: true },
-  person: { table: "persons", tombstone: false },
-  organization: { table: "organizations", tombstone: true },
-  project: { table: "projects", tombstone: true },
-  task: { table: "tasks", tombstone: true },
-  memory: { table: "memories", tombstone: false },
-  decision: { table: "decisions", tombstone: true },
-  bot: { table: "bots", tombstone: false },
-  message: { table: "messages", tombstone: true },
-  chat: { table: "chats", tombstone: false },
-  identity: { table: "identities", tombstone: false },
-  account: { table: "accounts", tombstone: false },
+/** Types a simple reference names by id, and whether a row can be marked gone. */
+const REFERABLE: Partial<Record<EntityType, { tombstone: boolean }>> = {
+  note: { tombstone: true },
+  document: { tombstone: true },
+  person: { tombstone: false },
+  organization: { tombstone: true },
+  project: { tombstone: true },
+  task: { tombstone: true },
+  memory: { tombstone: false },
+  decision: { tombstone: true },
+  bot: { tombstone: false },
+  message: { tombstone: true },
+  chat: { tombstone: false },
+  identity: { tombstone: false },
+  account: { tombstone: false },
 }
+
+const referable = (type: string) =>
+  isEntityType(type) && REFERABLE[type] ? { table: ENTITY_TABLES[type], ...REFERABLE[type] } : undefined
 
 const storeId = (text: string) => (/^[1-9]\d{0,15}$/.test(text) ? Number(text) : undefined)
 
@@ -35,7 +42,7 @@ const storeId = (text: string) => (/^[1-9]\d{0,15}$/.test(text) ? Number(text) :
  */
 export const thingOf = (database: CacheDatabase, reference: Reference | string): Thing | undefined => {
   const parsed = typeof reference === "string" ? parseReference(reference) : reference
-  const found = (type: string, row: Record<string, unknown> | undefined) =>
+  const found = (type: EntityType, row: Record<string, unknown> | undefined) =>
     row ? { type, id: Number(row.id) } : undefined
   switch (parsed.type) {
     case "message":
@@ -78,9 +85,9 @@ export const thingOf = (database: CacheDatabase, reference: Reference | string):
       return undefined
     default: {
       const id = storeId(parsed.id)
-      const table = TABLES[parsed.type]?.table
-      if (id === undefined || !table) return undefined
-      return found(parsed.type, database.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(id))
+      const known = referable(parsed.type)
+      if (id === undefined || !known || !isEntityType(parsed.type)) return undefined
+      return found(parsed.type, database.prepare(`SELECT id FROM ${known.table} WHERE id = ?`).get(id))
     }
   }
 }
@@ -138,7 +145,7 @@ export const referenceOfThing = (database: CacheDatabase, thing: Thing): string 
 
 export const stateOfThing = (database: CacheDatabase, thing: Thing | undefined): ThingState => {
   if (!thing) return "unavailable"
-  const known = TABLES[thing.type]
+  const known = referable(thing.type)
   if (!known) return "unavailable"
   const row = database
     .prepare(`SELECT ${known.tombstone ? "deleted_at" : "NULL AS deleted_at"} FROM ${known.table} WHERE id = ?`)

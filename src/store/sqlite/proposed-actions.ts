@@ -5,7 +5,7 @@ import { atomic } from "./atomic.js"
 import { type Author, authorActor } from "./memories.js"
 import { requiredThing } from "./notes.js"
 import type { StoreContext } from "./open.js"
-import { referenceOfThing } from "./things.js"
+import { referenceOfThing, storedThing } from "./things.js"
 
 export const PROPOSAL_STATUSES = ["proposed", "approved", "rejected", "executed", "failed"] as const
 export const PROPOSAL_VERDICTS = ["useful", "not_useful"] as const
@@ -74,7 +74,7 @@ export const proposedActionsStoreOver = (context: StoreContext): ProposedActions
       target:
         row.target_type == null
           ? null
-          : (referenceOfThing(database, { type: String(row.target_type), id: Number(row.target_id) }) ?? null),
+          : (referenceOfThing(database, storedThing(row.target_type, row.target_id)) ?? null),
       payload: json(row.payload),
       reason: row.reason == null ? null : String(row.reason),
       status: row.status as ProposedAction["status"],

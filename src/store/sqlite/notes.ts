@@ -10,7 +10,7 @@ import { LINK_KINDS, linkKind } from "./link-kinds.js"
 import type { NoteSearch } from "./note-search.js"
 import type { StoreContext } from "./open.js"
 import { addTags, ensureTag, type Label, labelsOf } from "./tags.js"
-import { referenceOfThing, type Thing, thingOf } from "./things.js"
+import { referenceOfThing, storedThing, type Thing, thingOf } from "./things.js"
 
 export const NOTE_FORMATS = ["obsidian", "markdown"] as const
 export const LINK_ORIGINS = ["file", "owner", "suggested"] as const
@@ -186,7 +186,7 @@ export const noteRowOf = (database: CacheDatabase, reference: string): Note | un
 }
 
 const thingRef = (database: CacheDatabase, type: unknown, id: unknown): string | null =>
-  type == null || id == null ? null : (referenceOfThing(database, { type: String(type), id: Number(id) }) ?? null)
+  type == null || id == null ? null : (referenceOfThing(database, storedThing(type, id)) ?? null)
 
 export const linkOf = (database: CacheDatabase, row: Row): Link => {
   const metadata = row.metadata == null ? {} : (JSON.parse(String(row.metadata)) as { provenance?: string })

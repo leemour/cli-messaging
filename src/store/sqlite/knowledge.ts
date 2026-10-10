@@ -21,7 +21,7 @@ import {
   tagNamed,
 } from "./tags.js"
 import { inboxKey, taskAccountOf, taskIdOf, taskRowOf } from "./tasks.js"
-import { referenceOfThing, stateOfThing, type Thing, type ThingState, thingOf } from "./things.js"
+import { referenceOfThing, stateOfThing, storedThing, type Thing, type ThingState, thingOf } from "./things.js"
 
 export type { Label } from "./tags.js"
 
@@ -300,7 +300,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
       .map((row) => String(row.name))
 
   const annotationOf = (row: Row): Annotation | undefined => {
-    const thing = { type: String(row.notable_type), id: Number(row.notable_id) }
+    const thing = storedThing(row.notable_type, row.notable_id)
     const target = targetOfThing(thing)
     if (!target) return undefined
     return {
@@ -555,7 +555,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
         .all(...types, tag, tag, subfolders ? 1 : 0, tag, tag, limit + 1, offset)
       return {
         items: rows.slice(0, limit).flatMap((row) => {
-          const thing = { type: String(row.type), id: Number(row.id) }
+          const thing = storedThing(row.type, row.id)
           const base = targetOfThing(thing)
           if (!base) return []
           const path = row.path == null ? null : String(row.path)
