@@ -7,6 +7,7 @@ import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server"
 import { serveStdio } from "@modelcontextprotocol/server/stdio"
 import { CliError, captureStreams } from "@wirecat/cli-core"
 import { skillResource } from "@wirecat/cli-core/skill"
+import { sampleMeeting } from "@wirecat/cli-meetings/testing"
 import { Command } from "commander"
 import { PNG } from "pngjs"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -1045,6 +1046,45 @@ describe("the MCP server", () => {
     expect(mail.isError).toBe(true)
     expect(JSON.stringify(mail.body)).toContain("memo mail import")
     expect(telegram.opened()).toBe(1)
+  })
+
+  it("search_all takes meetings: the one stored meeting account, or one named; never without asking", async () => {
+    const telegram = scripted()
+    const { call, env } = await connect(telegram)
+    await call("chat_messages_list", { chat: "7" })
+    const store = await openStore({ path: env.MESSAGING_STORE })
+    try {
+      const accountId = await store.saveAccount({ provider: "zoom", account: "zm-profile:alice" }, { name: null })
+      const sample = sampleMeeting()
+      await store.meetings.saveMeeting({
+        ...sample,
+        meeting: { ...sample.meeting, accountId },
+        transcripts: [
+          { ...sample.transcripts[0], rows: [{ ...sample.transcripts[0].rows[0], text: "Bob Sample on the chapter" }] },
+        ],
+      })
+    } finally {
+      await store.close()
+    }
+
+    const plain = await call("chat_search_all", { text: "chapter" })
+    expect(plain.body.items.map((item: { kind: string }) => item.kind)).not.toContain("meeting")
+    for (const meetings of [true, "zoom:zm-profile:alice"]) {
+      const found = await call("chat_search_all", { text: "chapter", meetings })
+      expect(found.isError).toBe(false)
+      expect(found.body.searched).toContain("meetings")
+      expect(found.body.items).toContainEqual(
+        expect.objectContaining({ kind: "meeting", provider: "zoom", text: "Bob Sample on the chapter" }),
+      )
+    }
+    const unasked = await call("chat_search_all", { text: "chapter", only: ["meetings"] })
+    expect(unasked.isError).toBe(true)
+    expect(JSON.stringify(unasked.body)).toContain("needs meetings")
+    const every = await call("chat_search_all", { text: "chapter", meetings: true, max_meetings: "all" })
+    expect(every.body.meetings).toMatchObject({ complete: true })
+    const bounded = await call("chat_search_all", { text: "chapter", max_meetings: 5 })
+    expect(bounded.isError).toBe(true)
+    expect(JSON.stringify(bounded.body)).toContain("max_meetings needs meetings")
   })
 
   it("prepares stored evidence with a cursor and typed failures without connecting", async () => {

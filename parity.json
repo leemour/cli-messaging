@@ -520,6 +520,10 @@
       "meaning": "at most this many bytes of buffered stdin",
       "default": "16777216"
     },
+    "--max-meetings": {
+      "value": "<n|all>",
+      "meaning": "how many meetings --meetings looks through, newest first; all looks through every one (default 100)"
+    },
     "--max-messages": {
       "value": "<n>",
       "meaning": "fetch at most this many messages total (default: 500)"
@@ -547,6 +551,10 @@
     "--measure": {
       "value": "<name>",
       "meaning": "the metric used to order a ranking; not with --score or --weights"
+    },
+    "--meetings": {
+      "value": "[provider:account]",
+      "meaning": "also search one meeting account; with no value, the one stored account that holds meetings (put it after the query)"
     },
     "--members-see-link": {
       "value": "<on|off>",
@@ -684,7 +692,7 @@
     },
     "--only": {
       "value": "<resources>",
-      "meaning": "only these resources, separated by commas: messages, mail, notes"
+      "meaning": "only these resources, separated by commas: messages, mail, notes; meetings with --meetings"
     },
     "--only-admins-add": {
       "value": "<on|off>",
@@ -3002,6 +3010,20 @@
       "options": {
         "--exact": "all",
         "--limit": "all",
+        "--max-meetings": {
+          "in": [],
+          "planned": {
+            "max": "each CLI’s next cli-messaging bump",
+            "tg": "each CLI’s next cli-messaging bump"
+          }
+        },
+        "--meetings": {
+          "in": [],
+          "planned": {
+            "max": "each CLI’s next cli-messaging bump",
+            "tg": "each CLI’s next cli-messaging bump"
+          }
+        },
         "--only": "all",
         "--timezone": "all"
       }

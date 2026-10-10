@@ -4,7 +4,7 @@ import type { Messenger } from "../cli/messenger/context.js"
 import { parseLucene } from "../search/lucene/parser.js"
 import type { QueryNode } from "../search/lucene/types.js"
 import { codeOf } from "../sends/guarded.js"
-import type { AccountKey, MessageStore } from "../store/store.js"
+import type { AccountKey, MessageStore, StoredAccount } from "../store/store.js"
 import type { SearchFound, SearchQuery } from "./messages.js"
 import { RRF_K } from "./notes-search.js"
 import {
@@ -42,8 +42,11 @@ export interface SearchAllIncludingMeetingsRequest extends Omit<SearchAllRequest
   only?: readonly ResourceWithMeetings[]
   /** Defaults to the caller's selected account; other meeting accounts are explicit. */
   meetingAccount?: AccountKey
-  /** Candidate meetings visited, not hit rows allocated by the store. Defaults to 100, at most 1000. */
-  maxMeetings?: number
+  /**
+   * Candidate meetings visited, newest first, not hit rows allocated by the store. Defaults to 100; `all` visits
+   * every one. Meetings have no search index yet, so each visit is two queries.
+   */
+  maxMeetings?: number | "all"
   /** Source continuation only: requires only: ["meetings"]. Offsets are not a snapshot. */
   meetingCursor?: MeetingSearchCursor
 }
@@ -122,7 +125,8 @@ const collectMeetings = async (
     after: position(),
   }
   const seen = new Set<string>()
-  while (collected.coverage.meetingsScanned < (request.maxMeetings ?? 100)) {
+  const most = request.maxMeetings === "all" ? Number.POSITIVE_INFINITY : (request.maxMeetings ?? 100)
+  while (collected.coverage.meetingsScanned < most) {
     cancelled(request.signal)
     const page = await store.meetings.meetings({ accountId: selected.id, limit: 2, offset: meetingOffset })
     cancelled(request.signal)
@@ -190,7 +194,7 @@ export const searchAllIncludingMeetings = async (
   searchMessages?: (query: SearchQuery) => Promise<SearchFound>,
 ): Promise<SearchAllIncludingMeetingsFound> => {
   whole(request.limit, 1, 1000, "limit")
-  whole(request.maxMeetings ?? 100, 1, 1000, "maxMeetings")
+  if (request.maxMeetings !== "all") whole(request.maxMeetings ?? 100, 1, Number.MAX_SAFE_INTEGER, "maxMeetings")
   const only = request.only ?? RESOURCES_SEARCHED_WITH_MEETINGS
   if (
     !only.length ||
@@ -250,4 +254,67 @@ export const searchAllIncludingMeetings = async (
     searched: [...legacy.searched, "meetings"],
     meetings: { ...meetings.coverage, ...(nextCursor ? { nextCursor } : {}) },
   }
+}
+
+export interface SearchAllWithMeetingsRequest extends Omit<SearchAllIncludingMeetingsRequest, "meetingAccount"> {
+  /** Omitted: the one stored account that holds meetings; several is a validation error, none skips meetings. */
+  meetingAccount?: AccountKey
+}
+
+/** `provider:account`, split on the first colon: a meeting account's own id may hold colons. */
+export const meetingAccountOf = (value: string): AccountKey => {
+  const colon = value.indexOf(":")
+  if (colon < 1 || colon === value.length - 1)
+    throw new CliError(
+      "validation_error",
+      `a meeting account is provider:account, such as zoom:<account>; got "${value}"`,
+    )
+  return { provider: value.slice(0, colon), account: value.slice(colon + 1) }
+}
+
+const accountsWithMeetings = async (store: MessageStore) => {
+  const held: StoredAccount[] = []
+  for (const stored of await store.storedAccounts())
+    if ((await store.meetings.meetings({ accountId: stored.id, limit: 1 })).length) held.push(stored)
+  return held
+}
+
+/**
+ * `search all --meetings`: never falls back to the caller's own account, which for a messenger CLI is
+ * not a meeting account and would silently find nothing.
+ */
+export const searchAllWithMeetings = async (
+  store: MessageStore,
+  account: AccountKey,
+  request: SearchAllWithMeetingsRequest,
+  messenger: Partial<Pick<Messenger, "savedChatId" | "app">> = {},
+  searchMessages?: (query: SearchQuery) => Promise<SearchFound>,
+): Promise<SearchAllIncludingMeetingsFound> => {
+  const only = request.only ?? RESOURCES_SEARCHED_WITH_MEETINGS
+  if (request.meetingAccount || !only.includes("meetings"))
+    return searchAllIncludingMeetings(store, account, request, messenger, searchMessages)
+  const held = await accountsWithMeetings(store)
+  if (held.length > 1) {
+    const names = held.map((one) => `${one.provider}:${one.account}`)
+    throw new CliError("validation_error", `several stored accounts hold meetings; name one of: ${names.join(", ")}`, {
+      accounts: names,
+    })
+  }
+  const [one] = held
+  if (one)
+    return searchAllIncludingMeetings(
+      store,
+      account,
+      { ...request, meetingAccount: { provider: one.provider, account: one.account, scope: one.scope } },
+      messenger,
+      searchMessages,
+    )
+  const found = await searchAll(
+    store,
+    account,
+    { ...request, only: only.filter((resource): resource is SearchedResource => resource !== "meetings") },
+    messenger,
+    searchMessages,
+  )
+  return { ...found, skipped: [...found.skipped, { resource: "meetings", reason: "no stored account holds meetings" }] }
 }

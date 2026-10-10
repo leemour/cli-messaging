@@ -431,6 +431,7 @@ its meaning, and this table is regenerated from it. **Bold** marks a clash still
 | `--max-chunks` | `<n>` | at most this many chunks embedded in one run | `2000` | `conversations embed`, `search conversations` |
 | `--max-gaps` | `<n>` | maximum interior coverage gaps repaired in this run |  | `store gaps repair` |
 | `--max-input-bytes` | `<bytes>` | at most this many bytes of buffered stdin | `16777216` | every command |
+| `--max-meetings` | `<n\|all>` | how many meetings --meetings looks through, newest first; all looks through every one (default 100) |  | `search all` (planned) |
 | `--max-messages` | `<n>` | fetch at most this many messages total (default: 500) |  | `search conversations`, `search messages`, `stats contacts top`, `stats messages counters refresh`, `stats messages show`, `stats messages top` |
 | `--max-output-bytes` | `<bytes>` | at most this many serialized bytes of machine data; 0 disables the bound | `4194304` | every command |
 | `--max-replies` | `<n>` | maximum observed discussion replies |  | `stats messages discussion` |
@@ -438,6 +439,7 @@ its meaning, and this table is regenerated from it. **Bold** marks a clash still
 | `--max-uses` | `<n>` | at most this many people join by it, 1 to 99999 |  | `chats link create` (tg-only), `chats link update` (tg-only) |
 | `--md` |  | read this messenger's Markdown; see its formatting guide for supported syntax |  | `bot messages edit`, `bot messages send`, `messages edit`, `messages send` |
 | `--measure` | `<name>` | the metric used to order a ranking; not with --score or --weights |  | `stats contacts top`, `stats messages top` |
+| `--meetings` | `[provider:account]` | also search one meeting account; with no value, the one stored account that holds meetings (put it after the query) |  | `search all` (planned) |
 | `--members-see-link` | `<on\|off>` | members may see the invite link |  | `chats update` (max-only) |
 | `--mentions-me` |  | require a mention of you or a reply to you |  | `replies edit` |
 | `--message` | `<message>` | the message to tag or untag: its id in --chat, or a msg: locator alone |  | `tags add`, `tags remove` |
@@ -476,7 +478,7 @@ its meaning, and this table is regenerated from it. **Bold** marks a clash still
 | `--offset-bytes` | `<n>` | start byte offset in a retained attachment | `0` | `attachments show` |
 | `--older-than` | `<duration>` | minimum age of a question without an observed qualifying answer |  | `stats messages unanswered` |
 | `--online` |  | also log in once, read one chat and start the MCP server; sends nothing. **max's own copy is worded differently until T6 moves the command onto the shared one (e13)** |  | `doctor` |
-| `--only` | `<resources>` | only these resources, separated by commas: messages, mail, notes |  | `search all` |
+| `--only` | `<resources>` | only these resources, separated by commas: messages, mail, notes; meetings with --meetings |  | `search all` |
 | `--only-admins-add` | `<on\|off>` | only admins may add members |  | `chats update` |
 | `--only-admins-call` | `<on\|off>` | only admins may start a call |  | `chats update` (max-only) |
 | `--only-missing` |  | only chats with no metadata yet; without --chat, every stored group/channel |  | `metadata refresh` |
