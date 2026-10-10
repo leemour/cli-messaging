@@ -3742,19 +3742,9 @@
       }
     },
     "store reset": {
-      "in": [],
-      "planned": {
-        "max": "each CLI's next cli-messaging bump",
-        "tg": "each CLI's next cli-messaging bump"
-      },
+      "in": "all",
       "options": {
-        "--no-backup": {
-          "in": [],
-          "planned": {
-            "max": "each CLI's next cli-messaging bump",
-            "tg": "each CLI's next cli-messaging bump"
-          }
-        }
+        "--no-backup": "all"
       }
     },
     "store restore": {
