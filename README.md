@@ -35,6 +35,37 @@ stay intact. Direct empty field lists keep only operation metadata, preserving t
 contract. Direct invalid or unsafe paths are rejected before projection. cli-core 0.19.2 or newer
 within the 0.19 series is required.
 
+`searchAllIncludingMeetings` from `./services` adds one selected meeting account to the existing
+message, mail and notes search. It leaves `searchAll`, its item references and the current CLI/MCP
+commands unchanged. Choose another meeting account explicitly:
+
+```ts
+const found = await searchAllIncludingMeetings(store, account, {
+  text: "project AND plan",
+  limit: 20,
+  meetingAccount: { provider: "zoom", account: "zm-profile:example" },
+  maxMeetings: 100,
+})
+```
+
+Meeting hits have `kind: "meeting"`, `accountId`, `meetingId`, `scope`, `id` and `startMs`, with no
+canonical `ref`. They contain text previews of at most 2000 characters; their meeting timestamp can
+be null. The existing unified ranking and the meeting list are blended by reciprocal rank. Meeting
+order follows newest meeting first, then stored hit order; it does not claim a relevance score.
+
+Meetings support letter/digit words joined by AND, including adjacent words, as word prefixes.
+Exact forms, phrases, OR/NOT, patterns and field/date filters skip only meetings with a reason.
+The meeting account defaults to `account` and is looked up without registration. Search reads
+current transcripts, chat and summaries and excludes deleted meetings.
+
+`maxMeetings` limits visited candidate meetings (1–1000, default 100), while `limit` bounds returned
+items (1–1000). The store can allocate many hit rows within one candidate meeting; this service
+cannot promise a hard query memory bound. `hasMore: null` means the scan stopped before proving
+whether another match exists. `meetings.complete` describes the selected source's scan, and
+`meetings.nextCursor` resumes with `only: ["meetings"]`, the same query and the same account. It
+retains unreturned hits even when another resource filled the result limit. This is a meeting source
+continuation, not a global cursor or a snapshot; changing archive contents can require restarting.
+
 
 A **message locator** names one message across every provider and account:
 `msg:telegram/<account>/<chat>/<message>`. A message id alone does not — Telegram numbers messages
