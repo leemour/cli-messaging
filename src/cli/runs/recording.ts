@@ -33,7 +33,7 @@ export const recorded = async <T>(options: RecordingOptions, body: (events: Even
   const recording = startRecording(options)
   try {
     const answer = await body(recording.events)
-    await recording.succeed()
+    await recording.succeed(answer)
     return answer
   } catch (error) {
     await recording.fail(error)
@@ -43,7 +43,7 @@ export const recorded = async <T>(options: RecordingOptions, body: (events: Even
 
 export interface Recording {
   events: EventSink
-  succeed: () => Promise<void>
+  succeed: (answer?: unknown) => Promise<void>
   /** Marks the error as dealt with, so the program's last catch does not keep it a second time. */
   fail: (error: unknown) => Promise<void>
 }
@@ -88,8 +88,10 @@ export const startRecording = (options: RecordingOptions): Recording => {
 
   return {
     events,
-    succeed: async () => {
-      await run?.finish("success", { requests })
+    succeed: async (answer) => {
+      const partial = partialOutcome(answer)
+      const kept = run ?? (partial && held ? keep(open({ startedAt }), held) : undefined)
+      await kept?.finish(partial ? "partial" : "success", { requests, ...(partial ? { partial } : {}) })
     },
     fail: async (error) => {
       const failed = run ?? (held ? keep(open({ startedAt }), held) : undefined)
@@ -143,4 +145,31 @@ export const crashOf = (error: unknown): { event: "crash"; errorName: string; fr
       return `${fn ?? "<anonymous>"} ${file}:${lineNumber}`
     })
   return { event: "crash", errorName: error instanceof Error ? error.name : typeof error, frames }
+}
+
+export const partialOutcome = (answer: unknown): import("./run.js").RunMetadata["partial"] => {
+  if (!answer || typeof answer !== "object") return undefined
+  const body = answer as {
+    batch?: {
+      failed?: number
+      stopReason?: string
+      failures?: { id: string; stage: string; attachment?: number; error: { code: string } }[]
+    }
+    issue?: { code: string }
+    chat?: string
+  }
+  if (body.batch?.failed)
+    return {
+      failed: body.batch.failed,
+      ...(body.batch.stopReason ? { stopReason: body.batch.stopReason } : {}),
+      failures: (body.batch.failures ?? []).map((failure) => ({
+        id: failure.id,
+        stage: failure.stage,
+        errorCode: failure.error.code,
+        ...(failure.attachment === undefined ? {} : { attachment: failure.attachment }),
+      })),
+    }
+  if (body.issue)
+    return { failed: 1, failures: [{ id: body.chat ?? "history", stage: "history", errorCode: body.issue.code }] }
+  return undefined
 }

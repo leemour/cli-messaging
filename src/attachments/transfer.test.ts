@@ -71,3 +71,14 @@ it("captures a full bounded source for PDF rendering while leaving the byte wind
     code: "validation_error",
   })
 })
+
+it("transfers above the old file ceiling when the owner raises it, and honors lower settings", async () => {
+  const { path } = await fixture()
+  await expect(retainedBytes(path, {}, false, { MESSAGING_ATTACHMENT_MAX_MIB: "1" })).rejects.toThrow("exceeds 1 MiB")
+  await truncate(path, 50 * 1024 * 1024 + 1)
+  const result = await retainedBytes(path, { chunkBytes: 5 }, false, { MESSAGING_ATTACHMENT_MAX_MIB: "51" })
+  expect(result).toMatchObject({ totalBytes: 50 * 1024 * 1024 + 1, readBytes: 5, complete: false })
+  await expect(
+    retainedBytes(path, { chunkBytes: 1048577 }, false, { MESSAGING_ATTACHMENT_MAX_MIB: "51" }),
+  ).rejects.toMatchObject({ code: "validation_error" })
+})

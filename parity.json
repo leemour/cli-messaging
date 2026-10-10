@@ -317,6 +317,10 @@
     "--encrypt": {
       "meaning": "compress and encrypt with a password, typed at a hidden prompt or piped on stdin; never kept"
     },
+    "--error-code": {
+      "value": "<code>",
+      "meaning": "filter diagnostic runs by a stable error code"
+    },
     "--estimate": {
       "meaning": "only say what the fetch would cost, from this machine's copy; nothing is sent",
       "note": "max's own copy is worded differently until T6 moves the command onto the shared one (e13)"
@@ -709,6 +713,10 @@
       "value": "<on|off>",
       "meaning": "only the owner may change the name and photo"
     },
+    "--operation": {
+      "value": "<name>",
+      "meaning": "filter diagnostic events by operation"
+    },
     "--order": {
       "value": "<recent|name>",
       "meaning": "newest conversation first, or alphabetical"
@@ -789,6 +797,10 @@
     "--port": {
       "value": "<port>",
       "meaning": "the local port for --http"
+    },
+    "--profile": {
+      "value": "<name>",
+      "meaning": "filter diagnostic runs by recorded profile"
     },
     "--provider": {
       "value": "<provider>",
@@ -959,6 +971,10 @@
     "--state": {
       "value": "<state>",
       "meaning": "only those in this state: tasks open, done or dismissed; jobs running, done, failed, cancelled or died"
+    },
+    "--status": {
+      "value": "<status>",
+      "meaning": "filter diagnostic runs by outcome"
     },
     "--sticker": {
       "value": "<id>",
@@ -2998,6 +3014,22 @@
     },
     "runs path": {
       "in": "all"
+    },
+    "runs search": {
+      "in": [],
+      "options": {
+        "--error-code": "all",
+        "--limit": "all",
+        "--operation": "all",
+        "--page": "all",
+        "--profile": "all",
+        "--since-time": "all",
+        "--status": "all"
+      },
+      "planned": {
+        "max": "max-cli: adopt the attachment-budget maintenance release",
+        "tg": "tg-cli: adopt the attachment-budget maintenance release"
+      }
     },
     "runs show": {
       "in": "all"

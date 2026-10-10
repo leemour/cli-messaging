@@ -1,6 +1,6 @@
 import type { CallToolResult, McpServer, ServerContext, ToolAnnotations } from "@modelcontextprotocol/server"
 import { toStandardJsonSchema } from "@valibot/to-json-schema"
-import { CliError } from "@wirecat/cli-core"
+import { CliError, errorCodes } from "@wirecat/cli-core"
 import * as v from "valibot"
 import type { AISettings } from "../analysis/settings.js"
 import { DEFAULT_OUTPUT_BYTES } from "../cli/execution.js"
@@ -8,6 +8,8 @@ import { isCliFailure } from "../cli/failures.js"
 import { MAX_BUFFERED_INPUT } from "../cli/input-policy.js"
 import type { Messenger } from "../cli/messenger/context.js"
 import type { MessengerAdapter } from "../cli/messenger/port.js"
+import { withRecovery } from "../cli/recovery.js"
+import { partialOutcome, startRecording } from "../cli/runs/recording.js"
 import type { Settings } from "../cli/settings.js"
 import type { WarmEmbedders } from "../embeddings/embed.js"
 import type { SendGuard } from "../sends/guard.js"
@@ -90,6 +92,7 @@ interface Tool<S extends Input> {
   local?: (args: v.InferOutput<S>, defaults: Defaults) => Promise<object>
   /** Over the session's connection. */
   online?: (adapter: MessengerAdapter, args: v.InferOutput<S>, defaults: Defaults) => Promise<object>
+  outputLimit?: (args: Record<string, unknown>, defaults: Defaults) => number
   storedWhen?: (args: v.InferOutput<S>) => boolean
   /** Uses the local store; an explicit network option may use the retained session. */
   stored?: (
@@ -237,18 +240,44 @@ export const syncAllowedFor = (key: string, defaults: Defaults): boolean => {
 export const entryRunner = (registration: Registration): RunEntry => {
   const run = callRunner(registration)
   const { log } = registration
-  if (!log) return run
   return async (key, definition, args, ctx) => {
     const startedAt = Date.now()
     const result = await run(key, definition, args, ctx)
+    if (
+      key !== "runs_search" &&
+      registration.defaults.history !== false &&
+      registration.messenger?.app?.appName &&
+      (result.isError || partialOutcome(result.structuredContent))
+    ) {
+      const recording = startRecording({
+        app: registration.messenger.app,
+        command: `mcp ${key.replaceAll("_", " ")}`,
+        profile: registration.defaults.settings.profile ?? "default",
+        env: registration.defaults.env,
+        record: false,
+        keepFailed: true,
+        trace: false,
+        format: "json",
+      })
+      if (result.isError) {
+        const error = (result.structuredContent as { error?: { code?: string; message?: string } } | undefined)?.error
+        const code =
+          error?.code && (errorCodes as readonly string[]).includes(error.code)
+            ? (error.code as ConstructorParameters<typeof CliError>[0])
+            : undefined
+        await recording
+          .fail(code ? new CliError(code, "MCP operation failed") : new Error("MCP operation failed"))
+          .catch(() => undefined)
+      } else await recording.succeed(result.structuredContent).catch(() => undefined)
+    }
     // The audit row must not cost the agent its answer: a store that cannot be written is not this call's failure.
-    await log({
+    await log?.({
       tool: key,
       tier: tierOf(key, definition),
       ...outcomeOf(result),
       startedAt,
       finishedAt: Date.now(),
-    }).catch(() => undefined)
+    })?.catch(() => undefined)
     return result
   }
 }
@@ -275,9 +304,10 @@ const callRunner = ({ messenger, session, withStore, withServices, defaults, aro
           throw new CliError("permission_error", "messages.sync-first is not allowed by this profile")
         if (definition.custom) {
           const result = await definition.custom(args, { ...defaults, signal: ctx.mcpReq.signal }, ctx)
-          return answered(result)
+          return answered(result, definition.outputLimit?.(args, defaults))
         }
-        if (definition.local) return answered(await definition.local(args, defaults))
+        if (definition.local)
+          return answered(await definition.local(args, defaults), definition.outputLimit?.(args, defaults))
         const { online, stored: local, served } = definition
         const stored = local && (!definition.storedWhen || definition.storedWhen(args)) ? local : undefined
         const result = stored
@@ -329,7 +359,7 @@ const callRunner = ({ messenger, session, withStore, withServices, defaults, aro
                 : await session.use(run, (adapter, release) =>
                     (online as NonNullable<typeof online>)(adapter, args, { ...defaults, release }),
                   )
-        return answered(result)
+        return answered(result, definition.outputLimit?.(args, defaults))
       }
       return around ? await around(key, definition, execute) : await execute()
     } catch (error) {
@@ -427,7 +457,6 @@ export const failed = (error: unknown): CallToolResult => {
     ? {
         code: error.code,
         message: error.message,
-        retryable: false,
         ...error.details,
       }
     : {
@@ -435,7 +464,7 @@ export const failed = (error: unknown): CallToolResult => {
         message: error instanceof Error ? error.message : String(error),
         retryable: false,
       }
-  const body = JSON.parse(agentJson(original)) as Record<string, unknown>
+  const body = JSON.parse(agentJson(withRecovery(original))) as Record<string, unknown>
   return {
     content: [{ type: "text", text: JSON.stringify({ error: body }) }],
     structuredContent: { error: body },

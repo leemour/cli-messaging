@@ -161,7 +161,10 @@ describe("API OCR in the existing attachment index", () => {
         return "lateinvoice"
       },
     }
-    await expect(service.extract({ ocr, signal: controller.signal })).rejects.toMatchObject({ code: "cancelled" })
+    expect(await service.extract({ ocr, signal: controller.signal })).toMatchObject({
+      complete: false,
+      batch: { stopReason: "cancelled", failures: [{ error: { code: "cancelled" } }] },
+    })
     expect(await hits("lateinvoice")).toEqual([])
   })
 })

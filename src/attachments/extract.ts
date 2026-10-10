@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs"
 import { dirname, extname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { CliError, isCliError } from "@wirecat/cli-core"
+import type { ActionableError } from "../cli/recovery.js"
 import { ReaderLimit, readContainer } from "./container.js"
 import { type CellSpan, delimitedSpans } from "./csv-spans.js"
 import { documentKind, readDocument } from "./documents.js"
 import { decodeText } from "./encoding.js"
-import { MAX_FILE_BYTES, MAX_TEXT_CHARS } from "./limits.js"
+import { attachmentMaxBytes, MAX_TEXT_CHARS } from "./limits.js"
 
 export { MAX_FILE_BYTES, MAX_TEXT_CHARS } from "./limits.js"
 
@@ -29,7 +30,7 @@ export type Extraction =
     }
   /** No text layer: a scan, a photo. An agent reads it and writes the text back. */
   | { status: "needs-agent"; extractor?: string }
-  | { status: "unreadable"; extractor: string; error: string }
+  | { status: "unreadable"; extractor: string; error: string; issue?: ActionableError }
   | { status: "unsupported" }
   | { status: "engine-missing"; engine: Engine }
   | { status: "too-large" }
@@ -135,8 +136,9 @@ export const extractText = async (
   hint: FileHint,
   load: LoadEngine,
   signal?: AbortSignal,
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<Extraction> => {
-  if (bytes.byteLength > MAX_FILE_BYTES) return { status: "too-large" }
+  if (bytes.byteLength > attachmentMaxBytes(env)) return { status: "too-large" }
   const extension = extensionOf(hint)
   const kind = documentKind(hint)
   if (kind) return readDocument(bytes, kind, signal)
@@ -249,4 +251,5 @@ export const engineHint = (engine: Engine, command: string): string =>
   `${engine === "unpdf" ? "PDF" : engine === "mammoth" ? "Word" : "Scanned PDF OCR"} files need the optional package ${engine}, installed where ${command} is ` +
   `(for a global npm install: npm install -g ${engine}); they are read on the next run`
 
-export const tooLarge = (bytes: number): boolean => bytes > MAX_FILE_BYTES
+export const tooLarge = (bytes: number, env: NodeJS.ProcessEnv = process.env): boolean =>
+  bytes > attachmentMaxBytes(env)

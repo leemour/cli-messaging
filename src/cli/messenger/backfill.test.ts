@@ -285,10 +285,10 @@ describe("store fetch", () => {
     await call(["store", "fetch", "7", "--limit", "100", "--pause", "1ms"], chatOf(state), env)
 
     const refused = await call(["store", "fetch", "7", "--pause", "1ms"], chatOf({ ...state, wait: 10 * 60_000 }), env)
-    expect(refused.code).toBe(8)
+    expect(refused.code).toBe(0)
     const asked = state.asked.length
     const remembered = await call(["store", "fetch", "7", "--pause", "1ms"], chatOf(state), env)
-    expect(remembered.code).toBe(8)
+    expect(remembered.code).toBe(0)
     expect(state.asked).toHaveLength(asked)
 
     rmSync(join(env.CHAT_STATE_DIR, "flood"), { recursive: true })
@@ -451,8 +451,8 @@ describe("store fetch in the background", () => {
     await call(calls[0]?.argv ?? [], chatOf(wait), { ...env, ...calls[0]?.env })
 
     expect((await call(["store", "jobs", "show", job, "--json"], idle, env)).answer).toMatchObject({
-      state: "failed",
-      error: { code: "rate_limited" },
+      state: "partial",
+      issue: { code: "rate_limited", retryAfterMs: 600000, actions: expect.any(Array) },
     })
 
     const gone = spawned(2 ** 22 + 12345)
