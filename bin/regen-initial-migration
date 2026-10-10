@@ -1,12 +1,21 @@
 #!/usr/bin/env sh
 # Rebuilds the one initial migration after a change to src/store/sqlite/schema.ts, keeping the hand-written
 # part (FTS5 tables, triggers, seed rows) that Drizzle cannot model. Only while the initial migration is
-# unreleased: once a store file exists that ran it, a schema change is a new migration instead.
+# unreleased: once a store file exists that ran it, a schema change is a new migration instead, and the
+# script refuses once any v* tag holds an initial migration.
 #
 #   bin/regen-initial-migration
 set -eu
 cd "$(dirname "$0")/.."
 old=$(ls drizzle | grep '_initial$')
+# A released initial migration has run in someone's file; regenerating it would break every one of them.
+git fetch -q --tags origin 2>/dev/null || true
+for tag in $(git tag -l 'v*'); do
+  if git ls-tree --name-only "$tag" drizzle/ | grep -q '_initial$'; then
+    echo "the initial migration is released ($tag): write migration 2 with drizzle-kit instead" >&2
+    exit 1
+  fi
+done
 marker='^-- Trigram indexes over names'
 line=$(grep -n "$marker" "drizzle/$old/migration.sql" | cut -d: -f1)
 [ -n "$line" ] || { echo "no hand-written part found in drizzle/$old/migration.sql" >&2; exit 1; }

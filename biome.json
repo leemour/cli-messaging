@@ -11,7 +11,7 @@
       "!drizzle",
       "!src/store/sqlite/migrations.generated.ts",
       "!src/search/snowball",
-      "!**/.worktrees",
+      "!.worktrees",
       "!config/wirecat"
     ]
   },

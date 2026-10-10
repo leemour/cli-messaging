@@ -6,18 +6,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
-### Changed — may break callers
-
-- **cli-core 0.19.2 or newer within the 0.19 series is required.** Meeting and messenger CLIs share
-  field projection through core rather than separate implementations. Existing `fieldsOf` and
-  `projectFields` exports remain; empty direct selections still retain operation metadata.
-
-### Fixed
-
-- **Direct field projection rejects unsafe or excessive paths** before traversal, matching parsed
-  `--fields` validation and preventing prototype writes. Pass valid field paths; empty selections
-  remain supported.
-
 ## 0.218.0 — 10.10.2026
 
 ### Added
@@ -59,6 +47,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 - Under Bun a missing row read as `null` instead of `undefined`, so the store took it for a found row: linking a
   meeting to an event that does not exist succeeded. The Bun driver now answers `undefined`, as the Node one does.
+- **Direct field projection rejects unsafe or excessive paths** before traversal, matching parsed
+  `--fields` validation and preventing prototype writes. Pass valid field paths; empty selections
+  remain supported.
 
 ### Changed — may break callers
 
@@ -78,6 +69,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   replaced by `knowledge.addOrganization`/`organizations` and `addProject`/`projects`; `entity:` references
   resolve as not found. `store.tasks` keeps the `@wirecat/cli-tasks` `TaskStore` and adds `answer` and
   `judge`.
+- **cli-core 0.19.2 or newer within the 0.19 series is required.** Meeting and messenger CLIs share
+  field projection through core rather than separate implementations. Existing `fieldsOf` and
+  `projectFields` exports remain; empty direct selections still retain operation metadata.
 
 ## 0.217.0 — 10.10.2026
 
