@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { captureStreams, memoryKeyring } from "@wirecat/cli-core"
 import { beforeEach, describe, expect, it } from "vitest"
 import type { Message } from "../../domain/models.js"
+import { openStore } from "../../store/index.js"
 import { run } from "../program.js"
 import { settingsFor } from "../settings.js"
 import { botCommand } from "./command.js"
@@ -213,6 +214,61 @@ describe("bot watch", () => {
     expect(watched.stderr).toContain("the updates were not kept")
     expect(polled).toEqual([undefined, undefined, "c-2"])
     expect(watched.stdout).toHaveLength(1)
+  }, 10_000)
+
+  it("**skips an update handled before** when the messenger delivers it again", async () => {
+    const page: BotUpdatesPage = {
+      events: [
+        {
+          event: "message",
+          message: { ...message("9", "once"), chatTitle: null },
+          update: { id: "u-9", kind: "message" },
+        },
+      ],
+      cursor: "c-9",
+    }
+    pages = [page, page]
+    const watched = await call(["sales", "bot", "watch", "--jsonl"])
+
+    expect(watched.stdout).toHaveLength(1)
+    expect(hooks).toHaveLength(1)
+    const store = await openStore()
+    try {
+      const [update] = store.botUpdates.recent({ provider: "chat-bot", account: "bot1" })
+      expect(update).toMatchObject({ externalId: "u-9", kind: "message", error: null })
+      expect(update?.handledAt).not.toBeNull()
+    } finally {
+      await store.close()
+    }
+  })
+
+  it("**retries an update it failed to keep** instead of skipping it", async () => {
+    const page: BotUpdatesPage = {
+      events: [
+        {
+          event: "message",
+          message: { ...message("10", "retry"), chatTitle: null },
+          update: { id: "u-10", kind: "message" },
+        },
+      ],
+      cursor: "c-10",
+    }
+    pages = [page, page]
+    failKeep = 1
+    const watched = await call(["sales", "bot", "watch", "--jsonl"])
+
+    expect(watched.stdout).toHaveLength(1)
+    expect(hooks).toHaveLength(1)
+    const store = await openStore()
+    try {
+      const update = store.botUpdates
+        .recent({ provider: "chat-bot", account: "bot1" })
+        .find(({ externalId }) => externalId === "u-10")
+      expect(update).toMatchObject({ error: null })
+      expect(update?.handledAt).not.toBeNull()
+    } finally {
+      await store.close()
+    }
   }, 10_000)
 
   it("**carries on from the marker max-cli wrote**, and names every event with --events", async () => {

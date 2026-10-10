@@ -54,6 +54,7 @@ by meaning; where `bot watch` takes deliveries; and the rule for merging and rel
    redelivery after a restart is not recognised. Record each update (`save`), mark it `handled` or `failed`, and
    skip one already handled. Log pruning (30 days for handled payloads) then has something to prune. Check: a
    test that feeds the same update twice through `watch` and handles it once.
+   *Done in `feat/bot-watch-updates`; tg-cli still has to fill the id — [bot-update-ids-handoff.md](bot-update-ids-handoff.md).*
 3. **Reading the agent log.** `agent_actions` gets a row per MCP call and nothing reads it. Decision yours, with
    the owner: a command (`store agents` or under `mcp`) and/or a read-only MCP tool; parity marks for tg and max.
 4. **Memories, decisions, proposed actions.** Tables and APIs exist; no command, no MCP tool, no consumer. Each

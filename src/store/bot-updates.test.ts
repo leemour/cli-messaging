@@ -17,7 +17,10 @@ it("records bot updates once per account and keeps handling and replay state", a
     expect(updates.recent(account)[0]).toMatchObject({ payload: update.payload, receivedAt: 100, handledAt: null })
     updates.failed(account, "42", "handler_failed")
     expect(updates.recent(account)[0]?.error).toBe("handler_failed")
+    expect(updates.handledOf(account, ["42"])).toEqual(new Set())
     updates.handled(account, "42")
+    expect(updates.handledOf(account, ["42", "43"])).toEqual(new Set(["42"]))
+    expect(updates.handledOf({ ...account, account: "unknown" }, ["42"])).toEqual(new Set())
     now = 300
     updates.replayed(account, "42")
     expect(updates.recent(account)).toMatchObject([{ externalId: "42", handledAt: 200, replayedAt: 300, error: null }])
