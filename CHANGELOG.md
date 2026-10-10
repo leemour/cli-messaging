@@ -8,6 +8,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
+- `searchAllIncludingMeetings` adds an explicitly scoped meeting archive to the existing unified
+  search without changing `searchAll` or current CLI/MCP clients. Meeting hits retain numeric
+  source identities, unsupported query syntax is reported per resource, and bounded scans expose
+  unknown coverage and a meeting-only continuation without skipping unreturned rows.
+
 - **`store reset`**, for a store this build cannot migrate: it backs the store up beside itself
   (`wirecat.db.backup-<time>`, by `VACUUM INTO`), prints the backup's path, then deletes the store with its `-wal`
   and `-shm` and creates it empty at the current schema. It asks on a terminal; `--yes` skips the question, and

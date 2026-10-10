@@ -200,6 +200,16 @@ export {
   searchAll,
 } from "./search-all.js"
 export {
+  type MeetingSearchCoverage,
+  type MeetingSearchCursor,
+  type MeetingSearchItem,
+  RESOURCES_SEARCHED_WITH_MEETINGS,
+  type ResourceWithMeetings,
+  type SearchAllIncludingMeetingsFound,
+  type SearchAllIncludingMeetingsRequest,
+  searchAllIncludingMeetings,
+} from "./search-all-meetings.js"
+export {
   CATCH_UP_BOUNDS,
   type CatchUpOptions,
   type CatchUpResult,

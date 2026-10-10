@@ -268,6 +268,16 @@ messenger account, never mail), mail and notes in turn and merges their lists by
 no resource's own scores are compared with another's. A resource that cannot answer the query — a
 field it lacks, or nothing stored — is listed in `skipped` with the reason instead of failing the search.
 
+`searchAllIncludingMeetings` (`src/services/search-all-meetings.ts`) is a separate opt-in service.
+It delegates the legacy search unchanged, then blends its ordered result with one explicit meeting
+account's prefix matches. Meeting hits use numeric source identities rather than unsupported
+canonical references. It resolves the account through `storedAccount` and never registers one.
+Because `MeetingStore.search` pages meetings before matching their rows, the service visits
+candidate meetings serially and keeps a source cursor inside a meeting's hit list. Sparse pages
+can report unknown `hasMore` at the scan limit. The candidate bound does not bound the store's raw
+hit allocation, and offsets do not give a snapshot. The current CLI/MCP factories continue to call
+the existing `searchAll`; no meeting reference resolver or vector index is introduced.
+
 **Server search beside the archive.** `messages.search` with `backend: both|server` first runs
 `searchServer` (`src/services/server-search.ts`): it turns the resolved query into at most three
 server queries (required words, one chat, one sender, dates), calls the optional `MessageSearch`
