@@ -38,9 +38,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   task.
 
 
-- Stable meeting participant identities now have their own person and account association;
+- Explicitly associated stable meeting participant identities now have their own person and account association;
+
   older orphan identities are repaired when ingested again. Existing owner links are preserved,
-  and participant names or emails never merge people or resolve document links.
+  and participant names or emails never merge people or resolve document links. Unmarked or explicitly
+  unassociated guests retain their detached identity without creating a person.
 
 
 ## 0.221.0 — 11.10.2026

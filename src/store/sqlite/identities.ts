@@ -172,11 +172,12 @@ const saveIdentity = (
   name: string | null,
   facts: Facts,
   resolveLinks = true,
+  associatePerson = true,
 ): SavedIdentity => {
   const found = statementsOf(orm).find.get({ provider, externalId: nativeId })
   const marks = facts.marks ? JSON.stringify(facts.marks) : undefined
   if (found) {
-    if (found.personId === null) ensurePerson(orm, found.pk, found.name, now())
+    if (associatePerson && found.personId === null) ensurePerson(orm, found.pk, found.name, now())
     const changed = {
       name: name ?? found.name,
       username: facts.username ?? found.username,
@@ -221,7 +222,7 @@ const saveIdentity = (
       .returning({ pk: identities.id })
       .get()?.pk,
   )
-  ensurePerson(orm, identity, name, at)
+  if (associatePerson) ensurePerson(orm, identity, name, at)
   if (marks !== undefined) revise(orm, identity, { name, username: facts.username ?? null, marks }, at)
   if (resolveLinks) resolvePersonLinks(database, [name, facts.username])
   return { pk: identity, revised: false }
@@ -449,6 +450,7 @@ const aliasOf = (name: string | null, username: string | null) => ({
 /** Stable provider identity only; participant labels never resolve or merge other people. */
 export const meetingIdentityPk = (context: StoreContext, accountId: number, identity: IdentityInput): number => {
   if (!identity.provider || !identity.externalId) throw new CliError("validation_error", "Invalid identity key")
+  const associatePerson = identity.associatePerson === true
   const saved = saveIdentity(
     context,
     identity.provider,
@@ -456,7 +458,8 @@ export const meetingIdentityPk = (context: StoreContext, accountId: number, iden
     identity.name,
     { metadata: identity.metadata },
     false,
+    associatePerson,
   )
-  statementsOf(context.orm).seen.run({ accountId, identityId: saved.pk, createdAt: context.now() })
+  if (associatePerson) statementsOf(context.orm).seen.run({ accountId, identityId: saved.pk, createdAt: context.now() })
   return saved.pk
 }

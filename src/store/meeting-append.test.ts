@@ -42,6 +42,7 @@ describe("persistent atomic transcript append", () => {
   it("preserves the latest edit from another connection and survives reopen", async () => {
     const { path, store, accountId } = await fixture()
     const input = sampleMeeting()
+    input.participants[0].identity = { ...input.participants[0].identity, associatePerson: true }
     input.meeting.accountId = accountId
     const saved = await store.meetings.saveMeeting(input)
     const other = await openStore({ path, now: () => 4500 })
@@ -104,9 +105,42 @@ describe("persistent atomic transcript append", () => {
 })
 
 describe("stable meeting identity associations", () => {
+  it("keeps omitted and explicitly false guest associations detached while retaining owner links", async () => {
+    const { store, accountId, db } = await fixture()
+    const beforePeople = db.prepare("SELECT count(*) AS n FROM persons").get()?.n
+    const input = sampleMeeting()
+    input.meeting.accountId = accountId
+    const participant = input.participants[0]
+    participant.identity = { provider: "example", externalId: "alice-example", name: "Alice Example", metadata: null }
+    input.participants.push({
+      ...participant,
+      identity: { ...participant.identity, externalId: "invented-guest-two", associatePerson: false },
+    })
+    await store.meetings.saveMeeting(input)
+    expect(await store.personOf({ provider: "example", id: "alice-example" })).toBeUndefined()
+    expect(await store.personOf({ provider: "example", id: "invented-guest-two" })).toBeUndefined()
+    expect(db.prepare("SELECT count(*) AS n FROM persons").get()?.n).toBe(beforePeople)
+    expect(db.prepare("SELECT count(*) AS n FROM account_identities").get()?.n).toBe(0)
+    await store.savePeople(account, [
+      { id: "alice-example", name: "Alice Example" },
+      { id: "invented-guest-two", name: "Bob Sample" },
+    ])
+    await store.linkIdentities(
+      { provider: "example", id: "alice-example" },
+      { provider: "example", id: "invented-guest-two" },
+      { method: "manual", by: "owner" },
+    )
+    const links = db.prepare("SELECT * FROM identity_links ORDER BY identity_id").all()
+    const presence = db.prepare("SELECT * FROM account_identities ORDER BY identity_id").all()
+    await store.meetings.saveMeeting({ ...input, now: 7000 })
+    expect(db.prepare("SELECT * FROM identity_links ORDER BY identity_id").all()).toEqual(links)
+    expect(db.prepare("SELECT * FROM account_identities ORDER BY identity_id").all()).toEqual(presence)
+  })
+
   it("creates account presence and separate people for equal participant labels, preserves owner links and reopening", async () => {
     const { path, store, accountId, db } = await fixture()
     const input = sampleMeeting()
+    input.participants[0].identity = { ...input.participants[0].identity, associatePerson: true }
     input.meeting.accountId = accountId
     const participant = input.participants[0]
     participant.identity.metadata = { source: "invented-participant" }
@@ -158,6 +192,7 @@ describe("stable meeting identity associations", () => {
     insert.run("bob-sample")
     expect(await store.personOf({ provider: "example", id: "alice-example" })).toBeUndefined()
     const input = sampleMeeting()
+    input.participants[0].identity = { ...input.participants[0].identity, associatePerson: true }
     input.meeting.accountId = accountId
     await store.meetings.saveMeeting(input)
     const alice = await store.personOf({ provider: "example", id: "alice-example" })
@@ -186,6 +221,7 @@ describe("stable meeting identity associations", () => {
     })
     await store.notes.replaceFileLinks(note.id, [{ kind: "links-to", targetText: "Alice Example" }])
     const input = sampleMeeting()
+    input.participants[0].identity = { ...input.participants[0].identity, associatePerson: true }
     input.meeting.accountId = accountId
     const invalid = {
       ...input,

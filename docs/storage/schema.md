@@ -996,7 +996,9 @@ One occurrence: it happened once, at one time.
 ### `meeting_participants`
 
 One person in one meeting, as that meeting saw them; the name and email stay with this meeting.
-Stable provider/external identity keys use the normal identity, person and account-presence path.
+An identity explicitly marked `associatePerson: true` uses the normal stable-key identity, person
+and account-presence path. Omitted or false flags keep guests without new person or account
+associations; existing owner links are retained.
 An older identity missing its person link receives its own initial link when ingested again;
 existing owner links remain intact. Meeting labels never merge identities or resolve document
 names, and an absent stable identity key is rejected rather than guessed from a name or email.
