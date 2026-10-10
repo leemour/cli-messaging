@@ -572,3 +572,28 @@ describe("migrating the store", () => {
     database.close()
   })
 })
+
+describe("the accounts a caller can name", () => {
+  it("lists every account with the store's id, finds one without making it, and names a missing one", async () => {
+    const store = await openStore({ path: fresh() })
+    try {
+      const zoom = await store.saveAccount(
+        { provider: "zoom", account: "alice@example.com" },
+        { name: "Alice Example" },
+      )
+      const telegram = await store.saveAccount(ME, { name: null })
+
+      expect(await store.storedAccounts()).toEqual([
+        { id: telegram, provider: "telegram", account: "100", name: null, scope: "personal" },
+        { id: zoom, provider: "zoom", account: "alice@example.com", name: "Alice Example", scope: "personal" },
+      ])
+      expect((await store.storedAccount({ provider: "zoom", account: "alice@example.com" })).id).toBe(zoom)
+      await expect(store.storedAccount({ provider: "zoom", account: "bob@example.com" })).rejects.toMatchObject({
+        code: "not_found",
+      })
+      expect(await store.storedAccounts()).toHaveLength(2)
+    } finally {
+      await store.close()
+    }
+  })
+})

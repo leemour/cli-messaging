@@ -1,4 +1,5 @@
-import type { AccountKey } from "../store.js"
+import { CliError } from "@wirecat/cli-core"
+import type { AccountKey, StoredAccount } from "../store.js"
 import { and, asc, eq, inArray, sql } from "./drizzle/core.js"
 import type { StoreContext } from "./open.js"
 import {
@@ -66,6 +67,29 @@ export const heldAccounts = ({ orm }: StoreContext): AccountKey[] =>
     .from(accounts)
     .orderBy(asc(accounts.provider), asc(accounts.externalId))
     .all()
+
+/** Every account with the store's id for it, by provider then external id. */
+const STORED = {
+  id: accounts.id,
+  provider: accounts.provider,
+  account: accounts.externalId,
+  name: accounts.name,
+  scope: accounts.scope,
+}
+
+export const storedAccounts = ({ orm }: StoreContext): StoredAccount[] =>
+  orm.select(STORED).from(accounts).orderBy(asc(accounts.provider), asc(accounts.externalId)).all() as StoredAccount[]
+
+/** One account by provider and external id, never created; a missing one is `not_found`. */
+export const storedAccount = ({ orm }: StoreContext, { provider, account }: AccountKey): StoredAccount => {
+  const found = orm
+    .select(STORED)
+    .from(accounts)
+    .where(and(eq(accounts.provider, provider), eq(accounts.externalId, account)))
+    .get()
+  if (!found) throw new CliError("not_found", `no ${provider} account ${account} in the store`)
+  return found as StoredAccount
+}
 
 /** Everything the account holds, children before parents: the foreign keys are enforced. */
 export const purgeAccount = ({ orm }: StoreContext, accountKey: number): void => {

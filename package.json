@@ -111,7 +111,7 @@
     "@modelcontextprotocol/server": "2.1.0",
     "@resvg/resvg-js": "2.6.2",
     "@valibot/to-json-schema": "1.8.0",
-    "@wirecat/cli-meetings": "0.2.0",
+    "@wirecat/cli-meetings": "0.2.1",
     "@wirecat/cli-messaging-onnx": "1.0.0",
     "@wirecat/cli-messaging-sqlite": "1.0.0",
     "@wirecat/cli-tasks": "0.2.1",

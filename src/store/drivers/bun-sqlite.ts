@@ -59,7 +59,9 @@ export const cacheOverBunSqlite = (database: BunDatabase): CacheDatabase => {
       const statement = database.query(sql)
       return {
         run: (...parameters: SqlValue[]) => ({ changes: Number(statement.run(...parameters).changes) }),
-        get: (...parameters: SqlValue[]) => statement.get(...parameters) as Record<string, unknown> | undefined,
+        // Bun answers null for no row; the seam promises undefined, and `!== undefined` checks rely on it.
+        get: (...parameters: SqlValue[]) =>
+          (statement.get(...parameters) ?? undefined) as Record<string, unknown> | undefined,
         all: (...parameters: SqlValue[]) => statement.all(...parameters) as Record<string, unknown>[],
       }
     },

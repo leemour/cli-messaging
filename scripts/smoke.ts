@@ -7,6 +7,7 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { meetingStoreContract } from "@wirecat/cli-meetings/testing"
 import iconv from "iconv-lite"
 import { decodeText } from "../src/attachments/encoding.js"
 import { extractText, importEngine } from "../src/attachments/extract.js"
@@ -16,6 +17,7 @@ import { formatLocator, parseLocator, renderMessages } from "../src/index.js"
 import { migrate, openCache, openStore } from "../src/store/index.js"
 import { normalize } from "../src/store/normalize.js"
 import { withQuerySelection } from "../src/store/sqlite/lucene.js"
+import { meetingStoreOver } from "../src/store/sqlite/meetings.js"
 import { openSqlite } from "../src/store/sqlite/open.js"
 import { rankQuery } from "../src/store/sqlite/rankings.js"
 import { accounts } from "../src/store/sqlite/schema.js"
@@ -177,6 +179,32 @@ for (const kind of ["odt", "ods", "xlsx", "pptx", "epub"] as const) {
   )
   check(`local ${kind} text reads under ${runtime}`, result.status === "extracted")
 }
+
+let missingChecked = false
+for (const { name, run } of meetingStoreContract(async () => {
+  const { database: meetings } = await openSqlite(join(mkdtempSync(join(tmpdir(), "cli-messaging-smoke-")), "m.db"))
+  migrate(meetings)
+  const account = meetings.prepare(
+    "INSERT INTO accounts (id, provider, external_id, name, created_at, updated_at) VALUES (?, 'example', ?, ?, 1, 1)",
+  )
+  account.run(1, "first", "First Example")
+  account.run(2, "second", "Second Example")
+  if (!missingChecked) {
+    missingChecked = true
+    check(
+      `a missing row reads as undefined, not null, under ${runtime}`,
+      meetings.prepare("SELECT id FROM accounts WHERE id = 3").get() === undefined,
+    )
+  }
+  return meetingStoreOver({ database: meetings })
+}))
+  check(
+    `meeting contract "${name}" passes under ${runtime}`,
+    await run().then(
+      () => true,
+      () => false,
+    ),
+  )
 
 if (failures.length > 0) {
   console.error(`smoke failed under ${runtime}:\n${failures.map((one) => `  - ${one}`).join("\n")}`)

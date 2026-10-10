@@ -102,6 +102,15 @@ export interface AccountKey {
   scope?: "personal" | "work"
 }
 
+/** An account as the store holds it: `id` is what `meetings` and `mail` take. */
+export interface StoredAccount {
+  id: number
+  provider: Provider
+  account: Id
+  name: string | null
+  scope: "personal" | "work"
+}
+
 /** Whether a stored chat may hold a message deleted without naming its chat. */
 export type DeletionScope = (chat: Pick<Chat, "id" | "kind" | "providerMetadata">) => boolean
 
@@ -485,6 +494,10 @@ export interface MessageStore {
   refreshRecency(key: AccountKey): Promise<void>
   /** Every account of every messenger the file holds, by messenger then id. */
   accounts(): Promise<AccountKey[]>
+  /** Every account with the store's id for it, by provider then external id. */
+  storedAccounts(): Promise<StoredAccount[]>
+  /** One account by provider and external id, never created: `not_found` when the store has none. */
+  storedAccount(key: AccountKey): Promise<StoredAccount>
   /** The name the messenger last gave for this account; `null` when it never did. */
   accountName(key: AccountKey): Promise<string | null>
   /** Everyone this provider's accounts have seen; with `account`, only who that account has seen. */
@@ -1349,6 +1362,8 @@ const storeOver = (context: StoreContext): MessageStore => {
     matchFilters: async (scope, options) => words.matchFilters(context, scope, options),
 
     accounts: async () => accounts.heldAccounts(context),
+    storedAccounts: async () => accounts.storedAccounts(context),
+    storedAccount: async (key) => accounts.storedAccount(context, key),
     accountName: async (key) => accounts.accountName(context, key),
 
     chatCompleteness: async (key, chatIds) => {

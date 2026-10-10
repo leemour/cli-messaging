@@ -89,6 +89,7 @@ export {
   type RankingRequest,
   type SearchCommand,
   type SearchRecord,
+  type StoredAccount,
   type StoredChatFilter,
   type StoredHit,
   type StoredSearch,
