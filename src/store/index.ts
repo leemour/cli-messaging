@@ -43,8 +43,8 @@ export type {
   TranscriptReadScope,
   TranscriptRowPage,
 } from "./sqlite/meeting-reads.js"
-export type { AttachmentInput } from "./sqlite/meetings.js"
 export type { MeetingVectorHit, MeetingVectors } from "./sqlite/meeting-vectors.js"
+export type { AttachmentInput } from "./sqlite/meetings.js"
 export type { Author, MemoriesStore, Memory, MemoryInput } from "./sqlite/memories.js"
 export type { NoteIndexState } from "./sqlite/note-index.js"
 export {
