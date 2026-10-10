@@ -1,8 +1,9 @@
 import { CliError } from "@wirecat/cli-core"
 import { chunkHash, cutChunks } from "../../conversations/chunks.js"
+import { atomic } from "./atomic.js"
 import { meetingReadSnapshot, positiveReadInteger } from "./meeting-reads.js"
 import type { StoreContext } from "./open.js"
-import { dot } from "./vectors.js"
+import { dot, saveVectors } from "./vectors.js"
 
 interface Scope {
   accountId: number
@@ -21,6 +22,12 @@ export interface MeetingVectorHit {
   score: number
 }
 export interface MeetingVectors {
+  saveCurrent(
+    model: string,
+    dims: number,
+    rows: { hash: string; vector: Float32Array }[],
+    input: Scope,
+  ): Promise<{ saved: number; skipped: number }>
   rebuild(
     input: Scope & TextBudget & { afterTranscriptId?: number; limit?: number },
   ): Promise<{ transcripts: number; chunks: number; hasMore: boolean; nextTranscriptId?: number }>
@@ -138,12 +145,42 @@ const chunkText = (
   }
 }
 export const meetingVectorsOver = (context: StoreContext): MeetingVectors => ({
+  async saveCurrent(model, dims, rows, input) {
+    scope(input)
+    modelOf(model)
+    limitOf(dims, "dims", 65536)
+    if (rows.length > 1000 || rows.reduce((bytes, row) => bytes + row.vector.byteLength, 0) > 16 * 1024 * 1024)
+      throw new CliError("validation_error", "Vector save exceeds its batch or 16 MiB payload budget")
+    for (const row of rows)
+      if (
+        !/^[a-f0-9]{64}$/.test(row.hash) ||
+        !(row.vector instanceof Float32Array) ||
+        row.vector.length !== dims ||
+        row.vector.some((value) => !Number.isFinite(value))
+      )
+        throw new CliError("validation_error", "Vectors require content hashes, matching dimensions and finite values")
+    return atomic(context.database, () => {
+      const unique = new Map(rows.map((row) => [row.hash, row]))
+      const current = context.database
+        .prepare(`SELECT DISTINCT k.content_hash ${LIVE} AND k.content_hash IN (SELECT value FROM json_each(?))`)
+        .all(input.accountId, JSON.stringify([...unique.keys()]))
+      const available = new Set(current.map((row) => String(row.content_hash)))
+      const selected = [...unique.values()].filter(
+        (row) =>
+          available.has(row.hash) &&
+          !context.database.prepare("SELECT 1 FROM embeddings WHERE model=? AND content_hash=?").get(model, row.hash),
+      )
+      input.signal?.throwIfAborted()
+      saveVectors(context, model, dims, selected)
+      input.signal?.throwIfAborted()
+      return { saved: selected.length, skipped: rows.length - selected.length }
+    })
+  },
   async rebuild(input) {
     scope(input)
     const limit = limitOf(input.limit ?? 100, "limit")
     if (input.afterTranscriptId !== undefined) positiveReadInteger(input.afterTranscriptId, "afterTranscriptId")
-    context.database.exec("BEGIN IMMEDIATE")
-    try {
+    return atomic(context.database, () => {
       const found = context.database
         .prepare(
           "SELECT t.id,a.scope,NULL AS project_id,m.started_at FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id JOIN accounts a ON a.id=m.account_id WHERE m.account_id=? AND m.deleted_at IS NULL AND t.deleted_at IS NULL AND t.superseded_at IS NULL AND t.id>? ORDER BY t.id LIMIT ?",
@@ -193,7 +230,6 @@ export const meetingVectorsOver = (context: StoreContext): MeetingVectors => ({
         )
         .run(input.accountId, input.accountId)
       input.signal?.throwIfAborted()
-      context.database.exec("COMMIT")
       const hasMore = found.length > limit
       return {
         transcripts: selected.length,
@@ -201,10 +237,7 @@ export const meetingVectorsOver = (context: StoreContext): MeetingVectors => ({
         hasMore,
         ...(hasMore ? { nextTranscriptId: Number(selected.at(-1)?.id) } : {}),
       }
-    } catch (error) {
-      context.database.exec("ROLLBACK")
-      throw error
-    }
+    })
   },
   async chunksToEmbed(model, input) {
     scope(input)

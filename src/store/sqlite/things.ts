@@ -157,7 +157,7 @@ export const referenceOfThing = (database: CacheDatabase, thing: Thing): string 
         ? "m.account_id,m.id AS meeting_id,m.deleted_at AS meeting_deleted"
         : `m.account_id,m.id AS meeting_id,m.deleted_at AS meeting_deleted,t.id AS transcript_id,t.deleted_at AS transcript_deleted${thing.type === "meeting_transcript_row" ? ",r.position" : ""}`
     const row = database.prepare(`SELECT ${columns} ${join}`).get(thing.id)
-    if (!row || row.meeting_deleted != null || row.transcript_deleted != null) return undefined
+    if (!row) return undefined
     return formatMeetingReference({
       type: "meeting",
       accountId: Number(row.account_id),
@@ -244,8 +244,24 @@ export const referenceOfThing = (database: CacheDatabase, thing: Thing): string 
 
 export const stateOfThing = (database: CacheDatabase, thing: Thing | undefined): ThingState => {
   if (!thing) return "unavailable"
-  if (["meeting", "meeting_transcript", "meeting_transcript_row"].includes(thing.type))
-    return referenceOfThing(database, thing) === undefined ? "unavailable" : "available"
+  if (["meeting", "meeting_transcript", "meeting_transcript_row"].includes(thing.type)) {
+    const source =
+      thing.type === "meeting"
+        ? "FROM meetings m WHERE m.id=?"
+        : thing.type === "meeting_transcript"
+          ? "FROM meeting_transcripts t JOIN meetings m ON m.id=t.meeting_id WHERE t.id=?"
+          : "FROM meeting_transcript_rows r JOIN meeting_transcripts t ON t.id=r.meeting_transcript_id JOIN meetings m ON m.id=t.meeting_id WHERE r.id=?"
+    const row = database
+      .prepare(
+        `SELECT m.deleted_at AS meeting_deleted${thing.type === "meeting" ? "" : ",t.deleted_at AS transcript_deleted"} ${source}`,
+      )
+      .get(thing.id)
+    return !row
+      ? "unavailable"
+      : row.meeting_deleted != null || row.transcript_deleted != null
+        ? "deleted"
+        : "available"
+  }
   const known = referable(thing.type)
   if (!known) return "unavailable"
   const row = database

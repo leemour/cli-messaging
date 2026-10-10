@@ -116,3 +116,91 @@ describe("meeting transcript vectors", () => {
     }
   })
 })
+
+it("rejects aggregate text budgets and stale chunks before exposing mismatched evidence", async () => {
+  const { store, accountId, input, path } = await fixture()
+  try {
+    await store.meetingVectors.rebuild({ accountId })
+    const current = await store.meetingVectors.chunksToEmbed("invented-model", { accountId, limit: 10 })
+    await expect(
+      store.meetingVectors.chunksToEmbed("invented-model", { accountId, limit: 10, maxTextBytes: 1 }),
+    ).rejects.toMatchObject({ code: "validation_error" })
+    await expect(
+      store.meetingVectors.chunksToEmbed("invented-model", { accountId, limit: 10, afterHash: "bad" }),
+    ).rejects.toMatchObject({ code: "validation_error" })
+    await expect(store.meetingVectors.rebuild({ accountId: 0 })).rejects.toMatchObject({ code: "validation_error" })
+    await expect(store.meetingVectors.rebuild({ accountId, limit: 1001 })).rejects.toMatchObject({
+      code: "validation_error",
+    })
+    await expect(
+      store.meetingVectors.nearest("invented-model", new Float32Array([NaN]), { accountId, limit: 1 }),
+    ).rejects.toMatchObject({ code: "validation_error" })
+    await store.saveVectors(
+      "invented-model",
+      2,
+      current.items.map((item) => ({ hash: item.hash, vector: new Float32Array([1, 0]) })),
+    )
+    const db = await openCache(path)
+    try {
+      db.prepare(
+        "UPDATE meeting_transcript_rows SET text='Invented changed text' WHERE meeting_transcript_id IN (SELECT id FROM meeting_transcripts WHERE meeting_id IN (SELECT id FROM meetings WHERE account_id=?))",
+      ).run(accountId)
+    } finally {
+      db.close()
+    }
+    await expect(
+      store.meetingVectors.nearest("invented-model", new Float32Array([1, 0]), { accountId, limit: 1 }),
+    ).rejects.toMatchObject({ code: "invalid_response" })
+    await store.meetingVectors.rebuild({ accountId })
+    expect(
+      (await store.meetingVectors.chunksToEmbed("invented-model", { accountId, limit: 10 })).items[0]?.text,
+    ).toContain("Invented changed text")
+    input.meeting.externalId = "second-invented-occurrence"
+    await store.meetings.saveMeeting(input)
+    await expect(store.meetingVectors.rebuild({ accountId, maxTextBytes: 100 })).rejects.toMatchObject({
+      code: "validation_error",
+    })
+  } finally {
+    await store.close()
+  }
+})
+
+it("atomically revalidates parent scope after model work and acknowledges cached, duplicate and inactive hashes", async () => {
+  const { store, accountId, foreignId, input } = await fixture()
+  try {
+    await store.meetingVectors.rebuild({ accountId })
+    const pending = await store.meetingVectors.chunksToEmbed("invented-model", { accountId, limit: 10 })
+    const vectors = pending.items.map((item) => ({ hash: item.hash, vector: new Float32Array([1, 0]) }))
+    expect(await store.meetingVectors.saveCurrent("invented-model", 2, vectors, { accountId: foreignId })).toEqual({
+      saved: 0,
+      skipped: vectors.length,
+    })
+    const first = vectors[0]
+    if (!first) throw new Error("Missing invented vector")
+    expect(await store.meetingVectors.saveCurrent("invented-model", 2, [first, first], { accountId })).toEqual({
+      saved: 1,
+      skipped: 1,
+    })
+    expect(await store.meetingVectors.saveCurrent("invented-model", 2, [first], { accountId })).toEqual({
+      saved: 0,
+      skipped: 1,
+    })
+    input.transcripts[0].contentHash = "invented-post-model-correction"
+    input.transcripts[0].rows[0].text = "Changed during model await"
+    await store.meetings.saveMeeting(input)
+    expect(await store.meetingVectors.saveCurrent("invented-model", 2, vectors, { accountId })).toEqual({
+      saved: 0,
+      skipped: vectors.length,
+    })
+    await expect(store.meetingVectors.saveCurrent("invented-model", 3, [first], { accountId })).rejects.toMatchObject({
+      code: "validation_error",
+    })
+    await expect(
+      store.meetingVectors.saveCurrent("invented-model", 2, [{ ...first, vector: new Float32Array([NaN, 0]) }], {
+        accountId,
+      }),
+    ).rejects.toMatchObject({ code: "validation_error" })
+  } finally {
+    await store.close()
+  }
+})

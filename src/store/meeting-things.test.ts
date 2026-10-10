@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { sampleMeeting } from "@wirecat/cli-meetings/testing"
 import { expect, it } from "vitest"
 import { openCache } from "./open.js"
-import { referenceOfThing, thingOf } from "./sqlite/things.js"
+import { referenceOfThing, stateOfThing, thingOf } from "./sqlite/things.js"
 import { openStore } from "./store.js"
 
 it("persists canonical meeting, retained revision and actual cue references as memory and decision evidence", async () => {
@@ -66,7 +66,12 @@ it("persists canonical meeting, retained revision and actual cue references as m
         expect(thing).toBeDefined()
         if (thing) expect(referenceOfThing(db, thing)).toBe(ref)
       }
+      const pointed = thingOf(db, cue)
       db.prepare("UPDATE meetings SET deleted_at=1 WHERE id=?").run(saved.meeting.id)
+      if (pointed) {
+        expect(stateOfThing(db, pointed)).toBe("deleted")
+        expect(referenceOfThing(db, pointed)).toBe(cue)
+      }
       expect(thingOf(db, cue)).toBeUndefined()
     } finally {
       db.close()
