@@ -11,6 +11,12 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
 
+### Security
+
+- **The old `messages.db` is deleted** when the store opens at its default path: the unencrypted file the
+  store used before `wirecat.db`, with its `-wal` and `-shm`. One line on stderr names it. Kept when
+  `MESSAGING_STORE` is set, and while another process still holds it open (deleted on a later open).
+
 ## 0.221.0 — 11.10.2026
 
 ### Added
