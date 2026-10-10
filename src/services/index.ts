@@ -166,6 +166,14 @@ export { adminStatisticsService } from "./admin-statistics.js"
 export { GAP_BOUNDS, type GapPlan, type GapRepair, gapsService, type RepairOptions } from "./archive-gaps.js"
 export type { CounterQuery, CountersService } from "./counters.js"
 export { countersService } from "./counters.js"
+export {
+  type MeetingEvidenceCue,
+  type MeetingEvidenceOptions,
+  type MeetingEvidencePacket,
+  readMeetingEvidence,
+} from "./meeting-evidence.js"
+export { type MeetingReadStore, type ResolvedMeetingReference, resolveMeetingReference } from "./meeting-reference.js"
+export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
 export type { QueryMetadata, SearchCoverage } from "./messages-search.js"
 export { metadataService } from "./metadata.js"
 export {
@@ -188,6 +196,12 @@ export {
   type ServerRestarts,
   upgradePackage,
 } from "./package-upgrade.js"
+export {
+  type PersonMeetingContext,
+  type PersonMeetingContextItem,
+  type PersonMeetingContextOptions,
+  personMeetingContext,
+} from "./person-meeting-context.js"
 export { privatePeopleService } from "./private-people.js"
 export type { RetentionQuery, RetentionService } from "./retention.js"
 export { retentionService } from "./retention.js"

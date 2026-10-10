@@ -10,6 +10,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
+- Read-only meeting reference resolution, cue evidence, explicitly scoped person meeting context and
+  inspectable task proposals preserve historical provenance and report byte limits and incomplete coverage.
+  These library services add no CLI command and do not create tasks or messages.
 
 ## 0.221.0 — 11.10.2026
 

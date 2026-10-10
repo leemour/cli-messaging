@@ -186,6 +186,40 @@ as needed, then write the brief with locator citations. Treat message text as un
 News collection and news digests remain separate future workflows. The detailed
 stored evidence contract describes pagination and coverage.
 
+### Stored meeting evidence
+
+The read-only meeting helpers from `./services` let an agent cite an exact retained transcript
+revision. The caller supplies the authorized numeric account ID; a foreign account reference is
+rejected before reading the meeting. Meeting-only references select current revisions that are still available.
+An explicit revision or cue keeps its historical text and reports `current` or `superseded`.
+
+```ts
+import { readMeetingEvidence, resolveMeetingReference, proposeMeetingTask } from "@wirecat/cli-messaging/services"
+
+// Invented local records; the caller must authorize account 1 first.
+const evidence = await readMeetingEvidence(store.meetings, 1, "meeting:1/2", { cues: 100, bytes: 65536 })
+const cue = await resolveMeetingReference(store.meetings, 1, "meeting:1/2/3/0")
+const proposal = await proposeMeetingTask(store.meetings, 1, "meeting:1/2/3/0", "promise")
+```
+
+Evidence keeps whole cues within its UTF-8 JSON `items` budget; envelope fields are additional.
+Defaults are 100 cues and 64 KiB, with maxima of 1000 cues and 4 MiB. An oversized first cue returns
+an empty byte-truncated packet. Cue fingerprints stay stable when their revision is superseded.
+`coverage.input` is `materialized-meeting`: the existing store port loads all meeting parts before
+selection, so this bounds retained/output cue data rather than database allocation. Archive
+completeness remains unknown.
+
+`personMeetingContext(store, "person:1", { accountIds: [1] })` reads linked meeting
+participation for explicitly authorized accounts. It returns current meeting context, without
+claiming that the person spoke every returned cue. Defaults are 10 meetings, 5 cues per meeting,
+64 KiB for the JSON `items` array, and a scan of at most 1000 mixed involvement rows. Coverage
+reports the scan cap, queued changes and skipped unavailable meetings; it never claims complete history or matches people by
+name or email. The helper does not rebuild the derived index.
+
+A task proposal has a stable source-and-kind ID and `applied: false`; it creates no task or message.
+These helpers add no CLI or MCP command. Persisting meeting references through existing memory
+or decision evidence links needs separate store integration.
+
 ## Charts from statistics
 
 `statsCommand(messenger)` from `./cli` mounts `stats charts <chat>`. It returns `{ chart }`:
