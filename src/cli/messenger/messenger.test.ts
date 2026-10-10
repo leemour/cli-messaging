@@ -2193,6 +2193,72 @@ describe("the shared read commands", () => {
     expect(lonely.code).toBe(2)
   })
 
+  it("contacts timeline lists what a person took part in, newest first, within a time range and scope", async () => {
+    const root = mkdtempSync(join(tmpdir(), "person-timeline-"))
+    const env = {
+      CHAT_STATE_DIR: join(root, "state"),
+      CHAT_CONFIG_DIR: join(root, "config"),
+      MESSAGING_STORE: join(root, "m.db"),
+    }
+    rememberAccount(app, "default", "500", env)
+    const store = await openStore({ path: env.MESSAGING_STORE })
+    const tg = { provider: "telegram", account: "500" }
+    const said = (id: string, timestamp: string) => ({
+      id,
+      chatId: "31",
+      senderId: "21",
+      senderName: "Alice Example",
+      timestamp,
+      editedAt: null,
+      text: "synthetic",
+      outgoing: false,
+      attachments: [],
+      replyTo: null,
+      forwardedFrom: null,
+      reactions: null,
+    })
+    await store.saveChats(tg, [
+      { id: "31", title: "Example group", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 2 },
+    ])
+    await store.saveMessages(tg, "31", [said("1", "2026-09-01T10:00:00.000Z"), said("2", "2026-09-03T10:00:00.000Z")], {
+      via: "test",
+    })
+    await store.close()
+    const never = async (): Promise<MessengerAdapter> => {
+      throw new Error("contacts timeline must never connect")
+    }
+    const timeline = async (...flags: string[]) => {
+      const result = await call(
+        ["contacts", "timeline", "21", ...flags, "--offline", "--json"],
+        never,
+        env,
+        {},
+        {
+          provider: "telegram",
+        },
+      )
+      expect(result.code).toBe(0)
+      return JSON.parse(result.stdout[0] ?? "null")
+    }
+
+    const all = await timeline()
+    expect(all.items.map((item: { at: string }) => item.at)).toEqual([
+      "2026-09-03T10:00:00.000Z",
+      "2026-09-01T10:00:00.000Z",
+    ])
+    expect(all.items[0]).toMatchObject({
+      subject: "message",
+      role: "sender",
+      scope: "personal",
+      chatId: "31",
+      locator: "msg:telegram/500/31/2",
+    })
+    const ranged = await timeline("--since-time", "2026-09-02T00:00:00Z", "--until-time", "2026-09-30T00:00:00Z")
+    expect(ranged.items.map((item: { locator: string }) => item.locator)).toEqual(["msg:telegram/500/31/2"])
+    expect(await timeline("--limit", "1")).toMatchObject({ hasMore: true, limits: { items: 1 } })
+    expect((await timeline("--scope", "work")).items).toEqual([])
+  })
+
   it("contacts profile adds their stored activity per shared chat, and shows a phone's last four digits", async () => {
     const root = mkdtempSync(join(tmpdir(), "person-profile-"))
     const env = {

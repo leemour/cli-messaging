@@ -732,6 +732,7 @@ describe("the MCP server", () => {
       "chat_contacts_notes_show",
       "chat_contacts_profile",
       "chat_contacts_show",
+      "chat_contacts_timeline",
       "chat_conversations_batches_next",
       "chat_conversations_batches_status",
       "chat_conversations_list",

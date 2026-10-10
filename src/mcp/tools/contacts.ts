@@ -10,6 +10,7 @@ import { onlineDeps, phoneOf, servicesFor, storedDeps } from "../../services/ind
 import { momentOf } from "../../services/moment.js"
 import { maskedAccount } from "../../services/people.js"
 import { CONTEXT_BYTES, CONTEXT_MESSAGES } from "../../services/person-context.js"
+import { SCOPES, TIMELINE_ITEMS } from "../../services/person-timeline.js"
 import { type AnyTool, envelope, limit, page, paging, READ, tool } from "../tool.js"
 
 export const contactsTools = (messenger: Messenger): Record<string, AnyTool> => {
@@ -126,6 +127,38 @@ export const contactsTools = (messenger: Messenger): Record<string, AnyTool> => 
           ...(args.since_time === undefined ? {} : { since: momentOf(args.since_time, "since_time") }),
         })
       },
+    }),
+
+    contacts_timeline: tool({
+      title: "What a person took part in",
+      description:
+        "Everything one person took part in, in every messenger linked to them, newest first: person { uid, name }, " +
+        "items [{ at, subject (message, chat, email, meeting, task, document…), subjectId, role (sender, " +
+        "mentioned, participant, recipient, assignee, author…), scope, provider, account, chatId, locator, " +
+        "projectId }], limits, hasMore. A message carries a locator other tools take. Reads the store only.",
+      input: v.object({
+        person: v.pipe(v.string(), v.minLength(1), v.description("person id, @username, or part of a name")),
+        scope: v.optional(v.pipe(v.picklist(SCOPES), v.description("only personal or only work"))),
+        since_time: v.optional(v.pipe(v.string(), v.description("an ISO 8601 time, or 2h / 1d ago"))),
+        until_time: v.optional(v.pipe(v.string(), v.description("through this ISO 8601 time, or 2h / 1d ago"))),
+        limit: v.optional(
+          v.pipe(
+            v.number(),
+            v.integer(),
+            v.minValue(1),
+            v.maxValue(100),
+            v.description(`at most this many; ${TIMELINE_ITEMS} if not given`),
+          ),
+        ),
+      }),
+      annotations: { ...READ, openWorldHint: false },
+      stored: (store, account, args, defaults) =>
+        servicesFor(storedDeps(messenger, store, account, defaults.guard)).people.timeline(args.person, {
+          ...(args.scope === undefined ? {} : { scope: args.scope }),
+          ...(args.since_time === undefined ? {} : { since: momentOf(args.since_time, "since_time") }),
+          ...(args.until_time === undefined ? {} : { until: momentOf(args.until_time, "until_time") }),
+          ...(args.limit === undefined ? {} : { limit: args.limit }),
+        }),
     }),
 
     contacts_check: tool({

@@ -862,6 +862,10 @@
       "value": "<name|id>",
       "meaning": "run a saved search, or an earlier run by its id; options typed with it replace its own, more words are AND-ed"
     },
+    "--scope": {
+      "value": "<personal|work>",
+      "meaning": "only what belongs to personal or to work accounts"
+    },
     "--score": {
       "value": "<helpful|active|engaging>",
       "meaning": "the named ranking score preset; not with an explicit --measure"
@@ -2404,6 +2408,15 @@
     },
     "contacts sync": {
       "in": "all"
+    },
+    "contacts timeline": {
+      "in": "all",
+      "options": {
+        "--limit": "all",
+        "--scope": "all",
+        "--since-time": "all",
+        "--until-time": "all"
+      }
     },
     "contacts unblock": {
       "in": "all"
