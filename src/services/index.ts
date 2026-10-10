@@ -175,12 +175,6 @@ export {
   readMeetingEvidence,
 } from "./meeting-evidence.js"
 export {
-  type MeetingReadStore,
-  type MeetingReferenceReadOptions,
-  type ResolvedMeetingReference,
-  resolveMeetingReference,
-} from "./meeting-reference.js"
-export {
   createMeetingRemoteModel,
   type MeetingEmbedder,
   type MeetingEmbedderOptions,
@@ -188,6 +182,12 @@ export {
   meetingEmbeddingModel,
   openMeetingEmbedder,
 } from "./meeting-model.js"
+export {
+  type MeetingReadStore,
+  type MeetingReferenceReadOptions,
+  type ResolvedMeetingReference,
+  resolveMeetingReference,
+} from "./meeting-reference.js"
 export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
 export {
   type CreateMeetingTaskInput,
