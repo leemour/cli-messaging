@@ -27,7 +27,7 @@ export interface Job {
   cancelRequestedAt?: string
 }
 
-export const JOB_STATES = ["running", "done", "failed", "cancelled", "died"] as const
+export const JOB_STATES = ["running", "done", "partial", "failed", "cancelled", "died"] as const
 export type JobState = (typeof JOB_STATES)[number]
 
 /** Starts `<cli> <argv>` apart from this process, writing to `log`, and answers its PID. Tests hand one in. */
@@ -92,7 +92,7 @@ export const listJobs = (dir: string): Job[] =>
 export const stateOf = (job: Job): JobState => {
   if (job.finishedAt !== undefined) {
     if (job.cancelRequestedAt) return "cancelled"
-    return job.error ? "failed" : "done"
+    return job.error ? "failed" : job.result?.batch || job.result?.issue ? "partial" : "done"
   }
   if (isJob(job)) return "running"
   return job.cancelRequestedAt ? "cancelled" : "died"

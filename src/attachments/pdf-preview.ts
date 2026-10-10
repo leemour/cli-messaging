@@ -1,7 +1,7 @@
 import { CliError } from "@wirecat/cli-core"
 import { imageSize } from "image-size"
 import { importEngine, type LoadEngine } from "./extract.js"
-import { MAX_CHUNK_BYTES } from "./transfer.js"
+import { pdfPreviewLimits } from "./limits.js"
 
 interface Document {
   numPages: number
@@ -27,7 +27,9 @@ export const pdfPreview = async (
   page: number,
   signal?: AbortSignal,
   load: LoadEngine = importEngine,
+  env: NodeJS.ProcessEnv = process.env,
 ) => {
+  const limits = pdfPreviewLimits(env)
   const cancelled = () => {
     if (signal?.aborted) throw new CliError("cancelled", "PDF preview cancelled")
   }
@@ -57,7 +59,7 @@ export const pdfPreview = async (
       CanvasFactory,
       isEvalSupported: false,
       verbosity: 0,
-      maxImageSize: 20_000_000,
+      maxImageSize: Math.max(20_000_000, limits.pixels * limits.pixels),
     })
     signal?.addEventListener("abort", close, { once: true })
     cancelled()
@@ -72,7 +74,7 @@ export const pdfPreview = async (
         throw new Error("invalid dimensions")
       image = Buffer.from(
         await engine.renderPageAsImage(document, page, {
-          scale: Math.min(2, 2000 / viewport.width, 2000 / viewport.height),
+          scale: Math.min(4, limits.pixels / viewport.width, limits.pixels / viewport.height),
           canvasImport: async () => canvas,
         }),
       )
@@ -80,10 +82,19 @@ export const pdfPreview = async (
       selected.cleanup()
     }
     cancelled()
-    if (image.byteLength > MAX_CHUNK_BYTES) throw new CliError("validation_error", "PDF preview exceeds 1 MiB")
+    if (image.byteLength > limits.bytes)
+      throw new CliError(
+        "validation_error",
+        `PDF preview exceeds ${limits.bytes / 1024 / 1024} MiB; configure MESSAGING_PDF_PREVIEW_MAX_MIB`,
+      )
     const { width, height, type } = imageSize(image)
-    if (type !== "png" || width < 1 || height < 1 || width > 2000 || height > 2000)
+    if (type !== "png" || width < 1 || height < 1)
       throw new CliError("validation_error", "PDF preview has unsupported image dimensions or format")
+    if (width > limits.pixels || height > limits.pixels)
+      throw new CliError(
+        "validation_error",
+        `PDF preview dimensions exceed ${limits.pixels} pixels per side; configure MESSAGING_PDF_PREVIEW_MAX_PIXELS`,
+      )
     return { bytes: image, page, pageCount: document.numPages }
   } catch (error) {
     cancelled()

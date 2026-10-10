@@ -11,17 +11,19 @@ import {
   extractText,
   importEngine,
   type LoadEngine,
-  MAX_FILE_BYTES,
   MAX_TEXT_CHARS,
 } from "../attachments/extract.js"
+import { attachmentMaxBytes } from "../attachments/limits.js"
 import { type OcrPipeline, ocrImage, ocrPdf } from "../attachments/ocr.js"
 import { pdfPreview } from "../attachments/pdf-preview.js"
 import { type ByteWindow, retainedBytes, transferMime, validateWindow } from "../attachments/transfer.js"
+import { type ActionableError, withRecovery } from "../cli/recovery.js"
 import { NOT_FILES } from "../domain/attachments.js"
 import { formatLocator, isLocator, parseLocator } from "../domain/locator.js"
 import type { Id } from "../domain/models.js"
 import { refusedPlace } from "../sends/upload.js"
 import type { AccountKey, AttachmentView, FileAttachment, MessageStore, TextOrigin } from "../store/store.js"
+import { batchProgress } from "./batch.js"
 import type { ServiceDeps } from "./deps.js"
 import { storedChatId } from "./messages.js"
 
@@ -41,6 +43,7 @@ export interface ExtractItem {
   pages?: number
   ocrPages?: number
   error?: string
+  issue?: ActionableError
 }
 
 export interface ExtractRun {
@@ -59,6 +62,7 @@ export interface ExtractRun {
   /** Packages a format needed and this machine lacks; those files are read on a later run. */
   enginesMissing: Engine[]
   cursor?: string
+  batch?: ReturnType<ReturnType<typeof batchProgress>["result"]>
 }
 
 export interface ExtractOptions {
@@ -135,12 +139,23 @@ const outcome = async (
   signal?: AbortSignal,
   noFollow = false,
   ocr?: OcrPipeline,
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<{
   status: ExtractStatus | "unchanged" | "unsupported"
   extraction?: Extraction
   bytes?: number
   sha?: string
+  issue?: ActionableError
 }> => {
+  const maxBytes = attachmentMaxBytes(env)
+  const tooLarge = () => ({
+    status: "too-large" as const,
+    issue: withRecovery({
+      code: "validation_error",
+      message: `attachment exceeds ${maxBytes / 1024 / 1024} MiB; configure MESSAGING_ATTACHMENT_MAX_MIB`,
+      setting: "MESSAGING_ATTACHMENT_MAX_MIB",
+    }),
+  })
   const size = await stat(path).then(
     (found) => (found.isFile() ? found.size : undefined),
     () => undefined,
@@ -149,12 +164,13 @@ const outcome = async (
   const hint = { kind: file.kind, name: file.name, mime: file.mime, path }
   const known = classify(hint)
   if (known === "unsupported") return { status: "unsupported" }
-  if (size > MAX_FILE_BYTES) return { status: "too-large" }
+  if (size > maxBytes) return tooLarge()
   const handle = await open(path, constants.O_RDONLY | (noFollow ? constants.O_NOFOLLOW : 0))
   let bytes: Uint8Array
   try {
     const opened = await handle.stat()
-    if (!opened.isFile() || opened.size > MAX_FILE_BYTES) return { status: "too-large" }
+    if (!opened.isFile()) return { status: "missing" }
+    if (opened.size > maxBytes) return tooLarge()
     bytes = new Uint8Array(await readFile(handle, { signal }))
   } finally {
     await handle.close()
@@ -177,7 +193,7 @@ const outcome = async (
   }
   if (known === "image")
     return { status: "needs-agent", extraction: { status: "needs-agent", extractor: "none" }, bytes: size, sha }
-  const extraction = await extractText(bytes, hint, load, signal)
+  const extraction = await extractText(bytes, hint, load, signal, env)
   return { status: extraction.status, extraction, bytes: size, sha }
 }
 
@@ -250,6 +266,7 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
   } = {}) => {
     if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8 || (concurrency !== 1 && !ocr))
       throw new CliError("validation_error", "API OCR concurrency must be between 1 and 8 and needs OCR")
+    attachmentMaxBytes(deps.env)
     const limit = requestedLimit ?? (ocr ? 100 : undefined)
     const scanLimit = requestedScanLimit ?? (ocr ? 500 : undefined)
     if (ocr && (limit === undefined || !Number.isSafeInteger(limit) || limit < 1 || limit > 500))
@@ -280,6 +297,7 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
       complete: true,
       enginesMissing: [],
     }
+    const batch = batchProgress(deps.env)
     const fetched = new Set<string>()
     let read = 0
     let beforePk = cursor === undefined ? undefined : Number(cursor)
@@ -288,7 +306,13 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
     const finished = new Map<number, ExtractItem>()
     const processFile = async (file: FileAttachment, path: string) => {
       deps.guard.check({ chatId: file.chatId, key: "attachments.extract" }, { reserve: false })
-      const { status, extraction, bytes, sha } = await outcome(file, path, load, signal, fromDir !== undefined, ocr)
+      const {
+        status,
+        extraction,
+        bytes,
+        sha,
+        issue: limitIssue,
+      } = await outcome(file, path, load, signal, fromDir !== undefined, ocr, deps.env)
       if (status === "unchanged") {
         run.unchanged += 1
         return
@@ -319,12 +343,31 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
       if (status === "extracted") run.extracted += 1
       else if (status === "needs-agent") run.needsAgent += 1
       else if (status === "unreadable") run.failed += 1
+      let issue: ActionableError | undefined
+      if (["missing", "too-large", "engine-missing", "unreadable"].includes(status)) {
+        issue = batch.fail(
+          formatLocator({ ...account, chat: file.chatId, message: file.messageId }),
+          "extract",
+          limitIssue ??
+            (extraction?.status === "unreadable" && extraction.issue
+              ? extraction.issue
+              : new CliError(
+                  status === "missing" ? "not_found" : "validation_error",
+                  status === "too-large"
+                    ? "attachment exceeds an extraction, decompression or OCR size limit"
+                    : `attachment ${status}; ${status === "engine-missing" ? "install the required optional reader package" : "retry or skip this item"}`,
+                  { limitSource: ocr ? "provider" : "local" },
+                )),
+          file.position + 1,
+        )
+      } else batch.ok()
       const item: ExtractItem = {
         locator: formatLocator({ ...account, chat: file.chatId, message: file.messageId }),
         attachment: file.position + 1,
         kind: file.kind,
         name: file.name,
         status,
+        ...(issue ? { issue } : {}),
         ...(status === "needs-agent" ? { localPath: path } : {}),
         ...(ocr && extraction?.status === "unreadable" ? { error: extraction.error } : {}),
         ...(extraction && "extractor" in extraction && extraction.extractor ? { extractor: extraction.extractor } : {}),
@@ -334,6 +377,26 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
               ...(extraction.pages === undefined ? {} : { pages: extraction.pages, ocrPages: extraction.ocrPages }),
             }
           : {}),
+      }
+      finished.set(file.pk, item)
+      onItem?.(item)
+    }
+    const failedItem = (file: FileAttachment, stage: string, error: unknown) => {
+      const issue = batch.fail(
+        formatLocator({ ...account, chat: file.chatId, message: file.messageId }),
+        stage,
+        error,
+        file.position + 1,
+      )
+      run.failed += 1
+      const item: ExtractItem = {
+        locator: formatLocator({ ...account, chat: file.chatId, message: file.messageId }),
+        attachment: file.position + 1,
+        kind: file.kind,
+        name: file.name,
+        status: "unreadable",
+        error: issue.code,
+        issue,
       }
       finished.set(file.pk, item)
       onItem?.(item)
@@ -353,6 +416,7 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
           )
             await pending.shift()
           if (
+            batch.stopped ||
             signal?.aborted ||
             (limit !== undefined && read >= limit) ||
             (scanLimit !== undefined && scanned >= scanLimit)
@@ -372,14 +436,20 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
           const message = `${file.chatId}/${file.messageId}`
           if (path === null && download && !fetched.has(message)) {
             fetched.add(message)
-            await download(file.chatId, file.messageId)
+            try {
+              await download(file.chatId, file.messageId)
+            } catch (error) {
+              failedItem(file, "download", error)
+            }
             path = await store.localPathOf(file.pk)
           }
           if (path === null) {
             run.notDownloaded += 1
             continue
           }
-          const task = processFile(file, path)
+          const task = processFile(file, path).catch((error) => {
+            failedItem(file, "extract", error)
+          })
           void task.catch(() => {})
           pending.push(task)
         }
@@ -388,6 +458,10 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
       await Promise.all(pending)
     } finally {
       await Promise.allSettled(pending)
+    }
+    if (batch.failed > 0) {
+      run.batch = batch.result()
+      run.complete = false
     }
     run.items = [...finished.entries()].sort(([a], [b]) => b - a).map(([, item]) => item)
     return run
@@ -434,13 +508,13 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
     if (chosen.localPath === null) throw new CliError("not_found", "download this attachment before transferring it")
     if (refusedPlace(chosen.localPath, deps.messenger.app, deps.env ?? process.env))
       throw new CliError("validation_error", "cannot transfer hidden files, the CLI's own files or the message store")
-    const { head, capturedFile, ...bytes } = await retainedBytes(chosen.localPath, window, page !== undefined)
+    const { head, capturedFile, ...bytes } = await retainedBytes(chosen.localPath, window, page !== undefined, deps.env)
     const mimeType = transferMime(head, null, chosen.name)
     let preview: Partial<AttachmentBytes> = {}
     if (page !== undefined) {
       if (mimeType !== "application/pdf" || !capturedFile)
         throw new CliError("validation_error", "page preview requires a retained PDF")
-      const rendered = await pdfPreview(capturedFile, page, window.signal, load)
+      const rendered = await pdfPreview(capturedFile, page, window.signal, load, deps.env)
       preview = {
         mimeType: "image/png",
         totalBytes: rendered.bytes.length,

@@ -1,6 +1,6 @@
 {
   "name": "@wirecat/cli-messaging",
-  "version": "0.221.0",
+  "version": "0.221.1",
   "description": "The messenger-neutral half of a messaging CLI: domain model, message locators, rendering, name resolution, the SQLite seam, the command skeleton and shared read commands, the send guard, run records and the message store",
   "license": "Apache-2.0",
   "author": "Viacheslav Ptsarev",

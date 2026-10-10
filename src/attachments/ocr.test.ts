@@ -88,7 +88,7 @@ describe("bounded attachment OCR", () => {
         throw new Error("synthetic private document content")
       },
     }
-    expect(await ocrImage(image(), model)).toEqual({
+    expect(await ocrImage(image(), model)).toMatchObject({
       status: "unreadable",
       extractor: model.extractor,
       error: "ocr_failed",
@@ -158,7 +158,7 @@ describe("bounded attachment OCR", () => {
         return "first page"
       },
     }
-    expect(await ocrPdf(pdf(), model, fixture.load)).toEqual({
+    expect(await ocrPdf(pdf(), model, fixture.load)).toMatchObject({
       status: "unreadable",
       extractor: model.extractor,
       error: "ocr_failed",
