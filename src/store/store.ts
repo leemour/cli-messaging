@@ -26,6 +26,7 @@ import type { PeopleLookup } from "../resolve.js"
 import type { QueryExecution } from "../search/lucene/resolved.js"
 import type { Stemmers } from "../search/stem.js"
 import { migrate } from "./migrations.js"
+import { removeOldStore } from "./old-store.js"
 import { storeCapable } from "./open.js"
 import { storePath } from "./path.js"
 import * as accounts from "./sqlite/accounts.js"
@@ -738,6 +739,10 @@ export const openStore = async ({ path, env, now = Date.now, command }: StoreOpt
   await storeCapable()
   const file = path ?? storePath(env)
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
+  if (path === undefined && (env ?? process.env).MESSAGING_STORE === undefined) {
+    const removed = await removeOldStore(dirname(file)).catch(() => undefined)
+    if (removed) process.stderr.write(`Deleted the old message store ${removed}; everything now lives in ${file}.\n`)
+  }
   // Created before SQLite opens it: SQLite gives -wal and -shm the mode of the database file.
   writeFileSync(file, "", { flag: "a", mode: 0o600 })
   const { database, orm } = await openSqlite(file)

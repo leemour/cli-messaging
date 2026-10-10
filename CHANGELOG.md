@@ -14,6 +14,12 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   inspectable task proposals preserve historical provenance and report byte limits and incomplete coverage.
   These library services add no CLI command and do not create tasks or messages.
 
+### Security
+
+- **The old `messages.db` is deleted** when the store opens at its default path: the unencrypted file the
+  store used before `wirecat.db`, with its `-wal` and `-shm`. One line on stderr names it. Kept when
+  `MESSAGING_STORE` is set, and while another process still holds it open (deleted on a later open).
+
 ## 0.221.0 — 11.10.2026
 
 ### Added

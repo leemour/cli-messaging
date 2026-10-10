@@ -321,7 +321,8 @@ the seed rows, which Drizzle cannot model. `pnpm db:bundle` copies it into
 applies migrations under `BEGIN IMMEDIATE`; Drizzle's own migrator is not used.
 
 The schema before this one lived in `messages.db` and is not converted: the new file has a new name so that a
-build still installed never opens it. Every migration after the first is forward-only, additive, numbered, and
+build still installed never opens it. A store opened at the default path deletes that old file, unread, once no process
+holds it (`src/store/old-store.ts`). Every migration after the first is forward-only, additive, numbered, and
 never edited once it reached anyone's file — a test refuses a generated rebuild of a base table.
 `min_compatible` lets an older CLI keep using a file a newer one migrated; a migration that drops what an older
 build reads raises it, and that build then refuses the file and asks to be upgraded. It is 1.

@@ -13,10 +13,14 @@ import { type CacheDatabase, PRAGMAS } from "./driver.js"
  * is the reverse (`NEED-11`).
  */
 export const openCache = async (path: string): Promise<CacheDatabase> => {
-  const database = "Bun" in globalThis ? await openUnderBun(path) : await openUnderNode(path)
+  const database = await openFile(path)
   database.exec(PRAGMAS)
   return database
 }
+
+/** Without the store's pragmas: a caller that sets `locking_mode` needs it before the first read. */
+export const openFile = (path: string): Promise<CacheDatabase> =>
+  "Bun" in globalThis ? openUnderBun(path) : openUnderNode(path)
 
 const openUnderBun = async (path: string): Promise<CacheDatabase> => {
   const { openWithBunSqlite } = await import("./drivers/bun-sqlite.js")
