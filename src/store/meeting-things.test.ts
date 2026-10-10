@@ -59,6 +59,9 @@ it("persists canonical meeting, retained revision and actual cue references as m
     expect((await store.memories.get(memory.ref)).evidence).toEqual(refs)
     expect((await store.memories.get(memory.ref)).subject).toBe(root)
     expect((await store.decisions.get(decision.ref)).evidence).toEqual([cue])
+    expect((await store.notes.links({ to: cue })).map((link) => link.from).sort()).toEqual(
+      [memory.ref, decision.ref].sort(),
+    )
     const db = await openCache(path)
     try {
       for (const ref of refs) {

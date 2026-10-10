@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest"
 import { openCache } from "./open.js"
 import { openStore } from "./store.js"
 
-const fixture = async () => {
+const fixture = async (now?: () => number) => {
   const path = join(mkdtempSync(join(tmpdir(), "meeting-vectors-example-")), "store.db")
-  const store = await openStore({ path })
+  const store = await openStore({ path, now })
   const accountId = await store.saveAccount(
     { provider: "example", account: "alice-example" },
     { name: "Alice Example" },
@@ -115,6 +115,34 @@ describe("meeting transcript vectors", () => {
       await store.close()
     }
   })
+})
+
+it("rolls back model results when cancellation arrives during the write transaction", async () => {
+  const controller = new AbortController()
+  let cancelOnWrite = false
+  const { store, accountId } = await fixture(() => {
+    if (cancelOnWrite) controller.abort()
+    return 1000
+  })
+  try {
+    await store.meetingVectors.rebuild({ accountId })
+    const pending = await store.meetingVectors.chunksToEmbed("invented-model", { accountId, limit: 10 })
+    cancelOnWrite = true
+    await expect(
+      store.meetingVectors.saveCurrent(
+        "invented-model",
+        2,
+        pending.items.map(({ hash }) => ({ hash, vector: new Float32Array([1, 0]) })),
+        { accountId, signal: controller.signal },
+      ),
+    ).rejects.toBeDefined()
+    expect(await store.meetingVectors.status({ accountId, model: "invented-model" })).toEqual({
+      chunks: pending.items.length,
+      embedded: 0,
+    })
+  } finally {
+    await store.close()
+  }
 })
 
 it("rejects aggregate text budgets and stale chunks before exposing mismatched evidence", async () => {

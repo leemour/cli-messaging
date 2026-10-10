@@ -149,7 +149,7 @@ export const meetingVectorsOver = (context: StoreContext): MeetingVectors => ({
     scope(input)
     modelOf(model)
     limitOf(dims, "dims", 65536)
-    if (rows.length > 1000 || rows.reduce((bytes, row) => bytes + row.vector.byteLength, 0) > 16 * 1024 * 1024)
+    if (rows.length > 1000)
       throw new CliError("validation_error", "Vector save exceeds its batch or 16 MiB payload budget")
     for (const row of rows)
       if (
@@ -159,6 +159,8 @@ export const meetingVectorsOver = (context: StoreContext): MeetingVectors => ({
         row.vector.some((value) => !Number.isFinite(value))
       )
         throw new CliError("validation_error", "Vectors require content hashes, matching dimensions and finite values")
+    if (rows.reduce((bytes, row) => bytes + row.vector.byteLength, 0) > 16 * 1024 * 1024)
+      throw new CliError("validation_error", "Vector save exceeds its batch or 16 MiB payload budget")
     return atomic(context.database, () => {
       const unique = new Map(rows.map((row) => [row.hash, row]))
       const current = context.database
