@@ -2,11 +2,8 @@ name: SQLite
 # Builds @wirecat/cli-messaging-sqlite (packages/sqlite), checks every library on the systems it is
 # for, and publishes it when started by hand with `publish` — npm trusts this file by name.
 on:
-  pull_request:
-    paths: ["packages/sqlite/**", ".github/workflows/sqlite.yml"]
-  push:
-    branches: [main]
-    paths: ["packages/sqlite/**", ".github/workflows/sqlite.yml"]
+  schedule:
+    - cron: "37 3 1 * *"
   workflow_dispatch:
     inputs:
       publish:

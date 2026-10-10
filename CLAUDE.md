@@ -38,12 +38,17 @@ date — and do the removals in one batch after the owner confirms. Never kill a
 
 ## Committing
 
-Conventional commits. Before committing:
-
-```sh
-pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm docs:check
-```
+Conventional commits. The pre-commit hook checks staged lint and secrets; no other local checks are required by default.
 
 A branch off `main`, in a worktree, and a pull request. A user-visible change gets a line under
 `## Unreleased` in [`CHANGELOG.md`](CHANGELOG.md). `bin/release` publishes; when the version is
 already taken it moves to the next free one and renames the changelog heading with it.
+
+## Development check budget
+
+Local commits check only staged lint and secrets. There is no pre-push check.
+Config integrity, repository lint, Markdown, and secret detection run in PR CI.
+The bounded `ci:quick` step adds typechecking for CLI packages or synthetic unit tests for the docs site.
+Full tests, coverage, builds, parity, browser and platform suites run for releases,
+explicit manual validation, and monthly nonpublishing validation. See the
+[shared policy](https://github.com/WireCatLabs/community/blob/main/standards/README.md#ci-and-hooks).

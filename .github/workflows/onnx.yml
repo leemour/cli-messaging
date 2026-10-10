@@ -2,11 +2,8 @@ name: ONNX
 # Builds @wirecat/cli-messaging-onnx (packages/onnx), runs a model through it on every system under
 # Node and Bun, and publishes it when started by hand with `publish` — npm trusts this file by name.
 on:
-  pull_request:
-    paths: ["packages/onnx/**", ".github/workflows/onnx.yml"]
-  push:
-    branches: [main]
-    paths: ["packages/onnx/**", ".github/workflows/onnx.yml"]
+  schedule:
+    - cron: "27 3 1 * *"
   workflow_dispatch:
     inputs:
       publish:
