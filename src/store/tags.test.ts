@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
+import { formatLocator } from "../domain/locator.js"
 import type { Chat, Message } from "../domain/models.js"
 import { searchStore, statsStore } from "../services/messages.js"
 import { openCache } from "./open.js"
@@ -208,5 +209,69 @@ describe("topics", () => {
     database.close()
     expect(main).toEqual(["money"])
     expect(await store.knowledge.tags(null, target)).toEqual(["money", "plain", "travel"])
+  })
+})
+
+describe("tags and knowledge on mail", () => {
+  const MAIL: AccountKey = { provider: "email", account: "owner@example.com" }
+  const LOCATOR = formatLocator({ ...MAIL, chat: "thread-1", message: "<first@example.com>" })
+
+  it("label the email and its thread in the mail tables, and read back as the same locator", async () => {
+    const store = await openStore({ path: fresh() })
+    live.push(store)
+    const accountId = await store.saveAccount(MAIL, { name: null })
+    await store.mail.saveThread({
+      accountId,
+      externalId: "thread-1",
+      now: 1000,
+      emails: [
+        {
+          externalId: "<first@example.com>",
+          subject: "Budget",
+          from: { address: "alice@example.com", name: "Alice Example" },
+          sentAt: 1000,
+          bodyText: "Numbers attached.",
+        },
+      ],
+    })
+
+    await store.addTags(MAIL, { type: "chat", chatId: "thread-1" }, ["finance"])
+    await store.addTags(MAIL, { type: "message", chatId: "thread-1", messageId: "<first@example.com>" }, ["urgent"])
+    expect(
+      (await store.tags(MAIL)).map(({ tag, type, chatId, chatTitle, locator }) => ({
+        tag,
+        type,
+        chatId,
+        chatTitle,
+        locator,
+      })),
+    ).toEqual([
+      { tag: "finance", type: "chat", chatId: "thread-1", chatTitle: "Budget", locator: undefined },
+      {
+        tag: "urgent",
+        type: "message",
+        chatId: "thread-1",
+        chatTitle: "Budget",
+        locator: LOCATOR,
+      },
+    ])
+    await expect(store.addTags(MAIL, { type: "chat", chatId: "thread-2" }, ["finance"])).rejects.toThrow(
+      "no chat thread-2",
+    )
+
+    const locator = LOCATOR
+    await store.knowledge.addAnnotation(MAIL, { type: "message", locator }, "Reply by Friday")
+    const {
+      items: [annotation],
+    } = await store.knowledge.annotations(MAIL, { target: { type: "message", locator } })
+    expect(annotation).toMatchObject({
+      text: "Reply by Friday",
+      target: { type: "message", locator },
+      targetState: "available",
+    })
+
+    await store.mail.markDeleted(accountId, ["<first@example.com>"], 2000)
+    expect((await store.tags(MAIL)).map(({ tag }) => tag)).toEqual(["finance"])
+    expect((await store.knowledge.annotation(MAIL, annotation?.id as string)).targetState).toBe("deleted")
   })
 })

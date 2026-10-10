@@ -7,7 +7,7 @@ import type { AccountKey } from "../store.js"
 import type { Actor } from "./actors.js"
 import type { EntityType } from "./entity-types.js"
 import type { StoreContext } from "./open.js"
-import type { Thing } from "./things.js"
+import { emailOf, emailThreadOf, type Thing } from "./things.js"
 import { toIso } from "./values.js"
 
 /** What a tag labels: a chat or a message of the account, or a person of its messenger. */
@@ -46,9 +46,22 @@ export type TaggingSource = "owner" | "file" | "auto" | "agent"
 
 /** A messenger tag target's polymorphic type: a contact is an `identity` row. */
 const TAGGABLE: Record<TagType, EntityType> = { chat: "chat", contact: "identity", message: "message" }
-const TAG_TYPE: Record<string, TagType> = { chat: "chat", identity: "contact", message: "message" }
+const TAG_TYPE: Record<string, TagType> = {
+  chat: "chat",
+  identity: "contact",
+  message: "message",
+  email_thread: "chat",
+  email: "message",
+}
 
 export const targetThing = ({ database }: StoreContext, key: AccountKey, target: TagTarget): Thing => {
+  const mail =
+    key.provider !== "email" || target.type === "contact"
+      ? undefined
+      : target.type === "chat"
+        ? emailThreadOf(database, key.account, target.chatId)
+        : emailOf(database, key.account, target.chatId, target.messageId)
+  if (mail) return mail
   const found =
     target.type === "contact"
       ? database
@@ -259,6 +272,25 @@ export const tagsOf = ({ database }: StoreContext, key: AccountKey, filter: TagF
         "JOIN accounts a ON a.id=c.account_id WHERE g.taggable_type='message' AND a.provider=? AND a.external_id=?",
       params: [key.provider, key.account],
     },
+    {
+      type: "chat",
+      sql:
+        "SELECT t.name AS tag, g.taggable_type AS type, g.created_at, th.external_id AS chat_id, th.subject AS chat_title, " +
+        "NULL AS person_id, NULL AS name, NULL AS message_id, g.source, g.taggable_id AS target_id, t.id AS tag_id " +
+        "FROM taggings g JOIN tags t ON t.id=g.tag_id JOIN email_threads th ON th.id=g.taggable_id " +
+        "JOIN accounts a ON a.id=th.account_id WHERE g.taggable_type='email_thread' AND a.provider=? AND a.external_id=?",
+      params: [key.provider, key.account],
+    },
+    {
+      type: "message",
+      sql:
+        "SELECT t.name AS tag, g.taggable_type AS type, g.created_at, th.external_id AS chat_id, th.subject AS chat_title, " +
+        "NULL AS person_id, NULL AS name, e.external_id AS message_id, g.source, g.taggable_id AS target_id, t.id AS tag_id " +
+        "FROM taggings g JOIN tags t ON t.id=g.tag_id JOIN emails e ON e.id=g.taggable_id " +
+        "JOIN email_threads th ON th.id=e.email_thread_id JOIN accounts a ON a.id=e.account_id " +
+        "WHERE g.taggable_type='email' AND e.deleted_at IS NULL AND a.provider=? AND a.external_id=?",
+      params: [key.provider, key.account],
+    },
   ]
   const chosen = parts.filter(({ type }) => filter.type === undefined || filter.type === type)
   const rows = database
@@ -269,7 +301,7 @@ export const tagsOf = ({ database }: StoreContext, key: AccountKey, filter: TagF
     const chatId = row.chat_id == null ? undefined : String(row.chat_id)
     const messageId = row.message_id == null ? undefined : String(row.message_id)
     const automatic =
-      type === "chat" &&
+      row.type === "chat" &&
       database
         .prepare("SELECT 1 AS held FROM auto_tag_claims WHERE chat_id=? AND tag_id=?")
         .get(Number(row.target_id), Number(row.tag_id))

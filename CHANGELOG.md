@@ -13,6 +13,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   scanned folders each email is in and leaves the others alone, so an importer can prove a deletion; and an
   email's `attachments` are saved with it, replaced when given, their text word-indexed. `search` takes the
   same filters.
+- **Tags, links and notes reach mail in its own tables.** A message or chat reference of an `email` account,
+  and a tag target of one, now names the row in `emails` or `email_threads` when one is there, and falls back
+  to the message or chat that older imports saved. The reference format does not change; `email_thread` is a
+  new entity type.
 
 ## 0.222.0 — 11.10.2026
 

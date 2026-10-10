@@ -24,7 +24,9 @@ Labels on messages/chats/identities reuse the messenger tags. Labels on a person
 project, note, document or notes folder are taggings on that row; a subfolder's label is a `labelled` link
 from the folder, anchored at the path. A tag of kind `topic` is made by the owner only (`createTag` refuses
 an agent's: it goes to `proposedActions`), its name is never also a tag's, and `setMainTopic` marks one
-topic per thing as its main one. A reference from the old `messages.db` (a ULID, `entity:`) resolves as not found. They are explicit metadata and do not
+topic per thing as its main one. A reference from the old `messages.db` (a ULID, `entity:`) resolves as not found. A
+message or chat reference of an `email` account names the email or the email thread in the mail tables,
+and falls back to a message or chat saved before mail had tables of its own. They are explicit metadata and do not
 automatically relabel every linked identity or its messages. `labelled` returns references, labels,
 current target state and truthful pagination. Identity link/unlink does not silently transfer or
 duplicate owner annotations, labels or relationships attached to a different person UID.
