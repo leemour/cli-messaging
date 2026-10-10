@@ -9,10 +9,7 @@ on:
       - parity.json
       - src/parity/**
       - .github/workflows/parity.yml
-  push:
-    branches: [main]
-  schedule:
-    - cron: "17 6 * * *"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
