@@ -81,7 +81,7 @@ it("rebuilds a person's ordered timeline across sources and uses the person inde
   }
 })
 
-it("keeps the index current by draining what writes queued, and ends where a full rebuild ends", async () => {
+it("keeps the index current as the store writes, and ends where a full rebuild ends", async () => {
   const path = join(mkdtempSync(join(tmpdir(), "involvements-")), "store.db")
   const store = await openStore({ path, now: () => 1000 })
   const account = { provider: "synthetic", account: "owner" }
@@ -119,6 +119,8 @@ it("keeps the index current by draining what writes queued, and ends where a ful
       { id: "room", title: "Synthetic room", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: 2 },
     ])
     await store.saveMessages(account, "room", [message("1", "alice"), message("2", "bob")], { via: "history" })
+    expect(store.involvements.pending()).toBe(0)
+    expect(rows().filter((row) => row.role === "sender")).toHaveLength(2)
     database.prepare("UPDATE messages SET mentions=json_array('alice') WHERE external_id='2'").run()
     const alice = Number(
       database
