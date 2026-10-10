@@ -1,7 +1,6 @@
 import { createTaskService, type TaskKind, type TaskStore } from "@wirecat/cli-tasks"
 import { formatLocator } from "../domain/locator.js"
 import type { Id, Message, ReviewChat } from "../domain/models.js"
-import type { StoreTaskStore } from "../store/sqlite/tasks.js"
 import type { AccountKey, MessageStore } from "../store/store.js"
 import { questions } from "./questions.js"
 
@@ -21,11 +20,7 @@ export const taskAccount = ({ provider, account }: AccountKey): string => `${pro
  */
 export const applyTaskRules = async (
   review: { chats: Pick<ReviewChat, "id" | "messages">[] },
-  {
-    store,
-    account,
-    now,
-  }: { store: TaskStore & Partial<Pick<StoreTaskStore, "answer">>; account: AccountKey; now?: () => Date },
+  { store, account, now }: { store: TaskStore; account: AccountKey; now?: () => Date },
 ): Promise<RuleResult> => {
   const tasks = createTaskService({ store, ...(now ? { now } : {}) })
   const owner = taskAccount(account)
@@ -48,8 +43,7 @@ export const applyTaskRules = async (
     for (const task of await store.findBySource(owner, sourceOf(message))) {
       if (task.kind !== kind || task.state !== "open") continue
       await tasks.close(task.id, { as: "done", by: "rule" })
-      if (answer && store.answer)
-        await store.answer(task.id, { resolution: "answered by the owner", by: sourceOf(answer) })
+      if (answer) await store.answer(task.id, { resolution: "answered by the owner", by: sourceOf(answer) })
       result.closed += 1
     }
   }

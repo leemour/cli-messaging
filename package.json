@@ -120,7 +120,7 @@
     "@wirecat/cli-meetings": "0.2.4",
     "@wirecat/cli-messaging-onnx": "1.0.0",
     "@wirecat/cli-messaging-sqlite": "1.0.0",
-    "@wirecat/cli-tasks": "0.2.1",
+    "@wirecat/cli-tasks": "0.3.0",
     "@xmldom/xmldom": "0.9.12",
     "chardet": "2.2.0",
     "echarts": "6.1.0",
