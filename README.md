@@ -190,7 +190,7 @@ stored evidence contract describes pagination and coverage.
 
 The read-only meeting helpers from `./services` let an agent cite an exact retained transcript
 revision. The caller supplies the authorized numeric account ID; a foreign account reference is
-rejected before reading the meeting. Meeting-only references select current, nondeleted revisions.
+rejected before reading the meeting. Meeting-only references select current revisions that are still available.
 An explicit revision or cue keeps its historical text and reports `current` or `superseded`.
 
 ```ts
