@@ -207,9 +207,14 @@ const proposal = await proposeMeetingTask(store.meetings, 1, "meeting:1/2/3/0", 
 Evidence keeps whole cues within its UTF-8 JSON `items` budget; envelope fields are additional.
 Defaults are 100 cues and 64 KiB, with maxima of 1000 cues and 4 MiB. An oversized first cue returns
 an empty byte-truncated packet. Cue fingerprints stay stable when their revision is superseded.
-`coverage.input` is `materialized-meeting`: the existing store port loads all meeting parts before
-selection, so this bounds retained/output cue data rather than database allocation. Archive
-completeness remains unknown.
+`coverage.input` is `bounded-meeting-pages`: these helpers require the native bounded meeting read
+capabilities and never materialize complete meeting history. `maxReadBytes` caps stored TEXT per SQL
+page (4 MiB by default), separately from the output JSON budget. A read visits at most
+`maxTranscriptPages` revisions (100 by default, at most 1000). Capped coverage reports observed cues;
+`providedExact` is false and `omitted` is null when further rows or revisions remain. Continue with
+`after: coverage.nextReference`, or `afterTranscriptId: coverage.nextTranscriptId` when empty revisions
+reach the revision-work cap. The cursor belongs to the same authorized source. Individual SQL reads
+have snapshots; the service does not claim one snapshot across pages. Archive completeness remains unknown.
 
 `personMeetingContext(store, "person:1", { accountIds: [1] })` reads linked meeting
 participation for explicitly authorized accounts. A native account-presence check runs before the global

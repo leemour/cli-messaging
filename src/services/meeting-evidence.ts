@@ -142,10 +142,11 @@ export const readMeetingEvidence = async (
   )
     throw new CliError("validation_error", "Invalid transcript continuation")
   const scope = { accountId, meetingId: meeting.id, ...readOptions }
-  if (after?.transcriptId !== undefined) {
+  const continuationTranscriptId = after?.transcriptId ?? options.afterTranscriptId
+  if (continuationTranscriptId !== undefined) {
     const retained = await store.transcriptMetadata({
       ...scope,
-      transcriptId: after.transcriptId,
+      transcriptId: continuationTranscriptId,
       includeHistorical: true,
     })
     if (retained.meetingId !== meeting.id || retained.id !== continuationTranscriptId || retained.deletedAt !== null)
@@ -280,7 +281,7 @@ export const readMeetingEvidence = async (
       providedExact: !hasMore && skippedUnavailable === 0,
       hasMore,
       nextReference: hasMore ? nextReference : null,
-      nextTranscriptId: hasMore ? nextTranscriptId : null,
+      nextTranscriptId: hasMore && truncatedBy === "transcripts" ? nextTranscriptId : null,
       transcriptPages,
       skippedUnavailable,
       truncatedBy,

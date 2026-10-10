@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { CliError } from "@wirecat/cli-core"
+import type { MeetingSave } from "@wirecat/cli-meetings"
 import { sampleMeeting } from "@wirecat/cli-meetings/testing"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
@@ -413,4 +414,35 @@ it("rejects an oversized stored cue before producing JSON and seeks exact cue po
     code: "not_found",
   })
   expect((await resolveMeetingReference(store, input.meeting.accountId, `${source}/2`)).cue?.position).toBe(2)
+})
+
+it("bounds empty revision work and exposes a revision seek continuation", async () => {
+  const { store, input, details } = await fixture()
+  const save: MeetingSave = {
+    ...input,
+    transcripts: [0, 1, 2].map((index) => ({
+      ...input.transcripts[0],
+      source: index === 0 ? input.transcripts[0].source : `empty-example-${index}`,
+      contentHash: `empty-example-${index}`,
+      rows: [],
+    })),
+  }
+  await store.saveMeeting(save)
+  const source = `meeting:${input.meeting.accountId}/${details.meeting.id}`
+  const first = await readMeetingEvidence(store, input.meeting.accountId, source, { maxTranscriptPages: 1 })
+  expect(first.items).toEqual([])
+  expect(first.coverage).toMatchObject({
+    providedExact: false,
+    omitted: null,
+    hasMore: true,
+    truncatedBy: "transcripts",
+    nextReference: null,
+    transcriptPages: 1,
+  })
+  expect(first.coverage.nextTranscriptId).not.toBeNull()
+  const remainder = await readMeetingEvidence(store, input.meeting.accountId, source, {
+    afterTranscriptId: first.coverage.nextTranscriptId ?? undefined,
+  })
+  expect(remainder.items).toEqual([])
+  expect(remainder.coverage).toMatchObject({ providedExact: true, hasMore: false, transcriptPages: 2 })
 })
