@@ -1,5 +1,7 @@
 import { CliError } from "@wirecat/cli-core"
 import { imageSize } from "image-size"
+import { isCliFailure } from "../cli/failures.js"
+import { withRecovery } from "../cli/recovery.js"
 import type { ModelImage } from "../models/index.js"
 import { MAX_MODEL_IMAGE_BYTES } from "../models/types.js"
 import { type Extraction, type LoadEngine, MAX_TEXT_CHARS } from "./extract.js"
@@ -69,6 +71,13 @@ export const ocrImage = async (bytes: Uint8Array, pipeline: OcrPipeline, signal?
       status: "unreadable",
       extractor: pipeline.extractor,
       error: error instanceof CliError && error.code === "rate_limited" ? "rate_limited" : "ocr_failed",
+      issue: withRecovery({
+        code: isCliFailure(error) ? error.code : "provider_error",
+        message: "OCR provider refused this item; retry or skip it",
+        ...(isCliFailure(error) && typeof error.details?.retryAfterMs === "number"
+          ? { retryAfterMs: error.details.retryAfterMs }
+          : {}),
+      }),
     }
   }
 }
@@ -176,6 +185,13 @@ export const ocrPdf = async (
       status: "unreadable",
       extractor: pipeline.extractor,
       error: error instanceof CliError && error.code === "rate_limited" ? "rate_limited" : "ocr_failed",
+      issue: withRecovery({
+        code: isCliFailure(error) ? error.code : "provider_error",
+        message: "OCR provider refused this item; retry or skip it",
+        ...(isCliFailure(error) && typeof error.details?.retryAfterMs === "number"
+          ? { retryAfterMs: error.details.retryAfterMs }
+          : {}),
+      }),
     }
   } finally {
     signal?.removeEventListener("abort", close)

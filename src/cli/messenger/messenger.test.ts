@@ -3098,6 +3098,35 @@ describe("messages download", () => {
     ])
   })
 
+  it("keeps downloads and structured failures when optional extraction fails", async () => {
+    const { root, env } = setup()
+    const into = join(root, "out")
+    const held: MessengerAdapter = {
+      ...withFiles,
+      history: async () => ({
+        items: [{ ...message, attachments: [{ kind: "file", name: "broken.docx" }] }],
+        hasMore: false,
+      }),
+      download: async () => ({
+        files: [{ kind: "file", position: 0, name: "broken.docx", bytes: bytes("not a document") }],
+        skipped: [],
+      }),
+    }
+    await call(["messages", "list", "Book", "--json"], async () => held, env)
+    const result = await call(
+      ["messages", "download", "Book", "1", "--extract", "--output-dir", into, "--json"],
+      async () => held,
+      env,
+    )
+    expect(result.code).toBe(0)
+    expect(JSON.parse(result.stdout[0] ?? "")).toMatchObject({
+      complete: false,
+      items: [{ path: join(into, "broken.docx") }],
+      batch: { failed: 1, succeeded: 1, failures: [{ stage: "extract", error: { actions: expect.any(Array) } }] },
+    })
+    expect(readFileSync(join(into, "broken.docx"), "utf8")).toBe("not a document")
+  })
+
   it("**never overwrites a file already there**", async () => {
     const { root, env } = setup()
     writeFileSync(join(root, "bashrc"), "mine")
@@ -3107,8 +3136,8 @@ describe("messages download", () => {
       env,
     )
 
-    expect(code).not.toBe(0)
-    expect(stderr.join("")).toContain("already exists")
+    expect(code).toBe(0)
+    expect(stderr.join("")).toContain("validation_error")
     expect(readFileSync(join(root, "bashrc"), "utf8")).toBe("mine")
     expect(readdirSync(root).filter((name) => name.endsWith(".part"))).toEqual([])
   })
@@ -3170,6 +3199,37 @@ describe("messages download", () => {
       expect(readFileSync(join(into, "2-1-notes.txt"), "utf8")).toBe("notes 2")
     })
 
+    it("stops repeated extraction failures while retaining successful byte-download checkpoints", async () => {
+      const { root, env } = setup()
+      const into = join(root, "out")
+      const asked: string[] = []
+      const ids = Array.from({ length: 20 }, (_, i) => 20 - i)
+      const adapter = {
+        ...chatOf(ids, Object.fromEntries(ids.map((id) => [id, "file"])), asked),
+        download: async (_chat: string, id: string) => {
+          asked.push(id)
+          return {
+            files: [{ kind: "file", position: 0, name: `broken-${id}.docx`, bytes: bytes("not a document") }],
+            skipped: [],
+          }
+        },
+      }
+      const result = await call(
+        ["messages", "download", "Book", "--all", "--extract", "--pause", "1ms", "--output-dir", into, "--json"],
+        async () => adapter,
+        { ...env, MESSAGING_BATCH_MAX_ERROR_PERCENT: "1" },
+      )
+      expect(result.code).toBe(0)
+      const body = JSON.parse(result.stdout[0] ?? "")
+      expect(body).toMatchObject({
+        saved: 5,
+        complete: false,
+        batch: { attempted: 10, failed: 5, stopReason: "error_rate" },
+      })
+      expect(asked).toHaveLength(5)
+      expect(JSON.parse(readFileSync(join(into, ".download-7.json"), "utf8")).failed).toBeUndefined()
+    })
+
     it("**continues where a cut-short run stopped**, and asks for no file twice", async () => {
       const { root, env } = setup()
       const into = join(root, "out")
@@ -3187,10 +3247,10 @@ describe("messages download", () => {
         env,
       )
 
-      expect(cut.code).not.toBe(0)
-      expect(first).toEqual(["5"])
-      expect(second).toEqual(["6", "3", "1"])
-      expect(JSON.parse(again.stdout[0] ?? "")).toMatchObject({ saved: 3, existing: 0, complete: true })
+      expect(cut.code).toBe(0)
+      expect(first).toEqual(["5", "1"])
+      expect(second).toEqual(["6", "3"])
+      expect(JSON.parse(again.stdout[0] ?? "")).toMatchObject({ saved: 2, existing: 0, complete: true })
       expect(readdirSync(into).filter((name) => !name.startsWith("."))).toHaveLength(4)
     })
 
@@ -3311,10 +3371,10 @@ describe("messages download", () => {
         byTime,
       )
 
-      expect(cut.code).not.toBe(0)
-      expect(first).toEqual(["msg-f", "msg-e", "msg-d"])
-      expect(second).toEqual(["msg-g", "msg-c", "msg-b", "msg-a"])
-      expect(JSON.parse(again.stdout[0] ?? "")).toMatchObject({ saved: 4, existing: 0, complete: true })
+      expect(cut.code).toBe(0)
+      expect(first).toEqual(["msg-f", "msg-e", "msg-d", "msg-b", "msg-a"])
+      expect(second).toEqual(["msg-g", "msg-c"])
+      expect(JSON.parse(again.stdout[0] ?? "")).toMatchObject({ saved: 2, existing: 0, complete: true })
       expect(readdirSync(into).filter((name) => !name.startsWith("."))).toHaveLength(7)
       expect(JSON.parse(readFileSync(join(into, ".download-7.json"), "utf8"))).toMatchObject({ by: "time" })
     })

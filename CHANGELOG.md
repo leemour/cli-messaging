@@ -4,6 +4,23 @@ Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+## 0.221.1 — 11.10.2026
+
+### Added
+
+- `runs search` and the MCP read command `runs search` search recorded diagnostic metadata, error codes and partial-batch IDs with profile, operation, date and pagination filters; message contents and raw job logs are excluded.
+- Structured recovery actions on CLI/MCP errors, with wait times, configuration names and explicit retry/skip guidance.
+- Configurable extraction/retained-file size through `MESSAGING_ATTACHMENT_MAX_MIB` (default 50). Generated MCP configuration preserves this setting and the PDF preview settings.
+
+### Changed — may break callers
+
+- Attachment batches continue after independent file failures and retain successful downloads and their original positions. Partial JSON returns `complete: false` and `batch` counters/failures; JSONL appends a `batch_summary` row. Runs with partial results exit successfully instead of discarding the batch, so scripts must check `complete`/`batch.failed`. Repeated errors stop above `MESSAGING_BATCH_MAX_ERROR_PERCENT` (default 50) after ten attempts; provider throttling/authentication stops sooner. No automatic write replay is added.
+- History page failures return earlier fetched counts/ranges with an actionable `issue` and resume boundary. All-chat fetches keep independent successes and stop repeated systemic failures. Partial background jobs are retryable through the existing jobs commands. Partial CLI/MCP results are recorded using IDs/stages/error codes, without error payloads.
+
+### Fixed
+
+- PDF page previews render at higher resolution, with defaults of 4,000 pixels per side and 8 MiB, configurable through `MESSAGING_PDF_PREVIEW_MAX_PIXELS` and `MESSAGING_PDF_PREVIEW_MAX_MIB`. Transfer chunks remain separate at 1 MiB.
+
 ## 0.221.0 — 11.10.2026
 
 ### Added

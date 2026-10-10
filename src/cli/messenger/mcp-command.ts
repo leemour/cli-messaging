@@ -5,6 +5,7 @@ import { CliError, resolvePaths, visibleControls } from "@wirecat/cli-core"
 import { annotate } from "@wirecat/cli-core/commands"
 import { installerOf } from "@wirecat/cli-core/update"
 import { Command } from "commander"
+import { ATTACHMENT_LIMIT_ENV } from "../../attachments/limits.js"
 import { type AppIdentity, envName } from "../app.js"
 import { type BaseEnvironment, environmentOf } from "../context.js"
 import { type Messenger, messengerContext } from "./context.js"
@@ -316,6 +317,7 @@ export const serverEntry = (
   const names = [
     ...["CONFIG_DIR", "STATE_DIR", "CACHE_DIR"].map((name) => envName(app, name)),
     "MESSAGING_STORE",
+    ...ATTACHMENT_LIMIT_ENV,
     "XDG_RUNTIME_DIR",
   ]
   const directories = Object.fromEntries(names.flatMap((name) => (env[name] ? [[name, env[name]]] : [])))

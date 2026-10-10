@@ -171,3 +171,15 @@ describe("reading the text layer of a file", () => {
     await expect(extractText(pdf("x"), hint("a.pdf"), broken)).rejects.toThrow("disk on fire")
   })
 })
+
+it("honors a configured file budget for local text extraction", async () => {
+  const bytes = Buffer.from("a".repeat(1024 * 1024 + 1))
+  expect(
+    (await extractText(bytes, hint("synthetic.txt"), importEngine, undefined, { MESSAGING_ATTACHMENT_MAX_MIB: "1" }))
+      .status,
+  ).toBe("too-large")
+  expect(
+    (await extractText(bytes, hint("synthetic.txt"), importEngine, undefined, { MESSAGING_ATTACHMENT_MAX_MIB: "2" }))
+      .status,
+  ).toBe("extracted")
+})

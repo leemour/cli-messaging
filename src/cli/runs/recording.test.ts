@@ -187,3 +187,18 @@ describe("the runs command", () => {
     expect(listRuns(runsDir).map((one) => one.command)).toContain("runs path")
   })
 })
+
+it("records failed batch IDs on a partial run without retaining error payloads", async () => {
+  const { code, runsDir } = await call(["messages", "send", TITLE, BODY, "--json"], async () => ({
+    batch: {
+      failed: 1,
+      failures: [{ id: "50", stage: "download", attachment: 2, error: { code: "rate_limited", message: BODY } }],
+    },
+  }))
+  expect(code).toBe(0)
+  expect(listRuns(runsDir)[0]).toMatchObject({
+    status: "partial",
+    partial: { failed: 1, failures: [{ id: "50", stage: "download", attachment: 2, errorCode: "rate_limited" }] },
+  })
+  expect(everythingUnder(runsDir)).not.toContain(BODY)
+})
