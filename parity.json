@@ -604,6 +604,9 @@
     "--no-as-reply": {
       "meaning": "send without linking to the matched message"
     },
+    "--no-backup": {
+      "meaning": "delete the store without backing it up first"
+    },
     "--no-ban": {
       "meaning": "remove without banning; by default a removed person cannot come back by the link"
     },
@@ -3689,6 +3692,15 @@
       "planned": {
         "max": "each CLI's next cli-messaging bump",
         "tg": "each CLI's next cli-messaging bump"
+      },
+      "options": {
+        "--no-backup": {
+          "in": [],
+          "planned": {
+            "max": "each CLI's next cli-messaging bump",
+            "tg": "each CLI's next cli-messaging bump"
+          }
+        }
       }
     },
     "store restore": {
