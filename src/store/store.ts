@@ -90,7 +90,7 @@ import * as stems from "./sqlite/stems.js"
 import * as sync from "./sqlite/sync.js"
 import type { StoredTag, TagFilter, TagTarget } from "./sqlite/tags.js"
 import * as tagQueries from "./sqlite/tags.js"
-import { type StoreTaskStore, taskStoreOver } from "./sqlite/tasks.js"
+import { linkInbox, type StoreTaskStore, taskStoreOver } from "./sqlite/tasks.js"
 import * as transcripts from "./sqlite/transcripts.js"
 import { toMs } from "./sqlite/values.js"
 import type { ChunkToEmbed } from "./sqlite/vectors.js"
@@ -829,7 +829,11 @@ const storeOver = (context: StoreContext): MessageStore => {
   let mail: MessageStore["mail"] | undefined
 
   return {
-    saveAccount: async (key, { name }) => accountPk(key, name),
+    saveAccount: async (key, { name }) => {
+      const pk = accountPk(key, name)
+      linkInbox(database, `${key.provider}:${key.account}`, pk)
+      return pk
+    },
 
     saveChats: async (key, list) =>
       inTransaction(() => {

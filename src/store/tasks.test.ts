@@ -107,13 +107,12 @@ describe("tasks in the store", () => {
     })
   })
 
-  it("ties an inbox project to its account once the messenger has saved it", async () => {
+  it("ties an inbox project to its account as soon as the messenger saves it, before another task", async () => {
     const path = fresh()
     const store = await openStore({ path })
     const tasks = createTaskService({ store: store.tasks })
     await tasks.add(question)
     const accountId = await store.saveAccount({ provider: "telegram", account: "100" }, { name: null })
-    await tasks.add({ ...question, source: "msg:telegram:100:-1001:43" })
     const database = await openCache(path)
     expect(database.prepare("SELECT account_id FROM projects").all()).toEqual([{ account_id: accountId }])
 

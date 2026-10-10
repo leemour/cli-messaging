@@ -32,6 +32,13 @@ const COLUMNS =
 export const inboxKey = (account: string): string =>
   `IN${createHash("sha256").update(account).digest("hex").slice(0, 8).toUpperCase()}`
 
+/** An inbox made before its messenger saved the account learns it here, not only on its next task. */
+export const linkInbox = (database: CacheDatabase, account: string, accountId: number): void => {
+  database
+    .prepare("UPDATE projects SET account_id = ? WHERE key = ? AND account_id IS NULL")
+    .run(accountId, inboxKey(account))
+}
+
 /** The task account (`provider:account`) a task row belongs to: its inbox project's name. */
 export const taskAccountOf = (database: CacheDatabase, rowId: number): string | undefined => {
   const row = database

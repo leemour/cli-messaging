@@ -30,10 +30,12 @@ export const botNamed = (
   if (!handle || handle.length > 100) throw new CliError("validation_error", "a bot's name takes 1–100 characters")
   if (!BOT_KINDS.includes(kind))
     throw new CliError("validation_error", `a bot's kind is one of ${BOT_KINDS.join(", ")}`)
-  database
-    .prepare("INSERT INTO bots (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO NOTHING")
-    .run(handle, kind, now, now)
-  return { type: "bot", id: Number(database.prepare("SELECT id FROM bots WHERE name = ?").get(handle)?.id) }
+  const found = database.prepare("SELECT id FROM bots WHERE name = ?").get(handle)
+  if (found) return { type: "bot", id: Number(found.id) }
+  const made = database
+    .prepare("INSERT INTO bots (name, kind, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id")
+    .get(handle, kind, now, now)
+  return { type: "bot", id: Number(made?.id) }
 }
 
 /**

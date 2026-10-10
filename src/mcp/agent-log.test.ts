@@ -7,6 +7,7 @@ import * as v from "valibot"
 import { afterEach, describe, expect, it } from "vitest"
 import { openCache } from "../store/open.js"
 import { type MessageStore, openStore } from "../store/store.js"
+import { agentLog } from "./agent-log.js"
 import { type AnyTool, entryRunner, READ, type Registration, type ToolCall, tierOf, tool, WRITE } from "./tool.js"
 
 const live: MessageStore[] = []
@@ -61,6 +62,28 @@ describe("the MCP agent log", () => {
     const raw = JSON.stringify(database.prepare("SELECT * FROM agent_actions").all())
     database.close()
     expect(raw).not.toContain("secret")
+  })
+
+  it("opens its store once for many calls, and again only after it is closed", async () => {
+    const path = join(mkdtempSync(join(tmpdir(), "agent-log-")), "store.db")
+    let opened = 0
+    const log = agentLog(() => {
+      opened += 1
+      return openStore({ path })
+    })
+    const call = { actor: { bot: "test-mcp" }, tool: "chats_show", tier: "read", status: "ok" } as const
+
+    await Promise.all([1, 2, 3].map(() => log.record({ ...call, startedAt: 1, finishedAt: 2 })))
+    await log.record({ ...call, startedAt: 3, finishedAt: 4 })
+    expect(opened).toBe(1)
+
+    await log.close()
+    await log.record({ ...call, startedAt: 5, finishedAt: 6 })
+    await log.close()
+    expect(opened).toBe(2)
+    const store = await openStore({ path })
+    live.push(store)
+    expect(await store.agentActions.list()).toHaveLength(5)
   })
 
   it("reads a tool's tier from what it declares", () => {

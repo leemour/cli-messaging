@@ -5,6 +5,8 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "scripts/parity/**/*.test.ts"],
     setupFiles: ["src/testing/sandbox.ts"],
     globals: false,
+    // Several sessions run suites on one machine; at load 70 an ordinary store test takes 5–7 s (2026-10-11).
+    testTimeout: 15_000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
