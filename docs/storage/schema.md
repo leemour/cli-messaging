@@ -17,7 +17,7 @@ Status: **new** — added; **changed** — merged, split or reshaped; **renamed*
 - Polymorphic associations: `<name>_type` text (the singular table name: `person`, `bot`, `email`) + `<name>_id` integer. Actors (who made or owns something) are `person` or `bot`.
 - Searchable data gets its own column; `metadata` (JSON) holds only what is not searched.
 - Booleans without `is_`. Times are epoch milliseconds, integers: they sort and range without a format to agree on.
-- Search stays one index per corpus: messages, emails, attachments, documents, notes, meetings (owner).
+- One search index per corpus: messages, emails, attachments, documents, notes, memories, meetings.
 - Every foreign key and every polymorphic pair is indexed; listed under each table as *Indexes*.
 
 ## Sources
@@ -26,7 +26,7 @@ Every integration is an account; each sync run is logged.
 
 ### `accounts` — changed
 
-Every integration the owner connects: a messenger account, a mailbox, Zoom, a notes folder, later Notion, Drive, a calendar.
+Every integration the owner connects: a messenger account, a mailbox, Zoom, a notes folder.
 
 *Change:* Gains the integrations that were tables of their own (`note_folders`).
 
@@ -105,7 +105,7 @@ Every update a bot account received through the Bot API, kept as it came, so it 
 
 ### `syncs` — new
 
-One run of an integration's sync: what it did and how it ended. The shape of AlignIO's `user_integration_syncs`.
+One run of an integration's sync: what it did and how it ended.
 
 | Column | Type | Constraints | References | Meaning |
 |---|---|---|---|---|
@@ -135,7 +135,7 @@ Humans, the per-source identities they have, the organizations they belong to, a
 |---|---|---|---|---|
 | `id` ← `pk` | integer | PK |  |  |
 | `name` | text |  |  | Display name of the person (taken from their first identity's name); NULL if none known. |
-| `owner` ← `is_self` | integer | not null |  | Flag 1/0 meant to mark the person who is the store's owner; no code on main ever sets it, so it is always 0. |
+| `owner` ← `is_self` | integer | not null |  | 1 for the person who owns the store; a new store creates that row, so it always exists. |
 | `created_at` | integer | not null |  | when this row was saved here |
 | `updated_at` | integer | not null |  | when this row last changed here |
 
@@ -149,7 +149,7 @@ Humans, the per-source identities they have, the organizations they belong to, a
 | `username` | text |  |  | The person's public handle in that messenger, without `@`; NULL when they have none. |
 | `name` | text |  |  | The person's current display name as the messenger last reported it. |
 | `bot` ← `is_bot` | integer |  |  | 1 if the messenger says this identity is a bot, 0 if it says not, NULL when unknown. |
-| `phone_hmac` | text |  |  | Keyed hash (HMAC) of the person's phone number, for matching the same person across messengers; never the number itself. No writer exists yet. Kept only as a keyed hash so the same person can be matched across messengers while the number never reaches a log, fixture or document. |
+| `phone_hmac` | text |  |  | Keyed hash (HMAC) of the person's phone number, for matching the same person across messengers; the number itself never reaches a log, fixture or document. No tool fills it yet. |
 | `metadata` ← `provider_metadata` | text |  |  | JSON: what the source sends that has no column of its own and is not searched |
 | `created_at` ← `first_seen_at` | integer | not null |  | when this row was saved here |
 | `updated_at` | integer | not null |  | when this row last changed here |
@@ -535,7 +535,7 @@ Who one member-list read saw.
 
 ## Mail
 
-Email out of `messages` into tables of its own (owner): threads, subjects, recipients, labels.
+Email has tables of its own: threads, subjects, recipients, mailboxes.
 
 ### `email_threads` — new
 
@@ -1329,11 +1329,11 @@ Every tool an agent called through the CLIs or MCP: who, which tool, at what acc
 
 ## Tags, links and saved searches
 
-Polymorphic: `<name>_type` text + `<name>_id` integer (owner).
+Polymorphic: `<name>_type` text + `<name>_id` integer.
 
 ### `tags` — changed
 
-A tag's name, once (owner). Which things carry it is `taggings`.
+A tag's name, stored once. Which things carry it is `taggings`.
 
 *Change:* Split into `tags` + `taggings` (owner).
 
