@@ -1,0 +1,191 @@
+{
+  "accounts": {
+    "provider": "Which messenger the account belongs to, as a lowercase name such as `telegram` or `max`; open-ended so new adapters need no change.",
+    "name": "The account's display name as the messenger reports it; NULL when not known."
+  },
+  "sync_cursors": {
+    "key": "Name of what a sync remembers for this account, e.g. `chat_list_complete`, `history_start:<chatId>`, `fetched:<chatId>`, or a provider delta marker.",
+    "value": "The remembered value as text (a delta marker, a message id, a JSON list); callers encode numbers themselves."
+  },
+  "sync_ranges": {
+    "from_key": "Lowest provider ordering key (Telegram's message id) of a stretch of the chat held completely; missing messages inside it were deleted.",
+    "to_key": "Highest provider ordering key of that complete stretch; messages outside every stretch were simply never fetched."
+  },
+  "fetch_leases": {
+    "anchor": "Which stretch or job of the chat is being fetched, as a label such as `gaps`, so two processes never fetch the same pages.",
+    "holder": "Random id (a UUID) of the process that currently holds the lease.",
+    "expires_at": "When the lease runs out (epoch ms); after it another holder may take the stretch."
+  },
+  "persons": {
+    "name": "Display name of the person (taken from their first identity's name); NULL if none known.",
+    "owner": "1 for the person who owns the store; a new store creates that row, so it always exists."
+  },
+  "identities": {
+    "provider": "Messenger the identity lives in (`telegram`, `max`, or any string such as `email`); one identity per provider, not per account.",
+    "username": "The person's public handle in that messenger, without `@`; NULL when they have none.",
+    "name": "The person's current display name as the messenger last reported it.",
+    "bot": "1 if the messenger says this identity is a bot, 0 if it says not, NULL when unknown.",
+    "phone_hmac": "Keyed hash (HMAC) of the person's phone number, for matching the same person across messengers; the number itself never reaches a log, fixture or document. No tool fills it yet."
+  },
+  "identity_links": {
+    "method": "How the identity was assigned to its person: `initial` when first seen, or a caller's label such as `manual` or `same-email`.",
+    "confidence": "How sure the link is, from 0 to 1; 1 for every link the store writes.",
+    "author": "Who decided the link: `ingest` for the automatic first link, otherwise `owner` or the name of a program."
+  },
+  "identity_link_events": {
+    "method": "How this move of an identity between persons was decided (`initial`, `manual`, `same-email`…), kept so a bad link can be undone.",
+    "author": "Who made this move: `ingest`, `owner`, or a program's name."
+  },
+  "identity_revisions": {
+    "name": "The display name the person had at this snapshot of their profile (a row is added only when the profile changes).",
+    "username": "The handle (without `@`) the person had at this snapshot.",
+    "description": "The person's self-written bio/about text at this snapshot."
+  },
+  "entities": {
+    "kind": "Type of the owner-defined thing: one of `organization`, `family`, `project`, `group`.",
+    "name": "The entity's name as the owner gave it."
+  },
+  "chats": {
+    "kind": "Type of chat: `dialog` (one-to-one), `group`, `channel`, `saved` (notes-to-self) or `unknown`.",
+    "title": "The chat's name as the messenger shows it; NULL when it has none.",
+    "unread_count": "Unread messages the messenger reported; NULL means the messenger did not say, which is not zero.",
+    "last_message_at": "Time of the chat's newest message (epoch ms); NULL when it never had one.",
+    "participants_count": "Member count the messenger reported; NULL when not given.",
+    "username": "The chat's public handle (without `@`) where it has one, e.g. a public channel.",
+    "searchable": "1 if the chat's messages appear in searches that do not name it, 0 if only a search naming the chat sees them."
+  },
+  "member_stays": {
+    "first_seen_at": "When a member-list read first showed the person in the group for this stay (epoch ms).",
+    "last_seen_at": "When a member-list read last showed the person in the group (epoch ms).",
+    "role": "The person's role in the group at the last read: `owner`, `admin` or `member`; NULL when not given.",
+    "left_at": "When a complete member list first lacked the person, closing this stay (epoch ms); NULL while they are still in it."
+  },
+  "messages": {
+    "thread_external_id": "The messenger's id of the topic or thread inside the chat the message belongs to, where the messenger has threads.",
+    "sender_chat_external_id": "The messenger's id of the chat that authored the message (a channel post or a message sent as the group); NULL for a person.",
+    "sender_name": "The sender's display name as carried on this message.",
+    "sent_at": "When the message was sent (epoch ms).",
+    "edited_at": "When the messenger last recorded an edit (epoch ms); NULL for a message never changed.",
+    "text": "The message text exactly as received (empty string when there is none or it was deleted).",
+    "reply_to_external_id": "The messenger's id of the message this one replies to, even when no copy of it was sent.",
+    "reply_to": "JSON copy of the replied-to message as the messenger sent it (id, sender, time, text, attachments); NULL when not sent.",
+    "forward": "JSON copy of the original message this one forwards (same shape as reply_to); NULL when not a forward.",
+    "outgoing": "1 if this account sent it, 0 if someone else did, NULL when the account's own identity is unknown.",
+    "reactions": "JSON of the reactions: counts per reaction, this account's own reaction and the total; NULL when never asked.",
+    "source": "How the message reached the store, e.g. `history`, `send`, `backfill`, `update`, `context`; diagnostic only.",
+    "normalizer_version": "Version of the text-normalisation rules that produced the message's search text (currently 1); NULL until normalised."
+  },
+  "message_revisions": {
+    "text": "The message text before an edit replaced it.",
+    "edited_at": "The edit time (epoch ms) the message carried while it had this older text; NULL if it was not edited before."
+  },
+  "message_links": {
+    "source": "Who proposed this parent for the message: `provider` (the messenger's own reply), `rule`, or `agent`.",
+    "kind": "Why the message is linked to its parent: `reply`, `mention`, `same_sender` (rules/provider) or `answer` (an agent's choice).",
+    "confidence": "How sure the source is that this is the right parent, from 0 to 1.",
+    "version": "For provider and rule links, the linking-rules version that wrote it (as text); for agent links, the agent's skill version, if given."
+  },
+  "message_counter_observations": {
+    "counter": "Which counter was observed: `views`, `reactions` or `comments`.",
+    "value": "The counter's value at the observation (a non-negative number).",
+    "source": "How it was observed: `remote_fetch` (the store asked) or `remote_update` (the messenger pushed a change)."
+  },
+  "message_transcripts": {
+    "message_external_id": "The messenger's id of the voice message transcribed; keyed this way because a message can be heard before it is stored.",
+    "text": "What the voice message said, as transcribed; never empty.",
+    "heard_at": "When the transcript was made (epoch ms)."
+  },
+  "attachments": {
+    "kind": "Lowercase type of the attachment, such as `photo`, `video`, `file`, `voice`, `sticker`, `share`.",
+    "mime": "The file's MIME type, where the messenger gives one.",
+    "name": "The file name, where the messenger gives one.",
+    "title": "Title of a shared web page (for `share` attachments).",
+    "url": "A link that opens the bytes or the shared page, when the messenger hands one out.",
+    "size": "File size in bytes, where the messenger gives it.",
+    "width": "Width in pixels for images and video.",
+    "height": "Height in pixels for images and video.",
+    "duration": "Length in seconds for audio and video.",
+    "provider_ref": "Opaque JSON the messenger adapter needs to fetch the bytes later; meaningless outside that adapter.",
+    "local_path": "Where `messages download` saved the file on this computer; NULL when it was never downloaded.",
+    "extractor": "What produced the attachment's text: `plain`, `docx:mammoth@1.13.0`, `pdf:unpdf@1.8.1`, an OCR engine, or an agent's own label.",
+    "extraction_error": "Short reason code why no text came out (e.g. `no_text`), never a line of the file; NULL on success.",
+    "content_sha256": "Hex SHA-256 of the file bytes that were read, so an unchanged file is not read again.",
+    "extracted_at": "When the attachment's text (or its error) was written (epoch ms)."
+  },
+  "reminders": {
+    "due_at": "When the reminder should fire (epoch ms).",
+    "timezone": "IANA time zone the reminder was scheduled in, e.g. `Europe/Madrid`.",
+    "state": "Delivery state: `pending`, `leased` (claimed by a deliverer), `delivered` or `cancelled`.",
+    "lease_until": "Until when the current deliverer holds the reminder (epoch ms); after it another may claim it. NULL unless leased.",
+    "receipt": "Id handed to the deliverer at claim time, which it must return to confirm delivery; NULL when not leased."
+  },
+  "links": {
+    "kind": "Type of connection: `links-to` (a note links to something), `about`, `member-of`, `related-to` or `assigned-to`.",
+    "anchor": "The heading or block fragment the link points at inside its target, like `#Heading` or `#^block`; NULL for the whole target.",
+    "source": "Where the link came from: `file` (written in a note file), `owner` (added by the owner) or `suggested` (proposed, not yet confirmed).",
+    "target_text": "The target as written (e.g. a name in a note), kept while the link resolves to nobody; up to 500 characters.",
+    "target_folded": "target_text case- and accent-folded with any leading `@` removed, matched against new person names and aliases to resolve the link.",
+    "role": "The role the relation states, such as a job title in a `member-of` link; free text up to 200 characters.",
+    "evidence": "Free text saying why the relation holds (up to 2000 characters).",
+    "confirmed": "1 if the owner stands behind the link, 0 if it is only a weak, unconfirmed proposal."
+  },
+  "auto_tag_claims": {
+    "algorithm": "Name and version of the rules that assigned the automatic tag, currently `keywords-v1`.",
+    "score": "Share of the chat's metadata fields (title, username, description) that matched the tag's keywords: 1/3, 2/3 or 1; not a probability.",
+    "fields": "JSON list of which metadata fields matched, from `title`, `username`, `description`."
+  },
+  "searches": {
+    "name": "The saved search's unique name; NULL for an unnamed run kept only as history.",
+    "version": "Version of the search query language used (currently 1).",
+    "fields_version": "Version of the list of searchable field names the query was written against (currently 2).",
+    "last_run_at": "When the search was last run (epoch ms); NULL for a saved search never run.",
+    "runs": "How many times this search has been run."
+  },
+  "conversations": {
+    "first_at": "Send time of the conversation's first message (epoch ms).",
+    "last_at": "Send time of the conversation's last message (epoch ms).",
+    "message_count": "How many messages the conversation holds.",
+    "built_at": "When the build that produced this conversation ran (epoch ms).",
+    "algorithm_version": "Version of the linking rules that grouped the messages (currently 5)."
+  },
+  "conversation_state": {
+    "enabled_at": "When the owner turned on conversation grouping for this chat (epoch ms).",
+    "built_at": "When the current conversations of this chat were built (epoch ms); NULL before the first build.",
+    "algorithm_version": "Linking-rules version of the current build; NULL before the first build."
+  },
+  "conversation_chunks": {
+    "ordinal": "Position of this chunk within its conversation, from 0.",
+    "text_end": "For a piece of one long message, the offset in that message's text where the piece ends; NULL when the chunk is whole messages."
+  },
+  "chunk_vectors": {
+    "content_hash": "Hex SHA-256 of the chunk text the embedding model was given; the text itself is never stored.",
+    "dims": "Number of dimensions in the vector (its float32 length)."
+  },
+  "search_index_state": {
+    "watermark": "The highest message `pk` when the index was created; rows above it are indexed by triggers, rows up to it by batch fill.",
+    "filled_through": "The highest message `pk` the batch fill has indexed so far; the index is complete once it reaches the watermark.",
+    "terms_through": "The highest message `pk` whose words are in the typo-correction vocabulary; 0 means the vocabulary is not built.",
+    "normalizer_version": "Version of the text-normalisation rules the index was built with.",
+    "built_at": "When the index finished filling (epoch ms); NULL while it is still being filled."
+  },
+  "search_terms": {
+    "length": "Number of characters in the word, used to find typo candidates of a similar length."
+  },
+  "search_term_trigrams": {
+    "trigram": "A three-character piece of a known word, used to find words that look like a mistyped one.",
+    "length": "Character length of the word the trigram comes from.",
+    "term": "The known search word the trigram belongs to (numbers get no trigrams)."
+  },
+  "schema_migrations": {
+    "min_compatible": "The oldest schema version whose code can still safely write a file at this version; a build older than it refuses the file.",
+    "applied_at": "When this migration was applied to the file (epoch ms)."
+  },
+  "store_settings": {
+    "value": "The setting's value as text, shared by every profile and messenger using this store file.",
+    "at": "When the setting was last written (epoch ms)."
+  },
+  "aliases": {
+    "name": "The owner's private name for this contact in this account (1–200 characters); NULL when cleared.",
+    "name_folded": "The alias lowercased, used for case-insensitive contact search and for matching names written in notes."
+  }
+}

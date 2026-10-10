@@ -1,0 +1,130 @@
+{
+  "syncs": {
+    "started_at": "when the run began",
+    "finished_at": "when it ended; null while it runs",
+    "error": "what stopped a failed run, as the importer reported it"
+  },
+  "bots": {
+    "description": "what the bot is for, in a sentence, written when it registers",
+    "last_seen_at": "the last time the bot did anything here",
+    "disabled_at": "set when the owner switches the bot off; it keeps what it owns"
+  },
+  "email_threads": {
+    "subject": "the subject of the thread's first email, without Re: and Fwd:",
+    "last_email_at": "when the newest email of the thread was sent",
+    "emails_count": "how many emails of the thread are stored"
+  },
+  "emails": {
+    "subject": "the Subject header, decoded",
+    "from_address": "the sender's address, lower case",
+    "from_name": "the sender's display name, as written in From",
+    "sent_at": "the Date header",
+    "received_at": "when the owner's mailbox received it",
+    "in_reply_to": "the Message-ID this email answers",
+    "body_text": "the plain-text body; derived from the HTML when the email has no text part",
+    "body_html": "the HTML body, as received",
+    "snippet": "the first words of the body, for lists",
+    "outgoing": "1 when the owner sent it",
+    "read": "1 when it is marked read in the mailbox",
+    "flagged": "1 when it is flagged or starred",
+    "draft": "1 for a draft not yet sent",
+    "size": "the raw email's size, in bytes"
+  },
+  "email_recipients": {
+    "address": "the address, lower case",
+    "name": "the display name written beside it"
+  },
+  "mailboxes": {
+    "name": "the folder or label name as the provider shows it"
+  },
+  "documents": {
+    "title": "from front matter, the first heading, or the file name, in that order",
+    "mime": "the media type, e.g. application/pdf",
+    "size": "the file's size, in bytes",
+    "content_hash": "hash of the file's bytes; an unchanged file is not read again",
+    "extraction_error": "why the text could not be extracted",
+    "language": "detected language of the body, as an ISO 639-1 code"
+  },
+  "document_revisions": {
+    "body": "the body as it was before that revision"
+  },
+  "notes": {
+    "title": "optional heading",
+    "body": "the note, in Markdown"
+  },
+  "note_revisions": {
+    "body": "the body as it was before that revision"
+  },
+  "event_series": {
+    "title": "what the repeating event is called, e.g. the weekly sync"
+  },
+  "events": {
+    "title": "the owner's title; filled from the first meeting or calendar entry linked",
+    "description": "what the event is about",
+    "location": "where it happens: an address, a room, or online",
+    "starts_at": "when it starts",
+    "ends_at": "when it ends",
+    "timezone": "IANA zone the event is held in, e.g. Europe/Madrid"
+  },
+  "meeting_series": {
+    "title": "the meeting's topic at the provider",
+    "description": "the agenda, as the provider stores it",
+    "join_url": "the link to join; also what later matches a calendar entry"
+  },
+  "meetings": {
+    "title": "this occurrence's topic",
+    "location": "a physical room, when the provider says",
+    "join_url": "the link to join this occurrence",
+    "started_at": "when the occurrence started",
+    "ended_at": "when it ended",
+    "duration_ms": "how long it lasted, in milliseconds",
+    "timezone": "IANA zone the provider gives for the meeting",
+    "participants_count": "how many took part, as the provider reports it"
+  },
+  "meeting_participants": {
+    "display_name": "the name shown in this meeting; a later rename does not change it",
+    "email": "the address the provider gives, when it gives one",
+    "duration_ms": "time in the meeting, summed over all joins"
+  },
+  "meeting_transcripts": {
+    "language": "the transcript's language, as an ISO 639-1 code",
+    "superseded_at": "set when a newer transcript of the same meeting replaces this one; this one is kept"
+  },
+  "meeting_transcript_rows": {
+    "start_ms": "when the row starts, in milliseconds from the start of the recording",
+    "end_ms": "when it ends",
+    "text": "what was said, without the speaker prefix"
+  },
+  "meeting_chat_messages": {
+    "sent_at": "when it was sent",
+    "sender_name": "the sender's name as the chat shows it",
+    "text": "the message"
+  },
+  "meeting_summaries": {
+    "title": "the summary's own title",
+    "overview": "the short summary paragraph",
+    "doc_url": "a link to the summary at the provider, when it has one"
+  },
+  "projects": {
+    "name": "the project's name",
+    "description": "what the project is for"
+  },
+  "tasks": {
+    "title": "one line saying what is to be done",
+    "description": "the detail, in Markdown",
+    "due_at": "when it should be done",
+    "started_at": "when someone started it (status in_progress)",
+    "closed_at": "when it became done or dismissed",
+    "close_reason": "why it was closed, in a few words, e.g. no-reply-needed"
+  },
+  "task_events": {
+    "kind": "what happened: created, status, assigned, unassigned, due, priority, moved"
+  },
+  "tags": {
+    "name": "the tag, as the owner writes it; unique"
+  },
+  "embeddings": {
+    "content_hash": "Hex SHA-256 of the chunk text the embedding model was given; the text itself is never stored.",
+    "dims": "Number of dimensions in the vector (its float32 length)."
+  }
+}

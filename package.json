@@ -98,6 +98,8 @@
     "prepare": "lefthook install || true",
     "secrets:scan": "gitleaks git --no-banner --redact .",
     "prepublishOnly": "pnpm build",
+    "schema:check": "scripts/schema/check.sh",
+    "schema:render": "node scripts/schema/render.mjs",
     "parity:seed": "tsc --build && node --experimental-strip-types scripts/parity-seed.ts",
     "parity:render": "node --experimental-strip-types scripts/parity-render.ts",
     "parity:audit": "tsc --build && node --experimental-strip-types scripts/parity-audit.ts",
