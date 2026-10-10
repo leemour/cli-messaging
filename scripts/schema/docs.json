@@ -1,0 +1,162 @@
+{
+  "accounts": {
+    "doc": "The store's base tables — what `drizzle-kit generate` diffs against. A change here becomes a migration, so it follows the rules at the top of `../migrations.ts`. The FTS5 tables and their triggers are not modelled by Drizzle and live in hand-written SQL.",
+    "cols": {}
+  },
+  "persons": { "doc": "", "cols": {} },
+  "identities": { "doc": "", "cols": { "description": "What they wrote about themselves." } },
+  "identity_links": { "doc": "", "cols": {} },
+  "identity_link_events": { "doc": "", "cols": {} },
+  "chats": {
+    "doc": "",
+    "cols": {
+      "membership_state": "`NULL` is unknown. Searchable does not follow from it: a chat left keeps its messages.",
+      "message_count": "Kept by triggers, so a query can choose how a filter reaches the index.",
+      "members_tracked_at": "When the owner asked `serve` to fetch its member list daily; `NULL` when not tracked."
+    }
+  },
+  "messages": {
+    "doc": "",
+    "cols": {
+      "mentions": "JSON: the people the text mentions by id, where the messenger says so; `@handle`s are read from the text."
+    }
+  },
+  "message_revisions": { "doc": "", "cols": {} },
+  "attachments": { "doc": "", "cols": {} },
+  "sync_ranges": { "doc": "", "cols": {} },
+  "account_identities": {
+    "doc": "",
+    "cols": {
+      "last_messaged_at": "Their one-to-one chat's newest message, as `refreshRecency` last worked it out: the contact order."
+    }
+  },
+  "chat_members": {
+    "doc": "Who is in a chat, as the account last saw it: a list replaces the chat's membership whole.",
+    "cols": {}
+  },
+  "sync_state": {
+    "doc": "Per account, what a sync remembers between runs: a delta marker, when a list was last complete.",
+    "cols": {}
+  },
+  "fetch_leases": {
+    "doc": "Who is fetching a stretch of a chat right now, so two processes do not fetch the same pages.",
+    "cols": {}
+  },
+  "transcripts": {
+    "doc": "What a voice message said, keyed by chat and message id rather than a message row: a message can be heard before the store holds it. Derived — it can be heard again.",
+    "cols": { "source": "The model or the messenger that heard it." }
+  },
+  "search_index_state": {
+    "doc": "How far a derived search index is built, one row per index. `watermark` is the highest message `pk` when the index was created: rows above it are indexed by triggers, rows up to it by batches that have reached `filled_through`.",
+    "cols": {
+      "analyzer": "The stemmer choices and Snowball version that built the stems row (`analyzerIdentity`); NULL until a fill claims it."
+    }
+  },
+  "message_stems_pending": {
+    "doc": "Messages whose stems are stale. Triggers fill it, because SQL cannot stem; JS empties it.",
+    "cols": {}
+  },
+  "store_settings": {
+    "doc": "Settings of the store file itself, shared by every profile, tg and MAX — unlike a profile's config file.",
+    "cols": {}
+  },
+  "message_links": {
+    "doc": "Each candidate for \"the earlier message this one answers\", and where it came from.",
+    "cols": {
+      "chat_pk": "The message's chat, kept here so a rebuild finds and drops an old build without reading `messages`.",
+      "parent_pk": "`NULL`: the source says this message starts a conversation.",
+      "method": "The rule's name, or the agent's model.",
+      "batch": "Which agent batch wrote it.",
+      "build": "The rebuild that wrote a provider or rule link; `NULL` for an agent's, which outlive rebuilds.",
+      "stale_at": "An end of the link changed after it was written; never chosen until asked again."
+    }
+  },
+  "conversations": {
+    "doc": "",
+    "cols": {
+      "build": "Written in batches under a new number, then made current at once: readers never see half a build."
+    }
+  },
+  "conversation_messages": { "doc": "", "cols": {} },
+  "conversation_state": {
+    "doc": "Which chats the user enabled, and how fresh their conversations are.",
+    "cols": { "current_build": "The build readers see; a higher one is being written, or failed." }
+  },
+  "conversation_chunks": {
+    "doc": "A conversation, or a run of its messages when it is longer than one chunk.",
+    "cols": {
+      "content_hash": "sha256 of the text the model is given, hex. The chunk's text itself is never stored.",
+      "text_start": "Set on a piece of one message longer than a chunk (`first_message_pk` = `last_message_pk`): the stretch of its text the piece holds, as offsets. `NULL` is the whole of every message in range."
+    }
+  },
+  "chunk_vectors": {
+    "doc": "One model's vector for one chunk text; no chat, so vectors outlive the builds that point at them.",
+    "cols": {
+      "model": "`<provider>:<model>:<dims>` — vectors of different models never mix.",
+      "vector": "Float32, little-endian, length one."
+    }
+  },
+  "tags": {
+    "doc": "The owner's own labels on a chat, a contact (an `identities` row) or one message. Polymorphic, so no foreign key: triggers drop a tag when its chat or message goes, whichever build deletes it.",
+    "cols": { "taggable_type": "`chat`, `contact`, `message`, `knowledge` (before version 27), `note` or `owner`." }
+  },
+  "searches": {
+    "doc": "Every run of `search messages` and `stats messages show`, with the parameters as the caller gave them — never a message or a result. A row with a name is a saved search; an identical unnamed run counts on its row.",
+    "cols": {
+      "command": "`search` or `stats`.",
+      "params": "JSON, keys sorted, so the same run is the same text.",
+      "language": "`lucene-v1` or `legacy`."
+    }
+  },
+  "member_stays": {
+    "doc": "One stay of a person in a group, from member lists read whole or in part. A return after leaving is a new row. `gone_at` is set only from a list read whole: a cut list says nothing about who is missing.",
+    "cols": { "joined_at": "When the messenger says they joined; `NULL` where it does not." }
+  },
+  "member_counts": {
+    "doc": "A group's size once a day: the messenger's own count and how many members one read listed.",
+    "cols": { "day": "`YYYY-MM-DD`, UTC; a later read the same day replaces the row." }
+  },
+  "membership_batches": { "doc": "", "cols": {} },
+  "membership_batch_members": { "doc": "", "cols": {} },
+  "message_counter_observations": { "doc": "", "cols": {} },
+  "identity_revisions": {
+    "doc": "Each profile a person was seen with, a row when it differs from the one before; `identities` holds the latest.",
+    "cols": { "marks": "JSON: the messenger's marks — bot, scam, fake, deleted, has a photo — where it gave them." }
+  },
+  "attachment_texts": {
+    "doc": "The text of one attachment: read from the saved file (`origin` `extracted`) or written back by an agent that read a scan or a photo (`agent`). No foreign key: a build that predates this table deletes attachments in its purges, and a key would refuse that; triggers erase the text instead (NEED-393 A).",
+    "cols": {
+      "origin": "`extracted` or `agent`.",
+      "extractor": "`plain`, `docx:mammoth@1.13.0`, `pdf:unpdf@1.8.1`, or the agent's own label.",
+      "bytes": "The file's size when it was read; a file of another size is read again.",
+      "error": "Why no text came out — a reason code, never a line of the file."
+    }
+  },
+  "tasks": {
+    "doc": "What `@leemour/cli-tasks` keeps: a question, request, mention or promise waiting on the owner. `source` is a locator (`msg:…`), never the message text. Times are milliseconds.",
+    "cols": {}
+  },
+  "contact_aliases": { "doc": "", "cols": {} },
+  "knowledge_reminders": { "doc": "", "cols": {} },
+  "chat_metadata": { "doc": "", "cols": {} },
+  "auto_tag_claims": { "doc": "", "cols": {} },
+  "note_folders": {
+    "doc": "The path lives in each computer's config, never here. A folder copied from a pre-25 `notes` account keeps that account in `account_pk` and its path in `pending_path` until the notes tool claims it.",
+    "cols": {}
+  },
+  "notes": { "doc": "", "cols": {} },
+  "note_revisions": { "doc": "", "cols": {} },
+  "note_chunks": {
+    "doc": "A note cut into pieces for embedding, each by the stretch of its indexed text it holds. The text is never stored twice; `content_hash` finds the piece's vector in `chunk_vectors`, shared with conversations.",
+    "cols": {}
+  },
+  "links": {
+    "doc": "Every connection between two things, by typed reference. `to_ref` is null while a link names nobody yet; `target_folded` is what a new person or alias is matched against to resolve it.",
+    "cols": {}
+  },
+  "owner_targets": {
+    "doc": "What the owner labels that belongs to no account: a person, an entity, a task, a notes folder or one of its subfolders. Tags of type `owner` point here. A folder keeps its id and path apart as well, so a search can find every note under a labelled subfolder without decoding the reference.",
+    "cols": {}
+  },
+  "entities": { "doc": "", "cols": {} }
+}

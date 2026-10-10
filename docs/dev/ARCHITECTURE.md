@@ -324,8 +324,9 @@ it by editing that line in a PR of its own, merged before the migration.
 #### Adding a migration
 
 1. **Take the number** as the paragraph above says, and wait for that PR to merge.
-2. **Change `src/store/sqlite/schema.ts`**, then `pnpm db:generate --name version-<n>-<what>`. It
-   writes `drizzle/<timestamp>_version-<n>-<what>/migration.sql`.
+2. **Change the spec first**, `scripts/schema/spec.mjs`, and `pnpm schema:render` for the page. Then change
+   `src/store/sqlite/schema.ts` to match, until `pnpm schema:check` passes (CI runs it), and run
+   `pnpm db:generate --name version-<n>-<what>`. It writes `drizzle/<timestamp>_version-<n>-<what>/migration.sql`.
 3. **Read the SQL before anything else.** For a constraint change (a new `NOT NULL`, a changed
    default, a foreign key), drizzle-kit rebuilds the table: `CREATE TABLE __new_…`, copy, `DROP TABLE`,
    `RENAME`. A build already installed breaks on that, and on `messages` the `DROP` also removes the
@@ -348,13 +349,15 @@ it by editing that line in a PR of its own, merged before the migration.
    `src/store/sqlite/migrations.generated.ts`; `pnpm build` does not, and the test "are bundled
    exactly as drizzle-kit wrote them" (`manifest.test.ts:22`) fails until you run it.
 8. **Test the upgrade**: a `src/store/version-<n>.test.ts` opens a file at version n−1, migrates it and
-   reads what the new version added. `src/store/sqlite/schema.test.ts` opens a new store and compares
+   reads what the new version added. `src/store/upgrade.test.ts` already opens a store 0.218.0 made, at
+   version 1, with every migration and keeps its rows. `src/store/sqlite/schema.test.ts` opens a new store and compares
    every table and column with [`schema.md`](../storage/schema.md), and compiles every trigger:
    change the page with the schema.
 9. **CHANGELOG**: an entry under `## Unreleased` that names the store version, as "Chat members in
    the store (store version 7)" does.
 
 A migration is frozen once released: fix a mistake with the next version, never by editing a folder.
+`upgrade.test.ts` pins version 1 by hash, and `bin/regen-initial-migration` refuses once a `v*` tag holds it.
 
 ### Open tasks
 

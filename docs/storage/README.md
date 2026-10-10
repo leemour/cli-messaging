@@ -14,6 +14,5 @@ built today is in [ARCHITECTURE, "The store"](../dev/ARCHITECTURE.md#the-store).
 
 Search AI configuration and opt-in analysis: [`../search/ai-providers.md`](../search/ai-providers.md).
 
-`schema.md` is the store plan's schema page, rendered from the plan's spec, with its first paragraph
-replaced. After a spec change, copy the page again over everything below that paragraph; the schema test
-fails until the code and the page agree.
+`schema.md` is generated: change `scripts/schema/spec.mjs`, run `pnpm schema:render`, then edit `schema.ts` and the
+hand-written SQL to match. `pnpm schema:check` (in CI) fails until the spec, `schema.ts` and the page agree.

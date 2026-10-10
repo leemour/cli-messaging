@@ -1,0 +1,1817 @@
+{
+  "tables": [
+    {
+      "name": "account_identities",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "account_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "first_seen_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "last_messaged_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_account_identities_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["account_pk", "identity_pk"]
+        }
+      ]
+    },
+    {
+      "name": "accounts",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "provider", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "native_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_accounts_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["provider", "native_id"]
+        }
+      ]
+    },
+    {
+      "name": "attachment_texts",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "attachment_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "normalized_text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "origin", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "extractor", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "content_sha256", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "bytes", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "error", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "written_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "attachment_words",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE attachment_words USING fts5(\n  normalized_text,\n  content = '', contentless_delete = 1,\n  tokenize = 'unicode61 remove_diacritics 2')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "attachments",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "position", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "mime", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "title", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "url", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "size", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "width", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "height", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "duration", "type": "REAL", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 12, "name": "provider_ref", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 13, "name": "local_path", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_attachments_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["message_pk", "position"]
+        }
+      ]
+    },
+    {
+      "name": "auto_tag_claims",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "tag", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "algorithm", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "score", "type": "REAL", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "fields", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_auto_tag_claims_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["chat_pk", "tag"]
+        }
+      ]
+    },
+    {
+      "name": "chat_members",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "chat_members_by_identity",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["identity_pk"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_chat_members_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["chat_pk", "identity_pk"]
+        }
+      ]
+    },
+    {
+      "name": "chat_metadata",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "title", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "username", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "description", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "fetched_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": []
+    },
+    {
+      "name": "chats",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "account_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "native_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "title", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "unread_count", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "last_message_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "participants_count", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "provider_metadata", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "updated_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "username", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "membership_state", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 12, "name": "is_searchable", "type": "INTEGER", "notnull": 1, "dflt_value": "1", "pk": 0 },
+        { "cid": 13, "name": "message_count", "type": "INTEGER", "notnull": 1, "dflt_value": "0", "pk": 0 },
+        { "cid": 14, "name": "members_tracked_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "chats_by_recency",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["account_pk", "last_message_at"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_chats_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["account_pk", "native_id"]
+        }
+      ]
+    },
+    {
+      "name": "chats_fts",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE chats_fts USING fts5(title, content='chats', content_rowid='pk', tokenize='trigram')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "chunk_vectors",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "model", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "content_hash", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "dims", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "vector", "type": "BLOB", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_chunk_vectors_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["model", "content_hash"]
+        }
+      ]
+    },
+    {
+      "name": "contact_aliases",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "account_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "alias", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "updated_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "alias_folded", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_contact_aliases_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["account_pk", "identity_pk"]
+        }
+      ]
+    },
+    {
+      "name": "conversation_chunks",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "conversation_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "ordinal", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "first_message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "last_message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "content_hash", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "text_start", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "text_end", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "last_message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "messages",
+          "from": "first_message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "conversations",
+          "from": "conversation_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "conversation_chunks_by_hash",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["content_hash"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_conversation_chunks_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["conversation_pk", "ordinal"]
+        }
+      ]
+    },
+    {
+      "name": "conversation_messages",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "conversation_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "conversations",
+          "from": "conversation_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "conversation_messages_by_message",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["message_pk"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_conversation_messages_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["conversation_pk", "message_pk"]
+        }
+      ]
+    },
+    {
+      "name": "conversation_state",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "enabled_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "built_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "algorithm_version", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "current_build", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": []
+    },
+    {
+      "name": "conversations",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "first_message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "build", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "first_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "last_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "message_count", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "built_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "algorithm_version", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "first_message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "conversations_by_chat",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["chat_pk", "build", "first_at"]
+        }
+      ]
+    },
+    {
+      "name": "entities",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "name", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        { "seq": 0, "name": "sqlite_autoindex_entities_1", "unique": 1, "origin": "pk", "partial": 0, "cols": ["id"] }
+      ]
+    },
+    {
+      "name": "fetch_leases",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "anchor", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "holder", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "expires_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_fetch_leases_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["chat_pk", "anchor"]
+        }
+      ]
+    },
+    {
+      "name": "identities",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "provider", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "native_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "username", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "is_bot", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "phone_hmac", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "provider_metadata", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "first_seen_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "updated_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "description", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_identities_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["provider", "native_id"]
+        }
+      ]
+    },
+    {
+      "name": "identities_fts",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE identities_fts USING fts5(name, username, content='identities', content_rowid='pk', tokenize='trigram')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "identity_link_events",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "from_person_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "to_person_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "method", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "by", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "persons",
+          "from": "to_person_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "persons",
+          "from": "from_person_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": []
+    },
+    {
+      "name": "identity_links",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "identity_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "person_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "method", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "confidence", "type": "REAL", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "linked_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "linked_by", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "persons",
+          "from": "person_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "identity_links_by_person",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["person_pk"]
+        }
+      ]
+    },
+    {
+      "name": "identity_revisions",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "username", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "description", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "marks", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "captured_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "identity_revisions_by_identity",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["identity_pk", "captured_at"]
+        }
+      ]
+    },
+    {
+      "name": "knowledge_reminders",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "uid", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "account_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "task_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "due_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "timezone", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "state", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "revision", "type": "INTEGER", "notnull": 1, "dflt_value": "1", "pk": 0 },
+        { "cid": 7, "name": "lease_until", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "receipt", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "updated_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "knowledge_reminders_due",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["account_pk", "state", "due_at"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_knowledge_reminders_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["uid"]
+        }
+      ]
+    },
+    {
+      "name": "links",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "from_ref", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "to_ref", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "anchor", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "origin", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "target_text", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "target_folded", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "role", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "evidence", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "provenance", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "confirmed", "type": "INTEGER", "notnull": 1, "dflt_value": "1", "pk": 0 },
+        { "cid": 12, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        { "seq": 0, "name": "links_unresolved", "unique": 0, "origin": "c", "partial": 1, "cols": ["target_folded"] },
+        { "seq": 1, "name": "links_to", "unique": 0, "origin": "c", "partial": 0, "cols": ["to_ref"] },
+        { "seq": 2, "name": "links_from", "unique": 0, "origin": "c", "partial": 0, "cols": ["from_ref"] },
+        { "seq": 3, "name": "sqlite_autoindex_links_1", "unique": 1, "origin": "pk", "partial": 0, "cols": ["id"] }
+      ]
+    },
+    {
+      "name": "member_counts",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "day", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "participants", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "listed", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "complete", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_member_counts_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["chat_pk", "day"]
+        }
+      ]
+    },
+    {
+      "name": "member_stays",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "first_seen_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "last_seen_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "joined_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "invited_by_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "role", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "gone_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "identities",
+          "from": "invited_by_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "member_stays_by_identity",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["identity_pk"]
+        },
+        {
+          "seq": 1,
+          "name": "member_stays_open",
+          "unique": 1,
+          "origin": "c",
+          "partial": 1,
+          "cols": ["chat_pk", "identity_pk"]
+        }
+      ]
+    },
+    {
+      "name": "membership_batch_members",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "batch_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "identity_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "stay_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "member_stays",
+          "from": "stay_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "identities",
+          "from": "identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "membership_batches",
+          "from": "batch_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "membership_members_by_stay",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["stay_pk", "batch_pk"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_membership_batch_members_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["batch_pk", "identity_pk"]
+        }
+      ]
+    },
+    {
+      "name": "membership_batches",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "observed_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "started_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "complete", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "participants", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "listed", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "source", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "membership_batches_by_chat_time",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["chat_pk", "observed_at"]
+        }
+      ]
+    },
+    {
+      "name": "message_counter_observations",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "counter", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "value", "type": "REAL", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "observed_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "source", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_message_counter_observations_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["message_pk", "counter"]
+        }
+      ]
+    },
+    {
+      "name": "message_links",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 1, "name": "message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "parent_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "source", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "confidence", "type": "REAL", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "method", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "version", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "batch", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "build", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "stale_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "parent_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "messages",
+          "from": "message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "message_links_by_build",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["chat_pk", "build"]
+        },
+        {
+          "seq": 1,
+          "name": "message_links_by_parent",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["parent_pk"]
+        },
+        {
+          "seq": 2,
+          "name": "message_links_unique",
+          "unique": 1,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["message_pk", null, "source", "kind", null]
+        }
+      ]
+    },
+    {
+      "name": "message_revisions",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "message_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 1, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "edited_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "captured_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "messages",
+          "from": "message_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        { "seq": 0, "name": "revisions_by_message", "unique": 0, "origin": "c", "partial": 0, "cols": ["message_pk"] }
+      ]
+    },
+    {
+      "name": "message_stems",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE message_stems USING fts5(\n  stems, scope,\n  content = '', contentless_delete = 1,\n  tokenize = 'unicode61 remove_diacritics 2')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "message_stems_pending",
+      "virtual": false,
+      "cols": [{ "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 }],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "message_words",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE message_words USING fts5(\n  normalized_text, scope,\n  content = '', contentless_delete = 1,\n  tokenize = 'unicode61 remove_diacritics 2', prefix = '3')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "messages",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "account_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "native_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "thread_native_id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "sender_identity_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "sender_chat_native_id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "sender_name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "sent_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "edited_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "deleted_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 12, "name": "reply_to_native_id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 13, "name": "reply_to", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 14, "name": "forward", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 15, "name": "outgoing", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 16, "name": "reactions", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 17, "name": "provider_metadata", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 18, "name": "ingested_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 19, "name": "ingested_via", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 20, "name": "normalized_text", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 21, "name": "normalizer_version", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 22, "name": "mentions", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "identities",
+          "from": "sender_identity_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 1,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        },
+        {
+          "id": 2,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        { "seq": 0, "name": "messages_to_normalize", "unique": 0, "origin": "c", "partial": 1, "cols": ["pk"] },
+        {
+          "seq": 1,
+          "name": "messages_by_sender",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["sender_identity_pk"]
+        },
+        {
+          "seq": 2,
+          "name": "messages_by_account",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["account_pk", "native_id"]
+        },
+        {
+          "seq": 3,
+          "name": "messages_by_time",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["chat_pk", "sent_at"]
+        },
+        {
+          "seq": 4,
+          "name": "sqlite_autoindex_messages_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["chat_pk", "native_id"]
+        }
+      ]
+    },
+    {
+      "name": "messages_fts",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE messages_fts USING fts5(text, content='messages', content_rowid='pk', tokenize='trigram')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "note_chunks",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "note_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "seq", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "text_start", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "text_end", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "content_hash", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "notes",
+          "from": "note_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "CASCADE",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        { "seq": 0, "name": "note_chunks_by_hash", "unique": 0, "origin": "c", "partial": 0, "cols": ["content_hash"] },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_note_chunks_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["note_pk", "seq"]
+        }
+      ]
+    },
+    {
+      "name": "note_folders",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "name", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "format", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "pending_path", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "account_pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_note_folders_2",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["account_pk"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_note_folders_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["id"]
+        }
+      ]
+    },
+    {
+      "name": "note_index_pending",
+      "virtual": false,
+      "cols": [{ "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 }],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "note_revisions",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "note_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 1, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "captured_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "notes",
+          "from": "note_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        { "seq": 0, "name": "note_revisions_by_note", "unique": 0, "origin": "c", "partial": 0, "cols": ["note_pk"] }
+      ]
+    },
+    {
+      "name": "note_stems",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE note_stems USING fts5(\n  stems, scope,\n  content = '', contentless_delete = 1,\n  tokenize = 'unicode61 remove_diacritics 2')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "note_words",
+      "virtual": true,
+      "sql": "CREATE VIRTUAL TABLE note_words USING fts5(\n  normalized_text, scope,\n  content = '', contentless_delete = 1,\n  tokenize = 'unicode61 remove_diacritics 2', prefix = '3')",
+      "cols": [],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "notes",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "source", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "folder_id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "path", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "title", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "front_matter", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "content_hash", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "revision", "type": "INTEGER", "notnull": 1, "dflt_value": "1", "pk": 0 },
+        { "cid": 10, "name": "export_path", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 12, "name": "updated_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 13, "name": "deleted_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "note_folders",
+          "from": "folder_id",
+          "to": "id",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        { "seq": 0, "name": "notes_by_path", "unique": 1, "origin": "c", "partial": 0, "cols": ["folder_id", "path"] },
+        { "seq": 1, "name": "sqlite_autoindex_notes_1", "unique": 1, "origin": "u", "partial": 0, "cols": ["id"] }
+      ]
+    },
+    {
+      "name": "owner_targets",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "reference", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "folder_id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "folder_path", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "owner_targets_by_folder",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["folder_id", "folder_path"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_owner_targets_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["reference"]
+        }
+      ]
+    },
+    {
+      "name": "persons",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "uid", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "is_self", "type": "INTEGER", "notnull": 1, "dflt_value": "0", "pk": 0 },
+        { "cid": 4, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "updated_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        { "seq": 0, "name": "sqlite_autoindex_persons_1", "unique": 1, "origin": "u", "partial": 0, "cols": ["uid"] }
+      ]
+    },
+    {
+      "name": "schema_migrations",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "version", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "min_compatible", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "applied_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": []
+    },
+    {
+      "name": "search_index_state",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "watermark", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "filled_through", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "terms_through", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "normalizer_version", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "built_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "analyzer", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_search_index_state_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["name"]
+        }
+      ]
+    },
+    {
+      "name": "search_term_trigrams",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "trigram", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "length", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "term", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 3 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_search_term_trigrams_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["trigram", "length", "term"]
+        }
+      ]
+    },
+    {
+      "name": "search_terms",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "term", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "length", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_search_terms_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["term"]
+        }
+      ]
+    },
+    {
+      "name": "searches",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "name", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "command", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "params", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "language", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "version", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "fields_version", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "last_run_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "runs", "type": "INTEGER", "notnull": 1, "dflt_value": "0", "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        { "seq": 0, "name": "searches_by_last_run", "unique": 0, "origin": "c", "partial": 0, "cols": ["last_run_at"] },
+        {
+          "seq": 1,
+          "name": "searches_history",
+          "unique": 1,
+          "origin": "c",
+          "partial": 1,
+          "cols": ["command", "params"]
+        },
+        { "seq": 2, "name": "sqlite_autoindex_searches_1", "unique": 1, "origin": "u", "partial": 0, "cols": ["name"] }
+      ]
+    },
+    {
+      "name": "store_settings",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "key", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "value", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_store_settings_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["key"]
+        }
+      ]
+    },
+    {
+      "name": "sync_ranges",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "from_key", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "to_key", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_sync_ranges_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["chat_pk", "from_key"]
+        }
+      ]
+    },
+    {
+      "name": "sync_state",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "account_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "key", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "value", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "accounts",
+          "from": "account_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_sync_state_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["account_pk", "key"]
+        }
+      ]
+    },
+    {
+      "name": "tags",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "pk", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "taggable_type", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "taggable_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "tag", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "manual", "type": "INTEGER", "notnull": 1, "dflt_value": "1", "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "tags_by_tag",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["tag", "taggable_type", "taggable_pk"]
+        },
+        {
+          "seq": 1,
+          "name": "sqlite_autoindex_tags_1",
+          "unique": 1,
+          "origin": "u",
+          "partial": 0,
+          "cols": ["taggable_type", "taggable_pk", "tag"]
+        }
+      ]
+    },
+    {
+      "name": "tasks",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "id", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "source", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 2, "name": "source_kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "account", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "group_key", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 5, "name": "kind", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 6, "name": "state", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 7, "name": "reason", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 8, "name": "origin", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 9, "name": "created_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 10, "name": "due_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 11, "name": "closed_at", "type": "INTEGER", "notnull": 0, "dflt_value": null, "pk": 0 },
+        { "cid": 12, "name": "closed_by", "type": "TEXT", "notnull": 0, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "tasks_by_state",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["account", "state", "group_key"]
+        },
+        {
+          "seq": 1,
+          "name": "tasks_by_source",
+          "unique": 0,
+          "origin": "c",
+          "partial": 0,
+          "cols": ["account", "source"]
+        },
+        { "seq": 2, "name": "sqlite_autoindex_tasks_1", "unique": 1, "origin": "pk", "partial": 0, "cols": ["id"] }
+      ]
+    },
+    {
+      "name": "transcripts",
+      "virtual": false,
+      "cols": [
+        { "cid": 0, "name": "chat_pk", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 1 },
+        { "cid": 1, "name": "message_native_id", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 2 },
+        { "cid": 2, "name": "text", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 3, "name": "source", "type": "TEXT", "notnull": 1, "dflt_value": null, "pk": 0 },
+        { "cid": 4, "name": "heard_at", "type": "INTEGER", "notnull": 1, "dflt_value": null, "pk": 0 }
+      ],
+      "fks": [
+        {
+          "id": 0,
+          "seq": 0,
+          "table": "chats",
+          "from": "chat_pk",
+          "to": "pk",
+          "on_update": "NO ACTION",
+          "on_delete": "NO ACTION",
+          "match": "NONE"
+        }
+      ],
+      "idx": [
+        {
+          "seq": 0,
+          "name": "sqlite_autoindex_transcripts_1",
+          "unique": 1,
+          "origin": "pk",
+          "partial": 0,
+          "cols": ["chat_pk", "message_native_id"]
+        }
+      ]
+    }
+  ],
+  "triggers": [
+    { "name": "chats_fts_ad", "tbl_name": "chats" },
+    { "name": "chats_fts_ai", "tbl_name": "chats" },
+    { "name": "chats_fts_au", "tbl_name": "chats" },
+    { "name": "identities_fts_ad", "tbl_name": "identities" },
+    { "name": "identities_fts_ai", "tbl_name": "identities" },
+    { "name": "identities_fts_au", "tbl_name": "identities" },
+    { "name": "messages_fts_ai", "tbl_name": "messages" },
+    { "name": "messages_fts_au", "tbl_name": "messages" },
+    { "name": "messages_fts_ad", "tbl_name": "messages" },
+    { "name": "chats_count_ai", "tbl_name": "messages" },
+    { "name": "chats_count_ad", "tbl_name": "messages" },
+    { "name": "chats_count_tombstone", "tbl_name": "messages" },
+    { "name": "chats_count_untombstone", "tbl_name": "messages" },
+    { "name": "message_words_ai", "tbl_name": "messages" },
+    { "name": "message_words_au", "tbl_name": "messages" },
+    { "name": "message_words_ad", "tbl_name": "messages" },
+    { "name": "message_stems_ai", "tbl_name": "messages" },
+    { "name": "message_stems_au", "tbl_name": "messages" },
+    { "name": "message_stems_ad", "tbl_name": "messages" },
+    { "name": "tags_message_tombstone", "tbl_name": "messages" },
+    { "name": "tags_message_ad", "tbl_name": "messages" },
+    { "name": "tags_chat_ad", "tbl_name": "chats" },
+    { "name": "attachment_words_ai", "tbl_name": "attachment_texts" },
+    { "name": "attachment_words_au", "tbl_name": "attachment_texts" },
+    { "name": "attachment_words_ad", "tbl_name": "attachment_texts" },
+    { "name": "attachment_texts_message_tombstone", "tbl_name": "messages" },
+    { "name": "attachment_texts_message_ad", "tbl_name": "messages" },
+    { "name": "attachment_texts_attachment_ad", "tbl_name": "attachments" },
+    { "name": "knowledge_task_closed", "tbl_name": "tasks" },
+    { "name": "notes_tombstone", "tbl_name": "notes" },
+    { "name": "notes_bd", "tbl_name": "notes" },
+    { "name": "note_folders_account_bd", "tbl_name": "accounts" },
+    { "name": "note_index_ai", "tbl_name": "notes" },
+    { "name": "note_index_au", "tbl_name": "notes" },
+    { "name": "note_index_bd", "tbl_name": "notes" },
+    { "name": "knowledge_account_delete", "tbl_name": "accounts" },
+    { "name": "private_metadata_account_delete", "tbl_name": "accounts" },
+    { "name": "private_metadata_chat_delete", "tbl_name": "chats" },
+    { "name": "private_metadata_identity_delete", "tbl_name": "identities" }
+  ]
+}
