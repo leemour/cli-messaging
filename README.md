@@ -217,6 +217,17 @@ reports the scan cap, queued changes and skipped unavailable meetings; it never 
 name or email. The helper does not rebuild the derived index.
 
 A task proposal has a stable source-and-kind ID and `applied: false`; it creates no task or message.
+The separate `createTaskFromMeeting(store, accountKey, { source, kind, origin, dueAt? })` helper
+explicitly writes one local task after looking up the existing account and authorizing its source.
+It accepts the task package's kinds and origins, keeps canonical references, and reuses an existing
+task of the same kind; `rule` origin reuses any task from that source, including a closed task.
+Deduplication follows the task package's sequential find-and-add contract; concurrent writers need
+additional coordination. Proposal generation never calls this helper.
+
+`readMeetingTask(store, accountKey, id)` resolves source text on demand, with a preview of at most
+200 text characters. A deleted source returns `state: "unavailable"` and `source: null`; other source
+errors propagate. The task itself retains its reference rather than transcript text.
+
 These helpers add no CLI or MCP command. Persisting meeting references through existing memory
 or decision evidence links needs separate store integration.
 

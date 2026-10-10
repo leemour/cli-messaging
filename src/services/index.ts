@@ -157,6 +157,7 @@ export const servicesFor = (deps: ServiceDeps): Services => {
   return deps.messenger.services ? { ...base, ...deps.messenger.services(base, deps) } : base
 }
 
+export { TASK_KINDS, TASK_ORIGINS, type TaskKind, type TaskOrigin } from "@wirecat/cli-tasks"
 export { migrateLegacyQuery, type QueryMigration, type SavedQuery } from "../search/lucene/migration.js"
 export { parseLucene } from "../search/lucene/parser.js"
 export { FIELD_VERSION, QUERY_FIELDS, QUERY_OPERATORS, validateAst } from "../search/lucene/registry.js"
@@ -174,6 +175,14 @@ export {
 } from "./meeting-evidence.js"
 export { type MeetingReadStore, type ResolvedMeetingReference, resolveMeetingReference } from "./meeting-reference.js"
 export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
+export {
+  type CreateMeetingTaskInput,
+  createTaskFromMeeting,
+  type MeetingTaskSourceView,
+  type MeetingTaskStore,
+  type MeetingTaskView,
+  readMeetingTask,
+} from "./meeting-tasks.js"
 export type { QueryMetadata, SearchCoverage } from "./messages-search.js"
 export { metadataService } from "./metadata.js"
 export {
