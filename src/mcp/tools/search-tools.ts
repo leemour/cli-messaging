@@ -1,7 +1,9 @@
+import { CliError } from "@wirecat/cli-core"
 import * as v from "valibot"
 import type { Messenger } from "../../cli/messenger/context.js"
 import { searchNotes } from "../../services/notes-search.js"
-import { RESOURCES_SEARCHED } from "../../services/search-all.js"
+import type { SearchedResource } from "../../services/search-all.js"
+import { meetingAccountOf, RESOURCES_SEARCHED_WITH_MEETINGS } from "../../services/search-all-meetings.js"
 import { searchServices } from "../search-sync.js"
 import { type AnyTool, limit, READ, tool } from "../tool.js"
 import {
@@ -25,16 +27,27 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
     description:
       "Start here to find anything by text: messenger messages, mail and notes held in the local store, merged best " +
       "first. Each item says its kind (message, mail, note), ref (msg:… or note:…), provider and account. A query " +
-      "field one kind lacks skips that kind and `skipped` says why; `only` narrows the kinds. An empty answer means " +
-      "the store does not hold it, not that it was never written. Returns { query, items, hasMore, searched, " +
-      "skipped, notes? }.",
+      "field one kind lacks skips that kind and `skipped` says why; `only` narrows the kinds. With `meetings`, one " +
+      "meeting account's transcripts, chat and summaries join in as kind meeting, with meetingId, scope, id and " +
+      "startMs instead of a ref, and a null timestamp when the start is unknown; true picks the one stored account " +
+      "that holds meetings and refuses when several do. An empty answer means the store does not hold it, not that " +
+      "it was never written. Returns { query, items, hasMore, searched, skipped, notes?, meetings? }; hasMore is " +
+      "null when a bounded meeting scan could not tell.",
     input: v.object({
       text,
       only: v.optional(
         v.pipe(
-          v.array(v.picklist(RESOURCES_SEARCHED)),
+          v.array(v.picklist(RESOURCES_SEARCHED_WITH_MEETINGS)),
           v.minLength(1),
-          v.description("only these kinds: messages, mail, notes"),
+          v.description("only these kinds: messages, mail, notes; meetings together with `meetings`"),
+        ),
+      ),
+      meetings: v.optional(
+        v.pipe(
+          v.union([v.boolean(), v.pipe(v.string(), v.minLength(1))]),
+          v.description(
+            "also search one meeting account: provider:account, or true for the one stored account that holds meetings",
+          ),
         ),
       ),
       exact,
@@ -42,22 +55,33 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
       limit,
     }),
     annotations: { ...READ, openWorldHint: Boolean(messenger.serverSearch) },
-    stored: (store, account, args, defaults, connect) =>
-      searchServices(
-        messenger,
-        store,
-        account,
-        defaults,
-        messenger.serverSearch ? connect : undefined,
-      ).messages.searchAll({
+    stored: (store, account, args, defaults, connect) => {
+      const meetings = args.meetings === false ? undefined : args.meetings
+      if (meetings === undefined && args.only?.includes("meetings"))
+        throw new CliError("validation_error", "only: meetings needs meetings")
+      const meetingAccount = typeof meetings === "string" ? meetingAccountOf(meetings) : undefined
+      const services = searchServices(messenger, store, account, defaults, messenger.serverSearch ? connect : undefined)
+      const request = {
         text: args.text,
         limit: args.limit ?? defaults.limit,
-        ...(args.only === undefined ? {} : { only: args.only }),
         ...(args.exact ? { exact: true } : {}),
         ...(args.timezone === undefined ? {} : { timezone: args.timezone }),
         env: defaults.env,
         ...(defaults.signal === undefined ? {} : { signal: defaults.signal }),
-      }),
+      }
+      return meetings === undefined
+        ? services.messages.searchAll({
+            ...request,
+            ...(args.only === undefined
+              ? {}
+              : { only: args.only.filter((one): one is SearchedResource => one !== "meetings") }),
+          })
+        : services.messages.searchAllWithMeetings({
+            ...request,
+            ...(args.only === undefined ? {} : { only: args.only }),
+            ...(meetingAccount === undefined ? {} : { meetingAccount }),
+          })
+    },
   }),
 
   search_messages: tool({

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import { Readable } from "node:stream"
 import { CliError, captureStreams } from "@wirecat/cli-core"
 import type { CommandInfo } from "@wirecat/cli-core/commands"
+import { sampleMeeting } from "@wirecat/cli-meetings/testing"
 import { describe, expect, it, vi } from "vitest"
 import { parseMarkdown } from "../../domain/markdown.js"
 import type { Chat, Member, Message, WindowedMessage } from "../../domain/models.js"
@@ -1846,6 +1847,94 @@ describe("the shared read commands", () => {
     )
     expect(files.hits).toHaveLength(0)
     expect(never).not.toHaveBeenCalled()
+  })
+
+  it("**search all --meetings** adds the one stored meeting account, and refuses to guess between several", async () => {
+    const root = mkdtempSync(join(tmpdir(), "search-all-meetings-"))
+    const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }
+    await call(["messages", "context", "Book", "2", "--json"], async () => fake, env)
+    const meetingIn = async (account: string) => {
+      const store = await openStore({ path: env.MESSAGING_STORE })
+      try {
+        const accountId = await store.saveAccount({ provider: "zoom", account }, { name: "Invented" })
+        const sample = sampleMeeting()
+        await store.meetings.saveMeeting({
+          ...sample,
+          meeting: { ...sample.meeting, accountId, title: "Reading circle" },
+          transcripts: [
+            {
+              ...sample.transcripts[0],
+              rows: [{ ...sample.transcripts[0].rows[0], text: "Bob Sample reads the chapter aloud" }],
+            },
+          ],
+        })
+      } finally {
+        await store.close()
+      }
+    }
+    await meetingIn("zm-profile:alice")
+    const never = vi.fn(async (): Promise<MessengerAdapter> => {
+      throw new Error("search must never connect")
+    })
+    const kinds = (answer: { items: { kind: string }[] }) => new Set(answer.items.map(({ kind }) => kind))
+
+    const plain = JSON.parse((await call(["search", "all", "chapter", "--json"], never, env)).stdout[0] ?? "")
+    expect(kinds(plain)).toEqual(new Set(["message"]))
+    expect(plain.searched).not.toContain("meetings")
+    expect(plain).not.toHaveProperty("meetings")
+
+    const named = await call(["search", "all", "chapter", "--meetings", "zoom:zm-profile:alice", "--json"], never, env)
+    expect(named.code).toBe(0)
+    const answer = JSON.parse(named.stdout[0] ?? "")
+    expect(kinds(answer)).toEqual(new Set(["message", "meeting"]))
+    expect(answer.searched).toContain("meetings")
+    expect(answer.items.find(({ kind }: { kind: string }) => kind === "meeting")).toMatchObject({
+      provider: "zoom",
+      account: "zm-profile:alice",
+      title: "Reading circle",
+      text: "Bob Sample reads the chapter aloud",
+    })
+
+    const only = JSON.parse(
+      (await call(["search", "all", "chapter", "--only", "meetings", "--meetings", "--json"], never, env)).stdout[0] ??
+        "",
+    )
+    expect(kinds(only)).toEqual(new Set(["meeting"]))
+
+    const pretty = await call(["search", "all", "chapter", "--meetings"], never, env, { tty: true })
+    expect(pretty.stdout.join("")).toContain("meeting · zoom · Reading circle  zoom:zm-profile:alice")
+
+    const unasked = await call(["search", "all", "chapter", "--only", "meetings", "--json"], never, env)
+    expect(unasked.code).toBe(2)
+    expect(unasked.stderr.join("\n")).toContain("--only meetings needs --meetings")
+    const bare = await call(["search", "all", "--meetings", "chapter", "three", "--json"], never, env)
+    expect(bare.code).toBe(2)
+    expect(bare.stderr.join("\n")).toContain("provider:account")
+
+    await meetingIn("zm-profile:bob")
+    const several = await call(["search", "all", "chapter", "--meetings", "--json"], never, env)
+    expect(several.code).toBe(2)
+    expect(several.stderr.join("\n")).toContain("zoom:zm-profile:alice, zoom:zm-profile:bob")
+    expect(never).not.toHaveBeenCalled()
+  })
+
+  it("**search all --meetings** skips meetings with a reason when no stored account holds any", async () => {
+    const root = mkdtempSync(join(tmpdir(), "search-all-no-meetings-"))
+    const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }
+    await call(["messages", "context", "Book", "2", "--json"], async () => fake, env)
+    const never = vi.fn(async (): Promise<MessengerAdapter> => {
+      throw new Error("search must never connect")
+    })
+    const found = await call(["search", "all", "chapter", "--meetings", "--json"], never, env)
+    expect(found.code).toBe(0)
+    const answer = JSON.parse(found.stdout[0] ?? "")
+    expect(answer.items.length).toBeGreaterThan(0)
+    expect(answer.skipped).toContainEqual({ resource: "meetings", reason: "no stored account holds meetings" })
+    const alone = JSON.parse(
+      (await call(["search", "all", "chapter", "--only", "meetings", "--meetings", "--json"], never, env)).stdout[0] ??
+        "",
+    )
+    expect(alone).toMatchObject({ items: [], searched: [] })
   })
 
   it("**the old search paths are gone**, with no alias, and --type narrows search messages", async () => {

@@ -35,6 +35,11 @@ import {
   statsLucene,
 } from "./messages-search.js"
 import { type SearchAllFound, type SearchAllRequest, searchAll } from "./search-all.js"
+import {
+  type SearchAllIncludingMeetingsFound,
+  type SearchAllWithMeetingsRequest,
+  searchAllWithMeetings,
+} from "./search-all-meetings.js"
 import { accountsOfKind, type SearchKind } from "./search-kind.js"
 import { refreshSearch, type SearchRefreshed, type SyncOptions, withRefresh } from "./search-refresh.js"
 import { type SearchParams, searchRecordOf } from "./searches.js"
@@ -217,6 +222,8 @@ export interface MessagesService {
   search(query: SearchQuery): Promise<SearchFound>
   /** Messages, mail and notes at once; messages with the same server step `search` takes. */
   searchAll(request: SearchAllRequest): Promise<SearchAllFound>
+  /** `searchAll` plus one meeting account's transcripts, chat and summaries. */
+  searchAllWithMeetings(request: SearchAllWithMeetingsRequest): Promise<SearchAllIncludingMeetingsFound>
   /** Counts of what a strict query matches, by chat, sender, day or hour; from the local store only. */
   stats(query: SearchQuery & { by: StatsGrouping }): Promise<MessageStats>
   /** A reply is a send with `replyTo`. */
@@ -242,6 +249,14 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
   const { guard } = deps
   const inStore = async <T>(read: (store: MessageStore, account: AccountKey) => Promise<T>): Promise<T> =>
     read(await deps.store(), await deps.account())
+
+  const unifiedMessages =
+    (store: MessageStore, account: AccountKey) =>
+    async (query: SearchQuery): Promise<SearchFound> => {
+      await topUp(store)
+      const server = await searchServer(deps, query)
+      return withServer(await searchStore(store, account, query, deps.messenger), server)
+    }
 
   /**
    * Only a run that answered is kept: a refused query is the caller's typo, not a search. The answer is
@@ -452,12 +467,11 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
     },
 
     searchAll: (request) =>
+      inStore((store, account) => searchAll(store, account, request, deps.messenger, unifiedMessages(store, account))),
+
+    searchAllWithMeetings: (request) =>
       inStore((store, account) =>
-        searchAll(store, account, request, deps.messenger, async (query) => {
-          await topUp(store)
-          const server = await searchServer(deps, query)
-          return withServer(await searchStore(store, account, query, deps.messenger), server)
-        }),
+        searchAllWithMeetings(store, account, request, deps.messenger, unifiedMessages(store, account)),
       ),
 
     stats: (request) => {

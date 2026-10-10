@@ -217,11 +217,14 @@ export {
   type MeetingSearchCoverage,
   type MeetingSearchCursor,
   type MeetingSearchItem,
+  meetingAccountOf,
   RESOURCES_SEARCHED_WITH_MEETINGS,
   type ResourceWithMeetings,
   type SearchAllIncludingMeetingsFound,
   type SearchAllIncludingMeetingsRequest,
+  type SearchAllWithMeetingsRequest,
   searchAllIncludingMeetings,
+  searchAllWithMeetings,
 } from "./search-all-meetings.js"
 export {
   CATCH_UP_BOUNDS,

@@ -275,8 +275,11 @@ canonical references. It resolves the account through `storedAccount` and never 
 Because `MeetingStore.search` pages meetings before matching their rows, the service visits
 candidate meetings serially and keeps a source cursor inside a meeting's hit list. Sparse pages
 can report unknown `hasMore` at the scan limit. The candidate bound does not bound the store's raw
-hit allocation, and offsets do not give a snapshot. The current CLI/MCP factories continue to call
-the existing `searchAll`; no meeting reference resolver or vector index is introduced.
+hit allocation, and offsets do not give a snapshot. `search all --meetings` and the `search_all`
+tool's `meetings` input reach it through `messages.searchAllWithMeetings`, which never lets the
+meeting account default to the messenger's own: without a named account it takes the one stored
+account that holds a meeting, refuses when several do and skips meetings when none does. Without the
+option both call the existing `searchAll`. No meeting reference resolver or vector index is introduced.
 
 **Server search beside the archive.** `messages.search` with `backend: both|server` first runs
 `searchServer` (`src/services/server-search.ts`): it turns the resolved query into at most three

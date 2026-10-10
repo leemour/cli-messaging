@@ -17,6 +17,12 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - **`store check` reports orphan pointers** in `orphanPointers`: per table, pointer and type, how many
   `<name>_type` + `<name>_id` pointers name a row that is gone, or hold a type the store does not know.
   It reports and never repairs, and does not turn `ok` false.
+- **`search all --meetings [provider:account]`** adds one meeting account's transcripts, chat and summaries to
+  the search, as items of kind `meeting`; with no value it takes the one stored account that holds meetings,
+  refuses with the list when several do, and lists meetings under `skipped` when none does. Put a bare
+  `--meetings` after the query, or it takes the query's first word. `--only` accepts `meetings` with it. The
+  `search_all` MCP tool takes the same choice as `meetings` (`true` or `provider:account`). Without the option
+  nothing changes. `messages.searchAllWithMeetings` and `meetingAccountOf` are the service-level entry points.
 
 ### Security
 
