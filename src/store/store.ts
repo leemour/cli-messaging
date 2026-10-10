@@ -726,12 +726,14 @@ export interface StoreOptions {
   path?: string
   env?: NodeJS.ProcessEnv
   now?: () => number
+  /** The CLI's own name, for the advice a failed migration gives. */
+  command?: string
 }
 
 /** About 40 ms of the first open (129k rows/s measured at 1M, 2026-09-30); Tab opens the store too. */
 export const BACKFILL_ON_OPEN = 5_000
 
-export const openStore = async ({ path, env, now = Date.now }: StoreOptions = {}): Promise<MessageStore> => {
+export const openStore = async ({ path, env, now = Date.now, command }: StoreOptions = {}): Promise<MessageStore> => {
   await storeCapable()
   const file = path ?? storePath(env)
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
@@ -739,7 +741,7 @@ export const openStore = async ({ path, env, now = Date.now }: StoreOptions = {}
   writeFileSync(file, "", { flag: "a", mode: 0o600 })
   const { database, orm } = await openSqlite(file)
   try {
-    migrate(database, { now })
+    migrate(database, { now, command })
     // A small file is filled on the spot; a larger one waits for `db migrate`, since nothing reads the copy yet.
     const pending = pendingNormalization(database)
     if (pending > 0 && pending <= BACKFILL_ON_OPEN) backfillNormalized(database)

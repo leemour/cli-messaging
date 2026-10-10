@@ -4093,6 +4093,13 @@
         "--dry-run": "all"
       }
     },
+    "store reset": {
+      "in": [],
+      "planned": {
+        "max": "each CLI's next cli-messaging bump",
+        "tg": "each CLI's next cli-messaging bump"
+      }
+    },
     "store restore": {
       "in": "all"
     },

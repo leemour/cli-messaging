@@ -6,6 +6,15 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+### Added
+
+- **`store reset`**, for a store this build cannot migrate: it backs the store up beside itself
+  (`wirecat.db.backup-<time>`, by `VACUUM INTO`), prints the backup's path, then deletes the store with its `-wal`
+  and `-shm` and creates it empty at the current schema. It asks on a terminal; `--yes` skips the question, and
+  without either it refuses. It refuses while this CLI's `serve` runs, while another process has the file open, or
+  while a write is under way. A migration that fails now names `<cli> store reset` after SQLite's own error;
+  `openStore` and `migrate` take `command` for it.
+
 ## 0.218.0 — 10.10.2026
 
 ### Added

@@ -28,7 +28,9 @@ import { involvementStoreOver } from "../../store/sqlite/involvements.js"
 import { drainNoteIndex, noteIndexState, resetNoteIndex } from "../../store/sqlite/note-index.js"
 import { fillSearchIndex, resetSearchIndex, searchIndexState } from "../../store/sqlite/search-index.js"
 import { fillStems, resetStems, stemmerCache, stemsState } from "../../store/sqlite/stems.js"
+import { openStore } from "../../store/store.js"
 import { environmentOf, outputFor } from "../context.js"
+import { answerOf } from "./ask.js"
 import type { Messenger } from "./context.js"
 import { ENCRYPT_OPTION, passwordOf } from "./password.js"
 import { servingProfiles } from "./serve-command.js"
@@ -100,6 +102,7 @@ export const storeMaintenanceCommands = (messenger: Messenger): Command[] => [
   restoreCommand(messenger),
   decryptCommand(),
   repairCommand(messenger),
+  resetCommand(messenger),
   copiesCommand(),
 ]
 
@@ -411,7 +414,7 @@ const migrateCommand = (messenger: Messenger): Command =>
       }
       const answer = await reading(path, (database) => {
         const from = schemaOf(database).version
-        migrate(database)
+        migrate(database, { command: messenger.app.command })
         const { normalized, indexed, terms } = buildWordIndex(database, (note) => renderer.note(note))
         const stemmed = buildStems(database, (note) => renderer.note(note))
         const notes = buildNoteIndex(database, (note) => renderer.note(note))
@@ -508,6 +511,20 @@ const reindexCommand = (messenger: Messenger): Command =>
       renderer.result(answer)
     })
 
+/** A consistent copy of a store that may be in use. Never overwrites a file. */
+const vacuumInto = async (path: string, target: string) => {
+  // VACUUM INTO fills an empty file and keeps its mode; a file it creates itself is readable by all.
+  writeFileSync(target, "", { flag: "wx", mode: 0o600 })
+  try {
+    await reading(path, (database) => database.prepare("VACUUM INTO ?").run(target))
+  } catch (error) {
+    rmSync(target, { force: true })
+    throw error
+  }
+}
+
+const stampNow = () => new Date().toISOString().replace(/[:.]/g, "-")
+
 const backupCommand = (): Command =>
   new Command("backup")
     .description("copy the store into a new file, while it is in use; never overwrites a file")
@@ -525,10 +542,8 @@ const backupCommand = (): Command =>
       // SQLite copies only into a file. Sealed, that plain copy goes beside the store, which holds the
       // same text already — never beside the target, which may be a synced folder or a removable disk.
       const copyAt = password === undefined ? target : `${path}.backup-${process.pid}`
-      // VACUUM INTO fills an empty file and keeps its mode; a file it creates itself is readable by all.
-      writeFileSync(copyAt, "", { flag: "wx", mode: 0o600 })
+      await vacuumInto(path, copyAt)
       try {
-        await reading(path, (database) => database.prepare("VACUUM INTO ?").run(copyAt))
         const copy = await reading(copyAt, (database) => ({
           schema: schemaOf(database),
           rows: { chats: count(database, "chats"), messages: count(database, "messages") },
@@ -607,9 +622,9 @@ const restoreFrom = async (command: Command, messenger: Messenger, backup: strin
   }
   const schema = await backupSchema(backup)
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-")
+  const stamp = stampNow()
   const kept = existsSync(path) ? `${path}.before-restore-${stamp}` : null
-  if (kept) await quiesce(path, messenger, (message) => renderer.warn(message))
+  if (kept) await quiesce(path, messenger, "restore", (message) => renderer.warn(message))
   else mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
 
   const incoming = `${path}.restoring-${stamp}`
@@ -661,7 +676,7 @@ const backupSchema = async (backup: string) => {
  * so the file set aside is whole on its own. In WAL mode SQLite cannot say who has the file open —
  * `EXCLUSIVE` behaves as `IMMEDIATE` — so that is asked of the system.
  */
-const quiesce = async (path: string, messenger: Messenger, warn: (message: string) => void) => {
+const quiesce = async (path: string, messenger: Messenger, then: string, warn: (message: string) => void) => {
   const { command } = messenger.app
   const files = [path, `${path}-wal`, `${path}-shm`]
     .filter((file) => existsSync(file))
@@ -673,7 +688,7 @@ const quiesce = async (path: string, messenger: Messenger, warn: (message: strin
     throw new CliError(
       "validation_error",
       `the store is open in process ${holders.join(", ")} — stop it first (a serve: \`${command} server stop\`, ` +
-        "or the other CLI's; an mcp: its client), then restore",
+        `or the other CLI's; an mcp: its client), then ${then}`,
     )
   }
   const database = await openCache(path)
@@ -690,6 +705,60 @@ const quiesce = async (path: string, messenger: Messenger, warn: (message: strin
     database.close()
   }
 }
+
+/**
+ * For a store this build cannot migrate: a backup beside it, then an empty store at this build's
+ * schema. The backup is made before anything is deleted, and its path is said before the delete.
+ */
+const resetCommand = (messenger: Messenger): Command =>
+  new Command("reset")
+    .description(
+      "back the store up beside itself, then delete it and start an empty one at this build's schema; asks first, or --yes",
+    )
+    .action(async function (this: Command) {
+      const { renderer } = outputFor(this)
+      const { command } = messenger.app
+      const path = storePath(environmentOf(this).env ?? process.env)
+      if (!existsSync(path)) {
+        renderer.result({ path, exists: false, reset: false })
+        renderer.note(
+          `no store at ${path} — nothing to reset; the first \`${command}\` command that reads a chat creates it`,
+        )
+        return
+      }
+      refuseWhileServing(this, messenger)
+      if (this.optsWithGlobals<{ yes?: boolean }>().yes !== true) {
+        const what = `this deletes the store at ${path} and starts an empty one, after a backup beside it`
+        const answer = await answerOf(this, `${what}. Go ahead? [y/N] `)
+        if (answer === null) throw new CliError("confirmation_required", `${what} — add --yes to go ahead`)
+        if (!/^\s*y(es)?\s*$/i.test(answer)) throw new CliError("cancelled", "cancelled — the store is unchanged")
+      }
+      await quiesce(path, messenger, "reset", (message) => renderer.warn(message))
+
+      const backup = `${path}.backup-${stampNow()}`
+      try {
+        await vacuumInto(path, backup)
+      } catch (error) {
+        throw new CliError("validation_error", `could not back the store up, so it was not reset: ${messageOf(error)}`)
+      }
+      const backedUp = await reading(backup, (database) => {
+        const schema = schemaOf(database).version
+        return {
+          schema,
+          rows: schema > 0 ? { chats: count(database, "chats"), messages: count(database, "messages") } : {},
+        }
+      })
+      renderer.note(`backed the store up to ${backup}`)
+
+      for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: true })
+      await (await openStore({ path, command })).close()
+      const schema = await reading(path, (database) => schemaOf(database).version)
+
+      renderer.result({ path, exists: true, reset: true, backup, backedUp, schema })
+      renderer.note(
+        `the store is empty at schema ${schema}; \`${command} store restore ${backup}\` puts the old one back once a build can read it`,
+      )
+    })
 
 const isoOf = (value: unknown) => new Date(Number(value)).toISOString()
 

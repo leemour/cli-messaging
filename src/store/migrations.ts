@@ -40,11 +40,16 @@ const fileState = (database: CacheDatabase): { version: number; minCompatible: n
 
 /**
  * Brings the file up to this version, or opens a newer one it can still write to, or refuses.
- * Inside `BEGIN IMMEDIATE`, so two processes opening an old file at once migrate it once.
+ * Inside `BEGIN IMMEDIATE`, so two processes opening an old file at once migrate it once. A migration
+ * that fails names `store reset`: without it the owner is stuck until a build that can migrate the file.
  */
 export const migrate = (
   database: CacheDatabase,
-  { migrations = MIGRATIONS, now = Date.now }: { migrations?: Migration[]; now?: () => number } = {},
+  {
+    migrations = MIGRATIONS,
+    now = Date.now,
+    command,
+  }: { migrations?: Migration[]; now?: () => number; command?: string } = {},
 ): void => {
   const ours = latest(migrations)
   database.exec("BEGIN IMMEDIATE")
@@ -69,6 +74,13 @@ export const migrate = (
     database.exec("COMMIT")
   } catch (error) {
     database.exec("ROLLBACK")
-    throw error
+    if (error instanceof CliError) throw error
+    const cause = error instanceof Error ? error.message : String(error)
+    throw new CliError(
+      "configuration_error",
+      `the message store could not be brought up to schema ${ours}: ${cause}. ` +
+        `\`${command ? `${command} ` : ""}store reset\` takes a backup of it first, then starts an empty store`,
+      { cause },
+    )
   }
 }
