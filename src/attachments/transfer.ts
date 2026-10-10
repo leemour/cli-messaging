@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { constants } from "node:fs"
 import { lstat, open } from "node:fs/promises"
 import { CliError } from "@wirecat/cli-core"
-import { MAX_FILE_BYTES } from "./extract.js"
+import { attachmentMaxBytes } from "./limits.js"
 
 export const MAX_CHUNK_BYTES = 1024 * 1024
 export interface ByteWindow {
@@ -28,7 +28,13 @@ export const validateWindow = ({ offsetBytes = 0, chunkBytes = 524288, ifSha256 
 }
 
 /** Hash and capture the requested bytes in one bounded pass; never return a filesystem path. */
-export const retainedBytes = async (path: string, options: ByteWindow, captureFile = false) => {
+export const retainedBytes = async (
+  path: string,
+  options: ByteWindow,
+  captureFile = false,
+  env: NodeJS.ProcessEnv = process.env,
+) => {
+  const maxBytes = attachmentMaxBytes(env)
   const { offsetBytes, chunkBytes } = validateWindow(options)
   const cancelled = () => {
     if (options.signal?.aborted) throw new CliError("cancelled", "file transfer cancelled")
@@ -38,7 +44,11 @@ export const retainedBytes = async (path: string, options: ByteWindow, captureFi
     const before = await lstat(path)
     if (!before.isFile() || before.isSymbolicLink())
       throw new CliError("validation_error", "the retained attachment must be a regular file")
-    if (before.size > MAX_FILE_BYTES) throw new CliError("validation_error", "the retained attachment exceeds 50 MiB")
+    if (before.size > maxBytes)
+      throw new CliError(
+        "validation_error",
+        `the retained attachment exceeds ${maxBytes / 1024 / 1024} MiB; configure MESSAGING_ATTACHMENT_MAX_MIB`,
+      )
     if (offsetBytes > before.size)
       throw new CliError("validation_error", "the byte offset is past the end of this attachment")
     const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0))
@@ -58,7 +68,7 @@ export const retainedBytes = async (path: string, options: ByteWindow, captureFi
         const { bytesRead } = await handle.read(scratch, 0, scratch.length, seen)
         if (bytesRead === 0) break
         const chunk = scratch.subarray(0, bytesRead)
-        if (seen + chunk.length > MAX_FILE_BYTES || seen + chunk.length > opened.size)
+        if (seen + chunk.length > maxBytes || seen + chunk.length > opened.size)
           throw new CliError("validation_error", "the retained attachment changed; restart its transfer")
         hash.update(chunk)
         if (capturedFile) chunk.copy(capturedFile, seen)

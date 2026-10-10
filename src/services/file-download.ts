@@ -6,6 +6,7 @@ import { pipeline } from "node:stream/promises"
 import { CliError } from "@wirecat/cli-core"
 import type { RemoteFile } from "../cli/messenger/port.js"
 import type { Id } from "../domain/models.js"
+import { batchProgress } from "./batch.js"
 import type { MessagesService } from "./messages.js"
 
 export interface Saved {
@@ -27,6 +28,7 @@ export const recordPaths = async (
   files: readonly RemoteFile[],
   saved: readonly Saved[],
   warn: (message: string) => void,
+  onFailure?: (error: unknown) => void,
 ): Promise<number> => {
   const downloaded = saved.map((one, index) => ({
     kind: one.kind,
@@ -37,6 +39,7 @@ export const recordPaths = async (
   try {
     return await messages.keepDownloaded(chat, message, downloaded)
   } catch (error) {
+    onFailure?.(error)
     warn(`not recorded in the local store where message ${message}'s files went: ${(error as Error).message}`)
     return 0
   }
@@ -55,11 +58,54 @@ export const downloadMessage = async (
 ): Promise<Saved[]> => {
   const { files } = await messages.download(chat, message)
   mkdirSync(output, { recursive: true })
-  const done: Saved[] = []
-  for (const [index, file] of files.entries())
-    done.push(await save(file, output, `${message}-${index + 1}`, { unique: true }))
-  await recordPaths(messages, chat, message, files, done, warn)
-  return done
+  const result = await saveFiles(messages, chat, message, files, output, { unique: true, warn })
+  if (result.batch.failed > 0)
+    throw new CliError("provider_error", "some attachments failed; completed downloads are retained", {
+      batch: result.batch,
+      saved: result.saved,
+    })
+  return result.saved
+}
+
+export const saveFiles = async (
+  messages: Pick<MessagesService, "keepDownloaded">,
+  chat: string,
+  message: Id,
+  files: readonly RemoteFile[],
+  output: string,
+  {
+    unique = false,
+    warn,
+    onSaved,
+    batch = batchProgress(),
+  }: {
+    unique?: boolean
+    warn: (message: string) => void
+    onSaved?: (saved: Saved) => void
+    batch?: ReturnType<typeof batchProgress>
+  },
+) => {
+  const saved: Saved[] = []
+  const successful: RemoteFile[] = []
+  for (const [index, file] of files.entries()) {
+    if (batch.stopped) break
+    try {
+      const one = await save(file, output, `${message}-${index + 1}`, { unique })
+      saved.push(one)
+      successful.push(file)
+      batch.ok()
+      onSaved?.(one)
+    } catch (error) {
+      const issue = batch.fail(message, "download", error, (file.position ?? index) + 1)
+      warn(
+        `message ${message}, attachment ${(file.position ?? index) + 1}: ${issue.code} — ${issue.actions.map((action) => action.message).join(" ")}`,
+      )
+    }
+  }
+  await recordPaths(messages, chat, message, successful, saved, warn, (error) =>
+    batch.fail(message, "record_downloads", error),
+  )
+  return { saved, batch: batch.result() }
 }
 
 const EXTENSIONS: Record<string, string> = {

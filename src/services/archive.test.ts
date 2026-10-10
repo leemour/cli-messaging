@@ -1,6 +1,7 @@
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { CliError } from "@wirecat/cli-core"
 import { afterEach, describe, expect, it } from "vitest"
 import type { Messenger } from "../cli/messenger/context.js"
 import type { MessengerAdapter } from "../cli/messenger/port.js"
@@ -128,7 +129,7 @@ describe("fetching every chat", () => {
     expect(all).toMatchObject({ chats: 3, fetched: 2, complete: false })
     expect(all.items.map(({ chat, error }) => [chat, error ?? null])).toEqual([
       ["7", null],
-      ["9", "fetch_failed"],
+      ["9", "generic_failure"],
       ["8", null],
     ])
     expect(JSON.stringify(all)).not.toContain("private provider detail")
@@ -184,4 +185,40 @@ describe("the inbox service", () => {
     await expect(service.read({ limit: 20 })).rejects.toThrow(/`inbox` asks the messenger/)
     await expect(service.review({ since: 0 })).rejects.toThrow(/`review` asks the messenger/)
   })
+})
+
+it("keeps earlier history pages and tells the caller when and where to resume", async () => {
+  const store = await emptyStore()
+  let calls = 0
+  const adapter = {
+    self: () => "500",
+    history: async () => {
+      calls += 1
+      if (calls > 1) throw new CliError("rate_limited", "provider asks to wait", { retryAfterMs: 600000 })
+      const items = [messageAt(5), messageAt(4)]
+      await store.saveMessages(account, "7", items, { via: "history" })
+      return { items, hasMore: true }
+    },
+  } as unknown as MessengerAdapter
+  const service = archiveService({
+    ...storedDeps(messenger, store, account, guard),
+    offline: false,
+    connection: async () => adapter,
+  })
+  const result = await service.fetch("7", {
+    limit: 100,
+    pageSize: 2,
+    pauseMs: 0,
+    note: () => {},
+    stop: new AbortController().signal,
+    onPage: () => {},
+  })
+  expect(result).toMatchObject({
+    fetched: 2,
+    complete: false,
+    ranges: [{ from: 4, to: 5 }],
+    resume: { before: "4" },
+    issue: { code: "rate_limited", retryAfterMs: 600000 },
+  })
+  expect(calls).toBe(2)
 })

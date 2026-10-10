@@ -134,3 +134,14 @@ describe("local attachment readers in the shared index", () => {
     expect(await found(store, "readerneedle")).toEqual([])
   })
 })
+
+it("uses the service environment for extraction and retained-file transfer", async () => {
+  const { store } = await setup(Buffer.from(`readerneedle ${" ".repeat(1024 * 1024)}`), "txt")
+  const deps = storedDeps(messenger, store, owner, { check: vi.fn(), record: vi.fn() })
+  const small = attachmentsService({ ...deps, env: { MESSAGING_ATTACHMENT_MAX_MIB: "1" } })
+  expect(await small.extract()).toMatchObject({ items: [{ status: "too-large" }], extracted: 0 })
+  await expect(small.show({ chat: "7", message: "1" })).rejects.toThrow("exceeds 1 MiB")
+  const large = attachmentsService({ ...deps, env: { MESSAGING_ATTACHMENT_MAX_MIB: "2" } })
+  expect(await large.extract()).toMatchObject({ extracted: 1, failed: 0 })
+  expect(await large.show({ chat: "7", message: "1", chunkBytes: 20 })).toMatchObject({ readBytes: 20 })
+})

@@ -39,13 +39,35 @@ describe("PDF page previews for remote agents", () => {
     const fixture = fake()
     const result = await pdfPreview(pdf(), 3, undefined, fixture.load)
     expect(result).toEqual({ bytes: fixture.image, page: 3, pageCount: 4 })
-    expect(fixture.render).toHaveBeenCalledWith(expect.anything(), 3, expect.objectContaining({ scale: 2 }))
+    expect(fixture.render).toHaveBeenCalledWith(expect.anything(), 3, expect.objectContaining({ scale: 4 }))
     expect(fixture.destroy).toHaveBeenCalledTimes(1)
     expect(fixture.cleanup).toHaveBeenCalledTimes(1)
   })
   it("previews a requested page in a long document", async () => {
     const fixture = fake({ pages: 100 })
     expect(await pdfPreview(pdf(), 99, undefined, fixture.load)).toMatchObject({ page: 99, pageCount: 100 })
+  })
+  it("accepts a larger image and applies custom dimension/byte budgets", async () => {
+    const wide = PNG.sync.write(new PNG({ width: 3000, height: 2 }))
+    const fixture = fake({
+      render: async () => wide.buffer.slice(wide.byteOffset, wide.byteOffset + wide.length) as ArrayBuffer,
+    })
+    expect((await pdfPreview(pdf(), 1, undefined, fixture.load)).bytes).toEqual(wide)
+    await expect(
+      pdfPreview(pdf(), 1, undefined, fixture.load, { MESSAGING_PDF_PREVIEW_MAX_PIXELS: "2000" }),
+    ).rejects.toThrow("dimensions")
+    const scaled = fake()
+    await pdfPreview(pdf(), 1, undefined, scaled.load, { MESSAGING_PDF_PREVIEW_MAX_PIXELS: "600" })
+    expect(scaled.render).toHaveBeenCalledWith(expect.anything(), 1, expect.objectContaining({ scale: 0.75 }))
+    const image = PNG.sync.write(new PNG({ width: 700, height: 700 }), { deflateLevel: 0 })
+    expect(image.length).toBeGreaterThan(1024 * 1024)
+    const encoded = fake({
+      render: async () => image.buffer.slice(image.byteOffset, image.byteOffset + image.length) as ArrayBuffer,
+    })
+    expect((await pdfPreview(pdf(), 1, undefined, encoded.load)).bytes.equals(image)).toBe(true)
+    await expect(pdfPreview(pdf(), 1, undefined, encoded.load, { MESSAGING_PDF_PREVIEW_MAX_MIB: "1" })).rejects.toThrow(
+      "exceeds 1 MiB",
+    )
   })
   it("rejects invalid pages, page counts and dimensions before rendering", async () => {
     for (const page of [0, -1, 1.5, Infinity])
@@ -83,7 +105,7 @@ describe("PDF page previews for remote agents", () => {
     expect(fixture.destroy).toHaveBeenCalledTimes(1)
   })
   it("bounds rendered output and cancels a render without returning a late image", async () => {
-    for (const image of [Buffer.alloc(1048577), Buffer.from("GIF89a\x02\x00\x02\x00", "binary")]) {
+    for (const image of [Buffer.alloc(8 * 1024 * 1024 + 1), Buffer.from("GIF89a\x02\x00\x02\x00", "binary")]) {
       const fixture = fake({
         render: async () => image.buffer.slice(image.byteOffset, image.byteOffset + image.length) as ArrayBuffer,
       })

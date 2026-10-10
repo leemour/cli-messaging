@@ -2,6 +2,7 @@ import { setTimeout as sleep } from "node:timers/promises"
 import { CliError } from "@wirecat/cli-core"
 import type { Fetching } from "../cli/messenger/context.js"
 import { capability } from "../cli/messenger/port.js"
+import type { ActionableError } from "../cli/recovery.js"
 import type { Chat, ChatKind, Id, Message } from "../domain/models.js"
 import {
   type AccountKey,
@@ -12,6 +13,7 @@ import {
   type Range,
 } from "../store/store.js"
 import { type Estimate, estimateBackfill } from "./backfill-estimate.js"
+import { actionable, batchProgress } from "./batch.js"
 import type { ServiceDeps } from "./deps.js"
 
 import { storedChatId } from "./messages.js"
@@ -64,6 +66,8 @@ export interface FetchOptions {
 
 /** A type, not an interface: a job keeps it as a plain record. */
 export type Fetched = {
+  issue?: ActionableError
+  resume?: { before?: string }
   prepared?: CatchUpResult
   windowComplete?: boolean
   requests?: number
@@ -79,12 +83,21 @@ export type Fetched = {
 const done = (one: { complete: boolean; error?: string; stopped?: true }) => one.complete && !one.error && !one.stopped
 
 export type FetchedAll = {
+  batch?: ReturnType<ReturnType<typeof batchProgress>["result"]>
   chats: number
   fetched: number
   /** Every chat reached the window or its start, and the run was not stopped. */
   complete: boolean
   stopped?: true
-  items: { chat: Id; title: string | null; fetched: number; complete: boolean; stopped?: true; error?: string }[]
+  items: {
+    chat: Id
+    title: string | null
+    fetched: number
+    complete: boolean
+    stopped?: true
+    error?: string
+    issue?: ActionableError
+  }[]
 }
 
 /** The local store of messages: what it holds, filling it from the messenger, and reading it out. */
@@ -252,13 +265,16 @@ export const archiveService = (deps: ServiceDeps): ArchiveService => {
       chats.sort((one, other) => (other.lastMessageAt ?? "").localeCompare(one.lastMessageAt ?? ""))
       const own = archiveService({ ...deps, withConnection: undefined, connection: async () => connection })
       const answer: FetchedAll = { chats: chats.length, fetched: 0, complete: false, items: [] }
+      const batch = batchProgress(deps.env)
       for (const chat of chats) {
-        if (options.stop.aborted) {
+        if (options.stop.aborted || batch.stopped) {
           answer.stopped = true
           break
         }
         try {
           const one = await own.fetch(chat.id, options)
+          if (one.issue) batch.fail(chat.id, "history", one.issue)
+          else batch.ok()
           answer.fetched += one.fetched
           answer.items.push({
             chat: chat.id,
@@ -266,6 +282,7 @@ export const archiveService = (deps: ServiceDeps): ArchiveService => {
             fetched: one.fetched,
             // Reaching the window is what --all asked for; older history was not.
             complete: one.complete || one.reachedSince === true || one.reachedLast === true,
+            ...(one.issue ? { error: one.issue.code, issue: one.issue } : {}),
             ...(one.stopped ? { stopped: true as const } : {}),
           })
         } catch (error) {
@@ -274,10 +291,11 @@ export const archiveService = (deps: ServiceDeps): ArchiveService => {
             answer.stopped = true
             break
           }
-          const code = error instanceof CliError ? error.code : "fetch_failed"
-          answer.items.push({ chat: chat.id, title: chat.title, fetched: 0, complete: false, error: code })
+          const issue = batch.fail(chat.id, "history", error)
+          answer.items.push({ chat: chat.id, title: chat.title, fetched: 0, complete: false, error: issue.code, issue })
         }
       }
+      if (batch.failed > 0) answer.batch = batch.result()
       answer.complete = !answer.stopped && answer.items.length === chats.length && answer.items.every(done)
       return answer
     },
@@ -349,18 +367,25 @@ export const fetchInto = async ({
   let reachedStart = false
   let reachedSince = false
   let reachedLast = false
+  let issue: ActionableError | undefined
 
   while (fetched < limit && !stop.aborted) {
-    const page = await patiently(
-      () => {
-        requests += 1
-        onRequest?.()
-        const read = () => history({ limit: Math.min(pageSize, limit - fetched), ...(before ? { before } : {}) })
-        return window ? abortable(read, stop) : read()
-      },
-      note,
-      stop,
-    )
+    let page: Awaited<ReturnType<HistoryPage>>
+    try {
+      page = await patiently(
+        () => {
+          requests += 1
+          onRequest?.()
+          const read = () => history({ limit: Math.min(pageSize, limit - fetched), ...(before ? { before } : {}) })
+          return window ? abortable(read, stop) : read()
+        },
+        note,
+        stop,
+      )
+    } catch (error) {
+      if (!stop.aborted) issue = actionable(error)
+      break
+    }
     if ((page as { partial?: boolean }).partial) break
     const first = page.items[0]
     if (!first) {
@@ -433,6 +458,7 @@ export const fetchInto = async ({
     fetched,
     complete: reachedStart && ranges.length === 1,
     ranges,
+    ...(issue ? { issue, resume: { ...(before === undefined ? {} : { before }) } } : {}),
     ...(window === undefined ? {} : { windowComplete, requests }),
     ...(reachedSince ? { reachedSince: true as const } : {}),
     ...(reachedLast ? { reachedLast: true as const } : {}),

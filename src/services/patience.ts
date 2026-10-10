@@ -16,7 +16,7 @@ export const patiently = async <T>(
       return await request()
     } catch (error) {
       const wait = isCliFailure(error) && error.code === "rate_limited" ? Number(error.details?.retryAfterMs) : NaN
-      if (!Number.isFinite(wait) || wait > LONGEST_WAIT_MS || attempt >= 3) throw error
+      if (!Number.isFinite(wait) || wait < 0 || wait > LONGEST_WAIT_MS || attempt >= 3) throw error
       note(`asked to wait ${Math.ceil(wait / 1000)} s — waiting, then going on`)
       await sleep(wait, undefined, { signal: stop }).catch(() => {})
       if (stop.aborted) throw error

@@ -18,6 +18,7 @@ import { isCliFailure, isCommanderFailure } from "./failures.js"
 import { MAX_BUFFERED_INPUT, provideInputPolicy } from "./input-policy.js"
 import { PreviewComplete, preview } from "./preview.js"
 import { commandWords, liftProfile } from "./profile.js"
+import { withRecovery } from "./recovery.js"
 import { recorded, wasSettled } from "./runs/recording.js"
 import { type GlobalFlags, parseDuration, type ResolveOptions, type Settings, settingsFor } from "./settings.js"
 
@@ -416,7 +417,10 @@ interface ReportedError {
  */
 const report = (streams: Streams, options: BaseEnvironment, error: ReportedError): void => {
   const interactive = options.tty ?? process.stdout.isTTY === true
+  const recovered = withRecovery(error)
   streams.diagnostic(
-    interactive ? `✗ ${visibleControls(error.message)}` : JSON.stringify({ error: { retryable: false, ...error } }),
+    interactive
+      ? `✗ ${visibleControls(error.message)}\n${recovered.actions.map((action) => `  ${visibleControls(action.message)}${action.afterMs === undefined ? "" : ` (${Math.ceil(action.afterMs / 1000)} s)`}`).join("\n")}`
+      : JSON.stringify({ error: recovered }),
   )
 }

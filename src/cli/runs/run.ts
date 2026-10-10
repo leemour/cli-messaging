@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { createFileLogger, type FileLogger, resolvePaths, writeSecurely } from "@wirecat/cli-core"
 import type { AppIdentity } from "../app.js"
 
-export type RunStatus = "success" | "failed"
+export type RunStatus = "success" | "failed" | "partial"
 
 /**
  * What a run was, and how it ended. **It never says what was read or sent** — a command, a profile
@@ -28,6 +28,11 @@ export interface RunMetadata {
   platform?: string
   arch?: string
   errorCode?: string
+  partial?: {
+    failed: number
+    stopReason?: string
+    failures: { id: string; stage: string; errorCode: string; attachment?: number }[]
+  }
   /** The messenger's key for the refusal that ended it, when there was one (`providerErrorKey`). */
   providerError?: string
   /** Written only because it failed: recording was not asked for. */
