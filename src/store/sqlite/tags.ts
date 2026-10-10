@@ -5,6 +5,7 @@ import type { TagType } from "../../domain/tags.js"
 import type { CacheDatabase, SqlValue } from "../driver.js"
 import type { AccountKey } from "../store.js"
 import type { Actor } from "./actors.js"
+import type { EntityType } from "./entity-types.js"
 import type { StoreContext } from "./open.js"
 import type { Thing } from "./things.js"
 import { toIso } from "./values.js"
@@ -44,7 +45,7 @@ export type TagKind = (typeof TAG_KINDS)[number]
 export type TaggingSource = "owner" | "file" | "auto" | "agent"
 
 /** A messenger tag target's polymorphic type: a contact is an `identity` row. */
-const TAGGABLE: Record<TagType, string> = { chat: "chat", contact: "identity", message: "message" }
+const TAGGABLE: Record<TagType, EntityType> = { chat: "chat", contact: "identity", message: "message" }
 const TAG_TYPE: Record<string, TagType> = { chat: "chat", identity: "contact", message: "message" }
 
 export const targetThing = ({ database }: StoreContext, key: AccountKey, target: TagTarget): Thing => {

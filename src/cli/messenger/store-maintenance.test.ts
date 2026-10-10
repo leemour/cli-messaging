@@ -100,6 +100,24 @@ describe("store check", () => {
     expect(stderr.join("\n")).toContain("chat store fetch <chat>")
   })
 
+  it("names a note left on a deleted message, and a pointer of an unknown type, as orphans", async () => {
+    const env = envFor()
+    const database = await seeded(env)
+    database.exec(
+      `INSERT INTO notes (notable_type, notable_id, body, created_at, updated_at)
+       VALUES ('message', 1, 'kept', 0, 0), ('message', 2, 'orphaned', 0, 0), ('gizmo', 1, 'unknown', 0, 0);
+       DELETE FROM messages WHERE id = 2`,
+    )
+    database.close()
+
+    const { answer, stderr } = await call(["store", "check", "--json"], env)
+    expect(answer.orphanPointers).toEqual([
+      { table: "notes", pointer: "notable", type: "gizmo", count: 1, known: false },
+      { table: "notes", pointer: "notable", type: "message", count: 1, known: true },
+    ])
+    expect(stderr.join("\n")).toContain("2 pointers name a row that is gone")
+  })
+
   it("names the chat whose held history stops before its newest message", async () => {
     const env = envFor()
     ;(await seeded(env)).close()

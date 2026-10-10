@@ -14,6 +14,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   inspectable task proposals preserve historical provenance and report byte limits and incomplete coverage.
   These library services add no CLI command and do not create tasks or messages.
 
+- **`store check` reports orphan pointers** in `orphanPointers`: per table, pointer and type, how many
+  `<name>_type` + `<name>_id` pointers name a row that is gone, or hold a type the store does not know.
+  It reports and never repairs, and does not turn `ok` false.
+
 ### Security
 
 - **The old `messages.db` is deleted** when the store opens at its default path: the unencrypted file the

@@ -8,7 +8,7 @@ import { CORPORA, corpusIndexState, drainCorpus, type NoteIndexState } from "./n
 import { requiredThing } from "./notes.js"
 import type { StoreContext } from "./open.js"
 import { stemmerCache } from "./stems.js"
-import { referenceOfThing } from "./things.js"
+import { referenceOfThing, storedThing } from "./things.js"
 
 export const MEMORY_KINDS = ["summary", "digest", "fact", "preference"] as const
 export const MEMORY_STATUSES = ["proposed", "confirmed", "stale", "superseded"] as const
@@ -112,7 +112,7 @@ export const evidenceOf = (context: StoreContext, from: { type: string; id: numb
       `SELECT to_type, to_id FROM links WHERE from_type = ? AND from_id = ? AND kind = ${linkKind("evidence")} AND to_id IS NOT NULL ORDER BY id`,
     )
     .all(from.type, from.id)
-    .flatMap((row) => referenceOfThing(context.database, { type: String(row.to_type), id: Number(row.to_id) }) ?? [])
+    .flatMap((row) => referenceOfThing(context.database, storedThing(row.to_type, row.to_id)) ?? [])
 
 export const memoriesStoreOver = (context: StoreContext): MemoriesStore => {
   const { database, now } = context
@@ -125,7 +125,7 @@ export const memoriesStoreOver = (context: StoreContext): MemoriesStore => {
     subject:
       row.subject_type == null
         ? null
-        : (referenceOfThing(database, { type: String(row.subject_type), id: Number(row.subject_id) }) ?? null),
+        : (referenceOfThing(database, storedThing(row.subject_type, row.subject_id)) ?? null),
     author: { type: row.author_type as Actor["type"], id: String(row.author_id) },
     model: row.model == null ? null : String(row.model),
     confidence: row.confidence == null ? null : Number(row.confidence),

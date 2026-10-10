@@ -24,6 +24,7 @@ import { storePath } from "../../store/path.js"
 import { deleteCopy, type RepairReport, repairStore } from "../../store/repair.js"
 import { resetAttachmentWords } from "../../store/sqlite/attachment-texts.js"
 import { pendingNormalization } from "../../store/sqlite/backfill.js"
+import { orphanPointers } from "../../store/sqlite/entity-types.js"
 import { involvementStoreOver } from "../../store/sqlite/involvements.js"
 import { drainNoteIndex, noteIndexState, resetNoteIndex } from "../../store/sqlite/note-index.js"
 import { fillSearchIndex, resetSearchIndex, searchIndexState } from "../../store/sqlite/search-index.js"
@@ -259,6 +260,11 @@ const checkCommand = (messenger: Messenger): Command =>
       const ours = answer.chatsBehind.filter((chat) => chat.provider === messenger.provider).length
       if (ours > 0)
         renderer.note(`${ours} chats hold less than their newest message — \`${command} store fetch <chat>\``)
+      const orphans = answer.orphanPointers.reduce((sum, { count }) => sum + count, 0)
+      if (orphans > 0)
+        renderer.note(
+          `${orphans} pointers name a row that is gone or a type the store does not know — see orphanPointers`,
+        )
       const older = answer.conversations.filter((chat) => chat.provider === messenger.provider && !chat.current).length
       if (older > 0) {
         renderer.note(
@@ -310,6 +316,8 @@ const inspect = (path: string) =>
       wordIndex: wordIndex ?? null,
       stemIndex: stems ?? null,
       chatsBehind: behind,
+      // Reported, not a failed check: a tag on a deleted message is untidy, not a broken store.
+      orphanPointers: schema.version > 0 ? orphanPointers(database) : [],
       conversations: conversationsBuilt(database),
       vectors: vectorsHeld(database),
       notApplicable: { extensions: "SQLite needs none" },
