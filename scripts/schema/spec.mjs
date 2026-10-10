@@ -841,13 +841,13 @@ const NEW = {
     },
     {
       name: "meeting_participants",
-      doc: "One person in one meeting, as that meeting saw them; the name and email stay with this meeting.",
+      doc: "One person in one meeting, as that meeting saw them; the name and email stay with this meeting.\nAn identity explicitly marked `associatePerson: true` uses the normal stable-key identity, person\nand account-presence path. Omitted or false flags keep guests without new person or account\nassociations; existing owner links are retained.\nAn older identity missing its person link receives its own initial link when ingested again;\nexisting owner links remain intact. Meeting labels never merge identities or resolve document\nnames, and an absent stable identity key is rejected rather than guessed from a name or email.",
       cols: [
         id(),
         fk("meeting_id", "meetings", { notnull: true }),
         fk("identity_id", "identities", {
           notnull: true,
-          note: "keyed by the provider's user id, else email, else name@meeting",
+          note: "keyed by the provider and supplied external identity id",
         }),
         c("display_name", "text"),
         c("email", "text"),
@@ -1201,7 +1201,13 @@ const GROUPS = [
     [],
     NEW.documents,
   ],
-  ["events", "Events and meetings", "The owner's events, and each meeting app's record of them.", [], NEW.events],
+  [
+    "events",
+    "Events and meetings",
+    "The owner's events, and each meeting app's record of them.\n\n`MessageStore.meetings` implements both `MeetingStore` and the optional `MeetingTranscriptStore`\nfrom `@wirecat/cli-meetings`. `appendTranscripts` runs in one immediate transaction, matching the\nnumeric account and external occurrence id. Explicit creation fields apply only to a missing\noccurrence; a deleted occurrence rejects with `not_found`. Appending changes only transcript\nversions and rows, preserving existing occurrence fields, events, series, cursors and other parts.\nSource/hash replay matches retained history without reactivating it. Rows are detached from\nparticipants, and the returned details acknowledge identities without created/skipped counts.\n\n`MessageStore.meetings` implements `MeetingReadCapabilities` in addition to the shared meeting port.\n`meetingMetadata` and `transcriptMetadata` read scoped metadata; `transcripts` and `transcriptRows`\nuse revision-id and cue-position seek pages. Limits are 1\u20131000 and `hasMore` uses one lookahead row.\nDeleted parents reject with `not_found`; retained superseded revisions require `includeHistorical`.\n`maxReadBytes` defaults to 4 MiB and bounds the raw stored UTF-8 text and metadata of the selected\npage, including lookahead and returned parents. Preflight and full reads share one read snapshot,\nwithout draining write queues. Oversized pages reject; evidence is never truncated. This budget\ncovers stored TEXT bytes, rather than total heap use or rendered JSON; callers still bound output.\nCancellation is cooperative: the signal is checked before and between queries and after value reads.\nAn active synchronous SQLite query completes before cancellation is reported; callers await the\nread before closing its connection.",
+    [],
+    NEW.events,
+  ],
   [
     "tasks",
     "Tasks",
