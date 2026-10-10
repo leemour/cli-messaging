@@ -60,6 +60,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   and participant names or emails never merge people or resolve document links. Unmarked or explicitly
   unassociated guests retain their detached identity without creating a person.
 
+- Person meeting context verifies recorded presence in an explicitly allowed account before reading global
+  identity metadata, preventing a foreign-only person ID from exposing its name in fixed-account wrappers.
+
 
 ## 0.221.0 — 11.10.2026
 
