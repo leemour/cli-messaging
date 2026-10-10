@@ -23,6 +23,8 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   `--meetings` after the query, or it takes the query's first word. `--only` accepts `meetings` with it. The
   `search_all` MCP tool takes the same choice as `meetings` (`true` or `provider:account`). Without the option
   nothing changes. `messages.searchAllWithMeetings` and `meetingAccountOf` are the service-level entry points.
+  `--max-meetings <n|all>` (MCP `max_meetings`) sets how many meetings it looks through, newest first: 100 by
+  default, `all` for every one; meetings have no search index yet, so each is two queries.
 
 ### Security
 

@@ -50,6 +50,12 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
           ),
         ),
       ),
+      max_meetings: v.optional(
+        v.pipe(
+          v.union([v.pipe(v.number(), v.integer(), v.minValue(1)), v.literal("all")]),
+          v.description("how many meetings `meetings` looks through, newest first, or all (default 100)"),
+        ),
+      ),
       exact,
       timezone,
       limit,
@@ -59,6 +65,8 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
       const meetings = args.meetings === false ? undefined : args.meetings
       if (meetings === undefined && args.only?.includes("meetings"))
         throw new CliError("validation_error", "only: meetings needs meetings")
+      if (meetings === undefined && args.max_meetings !== undefined)
+        throw new CliError("validation_error", "max_meetings needs meetings")
       const meetingAccount = typeof meetings === "string" ? meetingAccountOf(meetings) : undefined
       const services = searchServices(messenger, store, account, defaults, messenger.serverSearch ? connect : undefined)
       const request = {
@@ -80,6 +88,7 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
             ...request,
             ...(args.only === undefined ? {} : { only: args.only }),
             ...(meetingAccount === undefined ? {} : { meetingAccount }),
+            ...(args.max_meetings === undefined ? {} : { maxMeetings: args.max_meetings }),
           })
     },
   }),

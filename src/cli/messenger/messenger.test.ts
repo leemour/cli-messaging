@@ -1918,6 +1918,47 @@ describe("the shared read commands", () => {
     expect(never).not.toHaveBeenCalled()
   })
 
+  it("**search all --max-meetings** bounds the meetings looked through; all looks through every one", async () => {
+    const root = mkdtempSync(join(tmpdir(), "search-all-max-meetings-"))
+    const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }
+    await call(["messages", "context", "Book", "2", "--json"], async () => fake, env)
+    const store = await openStore({ path: env.MESSAGING_STORE })
+    try {
+      const accountId = await store.saveAccount({ provider: "zoom", account: "zm-profile:carol" }, { name: "Invented" })
+      const sample = sampleMeeting()
+      for (const [externalId, startedAt, text] of [
+        ["older", 1000, "Bob Sample reads the chapter aloud"],
+        ["newer", 5000, "Alice Example plans the garden"],
+      ] as const)
+        await store.meetings.saveMeeting({
+          ...sample,
+          meeting: { ...sample.meeting, accountId, externalId, startedAt, endedAt: startedAt + 1000 },
+          transcripts: [{ ...sample.transcripts[0], rows: [{ ...sample.transcripts[0].rows[0], text }] }],
+        })
+    } finally {
+      await store.close()
+    }
+    const never = vi.fn(async (): Promise<MessengerAdapter> => {
+      throw new Error("search must never connect")
+    })
+    const search = async (...extra: string[]) =>
+      call(["search", "all", "chapter", "--only", "meetings", "--meetings", ...extra, "--json"], never, env)
+
+    const one = JSON.parse((await search("--max-meetings", "1")).stdout[0] ?? "")
+    expect(one.items).toEqual([])
+    expect(one.meetings).toMatchObject({ meetingsScanned: 1, complete: false })
+    const every = JSON.parse((await search("--max-meetings", "all")).stdout[0] ?? "")
+    expect(every.items.map(({ text }: { text: string }) => text)).toEqual(["Bob Sample reads the chapter aloud"])
+    expect(every.meetings).toMatchObject({ meetingsScanned: 2, complete: true })
+
+    const zero = await search("--max-meetings", "0")
+    expect(zero.code).toBe(2)
+    expect(zero.stderr.join("\n")).toContain("--max-meetings takes a whole number from 1, or all")
+    const alone = await call(["search", "all", "chapter", "--max-meetings", "5", "--json"], never, env)
+    expect(alone.code).toBe(2)
+    expect(alone.stderr.join("\n")).toContain("--max-meetings needs --meetings")
+  })
+
   it("**search all --meetings** skips meetings with a reason when no stored account holds any", async () => {
     const root = mkdtempSync(join(tmpdir(), "search-all-no-meetings-"))
     const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }

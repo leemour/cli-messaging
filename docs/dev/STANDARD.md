@@ -431,6 +431,7 @@ its meaning, and this table is regenerated from it. **Bold** marks a clash still
 | `--max-chunks` | `<n>` | at most this many chunks embedded in one run | `2000` | `conversations embed`, `search conversations` |
 | `--max-gaps` | `<n>` | maximum interior coverage gaps repaired in this run |  | `store gaps repair` |
 | `--max-input-bytes` | `<bytes>` | at most this many bytes of buffered stdin | `16777216` | every command |
+| `--max-meetings` | `<n\|all>` | how many meetings --meetings looks through, newest first; all looks through every one (default 100) |  | `search all` (planned) |
 | `--max-messages` | `<n>` | fetch at most this many messages total (default: 500) |  | `search conversations`, `search messages`, `stats contacts top`, `stats messages counters refresh`, `stats messages show`, `stats messages top` |
 | `--max-output-bytes` | `<bytes>` | at most this many serialized bytes of machine data; 0 disables the bound | `4194304` | every command |
 | `--max-replies` | `<n>` | maximum observed discussion replies |  | `stats messages discussion` |

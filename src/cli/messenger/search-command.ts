@@ -42,6 +42,13 @@ const accountAfterQuery = (value: string) => {
   return meetingAccountOf(value)
 }
 
+const maxMeetingsOf = (value: string): number | "all" => {
+  if (value === "all") return "all"
+  if (!/^[1-9]\d*$/.test(value))
+    throw new CliError("validation_error", "--max-meetings takes a whole number from 1, or all")
+  return Number(value)
+}
+
 const noteTypeOf = (value: string): Note["source"] => {
   if (value !== "internal" && value !== "file")
     throw new CliError("validation_error", "--type takes internal (written in memo) or file (from a notes folder)")
@@ -64,20 +71,28 @@ const allCommand = (messenger: Messenger): Command =>
       "--meetings [provider:account]",
       "also search one meeting account; with no value, the one stored account that holds meetings (put it after the query)",
     )
+    .option(
+      "--max-meetings <n|all>",
+      "how many meetings --meetings looks through, newest first; all looks through every one (default 100)",
+      maxMeetingsOf,
+    )
     .option("--limit <n>", "how many", positiveCount("--limit"))
     .option("--exact", "bare words and quotes match their exact form only, as exact:word does")
     .option("--timezone <zone>", "the IANA timezone for calendar date boundaries")
     .action(async function (this: Command, words: string[]) {
       const context = messengerContext(this, messenger)
-      const { only, meetings, limit, exact, timezone } = this.opts<{
+      const { only, meetings, maxMeetings, limit, exact, timezone } = this.opts<{
         only?: ResourceWithMeetings[]
         meetings?: string | true
+        maxMeetings?: number | "all"
         limit?: number
         exact?: boolean
         timezone?: string
       }>()
       if (meetings === undefined && only?.includes("meetings"))
         throw new CliError("validation_error", "--only meetings needs --meetings")
+      if (meetings === undefined && maxMeetings !== undefined)
+        throw new CliError("validation_error", "--max-meetings needs --meetings")
       const meetingAccount = typeof meetings === "string" ? accountAfterQuery(meetings) : undefined
       const request = {
         text: words.join(" "),
@@ -98,13 +113,16 @@ const allCommand = (messenger: Messenger): Command =>
               ...request,
               ...(only === undefined ? {} : { only }),
               ...(meetingAccount === undefined ? {} : { meetingAccount }),
+              ...(maxMeetings === undefined ? {} : { maxMeetings }),
             }),
       )
       noteServer(context, found.server)
       for (const { resource, reason } of found.skipped) context.renderer.note(`${resource} not searched: ${reason}`)
       if (found.notes?.meaningSkipped) context.renderer.note(`notes by words only: ${found.notes.meaningSkipped}`)
       if (found.meetings?.complete === false)
-        context.renderer.note(`meetings: stopped after ${found.meetings.meetingsScanned} meetings; more may match`)
+        context.renderer.note(
+          `meetings: stopped after ${found.meetings.meetingsScanned} meetings; more may match — --max-meetings all looks through every one`,
+        )
       if (context.format === "jsonl") return context.renderer.stream(found.items)
       if (context.format !== "pretty") return context.renderer.result(found)
       context.streams.data(found.items.map(lineOf).join(""))

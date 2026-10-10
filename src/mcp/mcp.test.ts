@@ -1080,6 +1080,11 @@ describe("the MCP server", () => {
     const unasked = await call("chat_search_all", { text: "chapter", only: ["meetings"] })
     expect(unasked.isError).toBe(true)
     expect(JSON.stringify(unasked.body)).toContain("needs meetings")
+    const every = await call("chat_search_all", { text: "chapter", meetings: true, max_meetings: "all" })
+    expect(every.body.meetings).toMatchObject({ complete: true })
+    const bounded = await call("chat_search_all", { text: "chapter", max_meetings: 5 })
+    expect(bounded.isError).toBe(true)
+    expect(JSON.stringify(bounded.body)).toContain("max_meetings needs meetings")
   })
 
   it("prepares stored evidence with a cursor and typed failures without connecting", async () => {

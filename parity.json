@@ -520,6 +520,10 @@
       "meaning": "at most this many bytes of buffered stdin",
       "default": "16777216"
     },
+    "--max-meetings": {
+      "value": "<n|all>",
+      "meaning": "how many meetings --meetings looks through, newest first; all looks through every one (default 100)"
+    },
     "--max-messages": {
       "value": "<n>",
       "meaning": "fetch at most this many messages total (default: 500)"
@@ -3006,6 +3010,13 @@
       "options": {
         "--exact": "all",
         "--limit": "all",
+        "--max-meetings": {
+          "in": [],
+          "planned": {
+            "max": "each CLI’s next cli-messaging bump",
+            "tg": "each CLI’s next cli-messaging bump"
+          }
+        },
         "--meetings": {
           "in": [],
           "planned": {

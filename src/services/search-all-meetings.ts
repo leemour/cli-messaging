@@ -42,8 +42,11 @@ export interface SearchAllIncludingMeetingsRequest extends Omit<SearchAllRequest
   only?: readonly ResourceWithMeetings[]
   /** Defaults to the caller's selected account; other meeting accounts are explicit. */
   meetingAccount?: AccountKey
-  /** Candidate meetings visited, not hit rows allocated by the store. Defaults to 100, at most 1000. */
-  maxMeetings?: number
+  /**
+   * Candidate meetings visited, newest first, not hit rows allocated by the store. Defaults to 100; `all` visits
+   * every one. Meetings have no search index yet, so each visit is two queries.
+   */
+  maxMeetings?: number | "all"
   /** Source continuation only: requires only: ["meetings"]. Offsets are not a snapshot. */
   meetingCursor?: MeetingSearchCursor
 }
@@ -122,7 +125,8 @@ const collectMeetings = async (
     after: position(),
   }
   const seen = new Set<string>()
-  while (collected.coverage.meetingsScanned < (request.maxMeetings ?? 100)) {
+  const most = request.maxMeetings === "all" ? Number.POSITIVE_INFINITY : (request.maxMeetings ?? 100)
+  while (collected.coverage.meetingsScanned < most) {
     cancelled(request.signal)
     const page = await store.meetings.meetings({ accountId: selected.id, limit: 2, offset: meetingOffset })
     cancelled(request.signal)
@@ -190,7 +194,7 @@ export const searchAllIncludingMeetings = async (
   searchMessages?: (query: SearchQuery) => Promise<SearchFound>,
 ): Promise<SearchAllIncludingMeetingsFound> => {
   whole(request.limit, 1, 1000, "limit")
-  whole(request.maxMeetings ?? 100, 1, 1000, "maxMeetings")
+  if (request.maxMeetings !== "all") whole(request.maxMeetings ?? 100, 1, Number.MAX_SAFE_INTEGER, "maxMeetings")
   const only = request.only ?? RESOURCES_SEARCHED_WITH_MEETINGS
   if (
     !only.length ||
