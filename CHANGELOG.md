@@ -6,6 +6,18 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+### Changed — may break callers
+
+- **cli-core 0.19.2 or newer within the 0.19 series is required.** Meeting and messenger CLIs share
+  field projection through core rather than separate implementations. Existing `fieldsOf` and
+  `projectFields` exports remain; empty direct selections still retain operation metadata.
+
+### Fixed
+
+- **Direct field projection rejects unsafe or excessive paths** before traversal, matching parsed
+  `--fields` validation and preventing prototype writes. Pass valid field paths; empty selections
+  remain supported.
+
 ## 0.218.0 — 10.10.2026
 
 ### Added

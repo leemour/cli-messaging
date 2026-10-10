@@ -30,6 +30,12 @@ provider has travels in `providerMetadata`.
 development brings its own copy of cli-core, and an error built by one copy is not an `instanceof`
 the other's class.
 
+Field selection uses cli-core's `fieldsOf` and `projectFields`; list envelopes and operation IDs
+stay intact. Direct empty field lists keep only operation metadata, preserving the existing helper
+contract. Direct invalid or unsafe paths are rejected before projection. cli-core 0.19.2 or newer
+within the 0.19 series is required.
+
+
 A **message locator** names one message across every provider and account:
 `msg:telegram/<account>/<chat>/<message>`. A message id alone does not — Telegram numbers messages
 per chat in channels and per account in private chats.
