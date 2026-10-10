@@ -446,3 +446,18 @@ it("bounds empty revision work and exposes a revision seek continuation", async 
   expect(remainder.items).toEqual([])
   expect(remainder.coverage).toMatchObject({ providedExact: true, hasMore: false, transcriptPages: 2 })
 })
+
+it("never lets public JavaScript read options override authorized account or meeting IDs", async () => {
+  const { store, input, details, reference } = await fixture()
+  const meetingMetadata = vi.fn((query: Parameters<typeof store.meetingMetadata>[0]) => store.meetingMetadata(query))
+  const transcriptMetadata = vi.fn((query: Parameters<typeof store.transcriptMetadata>[0]) =>
+    store.transcriptMetadata(query),
+  )
+  const transcriptRows = vi.fn((query: Parameters<typeof store.transcriptRows>[0]) => store.transcriptRows(query))
+  const port = { ...store, meetingMetadata, transcriptMetadata, transcriptRows }
+  const injected = { maxReadBytes: 4096, accountId: 999, meetingId: 888 }
+  expect((await resolveMeetingReference(port, input.meeting.accountId, reference, injected)).cue).not.toBeNull()
+  for (const call of [...meetingMetadata.mock.calls, ...transcriptMetadata.mock.calls, ...transcriptRows.mock.calls]) {
+    expect(call[0]).toMatchObject({ accountId: input.meeting.accountId, meetingId: details.meeting.id })
+  }
+})

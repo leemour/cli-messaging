@@ -34,7 +34,9 @@ export const authorizedMeetingMetadata = async (
     typeof store.transcriptRows !== "function"
   )
     throw new CliError("configuration_error", "Meeting evidence requires bounded meeting read capabilities")
-  const meeting = await store.meetingMetadata({ accountId, meetingId: parsed.meetingId, ...options })
+  const { maxReadBytes, signal } = options
+  const readOptions = { ...(maxReadBytes === undefined ? {} : { maxReadBytes }), ...(signal ? { signal } : {}) }
+  const meeting = await store.meetingMetadata({ ...readOptions, accountId, meetingId: parsed.meetingId })
   if (meeting.id !== parsed.meetingId || meeting.accountId !== accountId || meeting.deletedAt !== null) throw missing()
   return { parsed, meeting }
 }
@@ -44,8 +46,10 @@ export const resolveMeetingReference = async (
   reference: string,
   options: MeetingReferenceReadOptions = {},
 ): Promise<ResolvedMeetingReference> => {
-  const { parsed, meeting } = await authorizedMeetingMetadata(store, accountId, reference, options)
-  const scope = { accountId, meetingId: parsed.meetingId, ...options }
+  const { maxReadBytes, signal } = options
+  const readOptions = { ...(maxReadBytes === undefined ? {} : { maxReadBytes }), ...(signal ? { signal } : {}) }
+  const { parsed, meeting } = await authorizedMeetingMetadata(store, accountId, reference, readOptions)
+  const scope = { ...readOptions, accountId, meetingId: parsed.meetingId }
   const transcript =
     parsed.transcriptId === undefined
       ? null
