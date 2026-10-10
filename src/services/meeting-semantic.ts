@@ -69,7 +69,7 @@ export const readMeetingSemantic = async (
   if (typeof query !== "string" || !query.trim() || Buffer.byteLength(query, "utf8") > 64 * 1024)
     throw new CliError("validation_error", "Meeting semantic query requires 1–65536 UTF-8 bytes")
   const limit = positive(options.limit ?? 20, "semantic result limit", 1000)
-  const maxChunks = positive(options.maxChunks ?? 1000, "semantic candidate budget", 100000)
+  const maxChunks = positive(options.maxChunks ?? 1000, "semantic candidate budget", 10000)
   const afterChunkId =
     options.afterChunkId === undefined
       ? undefined
@@ -114,7 +114,7 @@ export const readMeetingSemantic = async (
       lastCueReference: formatMeetingReference({ ...ref, cuePosition: hit.lastPosition }),
     }
   })
-  return { accountId: accountIdSnapshot, model, ...result, items }
+  return { ...result, accountId: accountIdSnapshot, model, items }
 }
 /** Counts existing current chunks without opening a model or writing to the store. */
 export const proposeMeetingEmbedding = async (
@@ -167,6 +167,12 @@ export const applyMeetingEmbedding = async (
     ...(signal ? { signal } : {}),
   })
   cancel(signal)
+  if (
+    typeof page.hasMore !== "boolean" ||
+    (page.nextHash !== undefined && !/^[0-9a-f]{64}$/.test(page.nextHash)) ||
+    (page.hasMore && (page.items.length === 0 || page.nextHash === undefined))
+  )
+    throw new CliError("invalid_response", "Meeting chunk page cannot advance")
   if (page.items.length > maxChunks || page.items.length * model.dims * 4 > maxVectorBytes)
     throw new CliError("validation_error", "Embedding batch exceeds its chunk or vector payload budget")
   const items = page.items.map(({ hash, text }) => ({ hash, text }))
