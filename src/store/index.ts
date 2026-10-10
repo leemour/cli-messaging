@@ -33,6 +33,7 @@ export type {
   Project,
   Reminder,
 } from "./sqlite/knowledge.js"
+export { ORGANIZATION_KINDS, PROJECT_TYPES, SCOPES } from "./sqlite/knowledge.js"
 export type { Author, MemoriesStore, Memory, MemoryInput } from "./sqlite/memories.js"
 export type { NoteIndexState } from "./sqlite/note-index.js"
 export {

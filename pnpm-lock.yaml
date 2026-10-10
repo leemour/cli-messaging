@@ -40,8 +40,8 @@ importers:
         specifier: 1.0.0
         version: 1.0.0
       '@wirecat/cli-tasks':
-        specifier: 0.2.1
-        version: 0.2.1
+        specifier: 0.3.0
+        version: 0.3.0
       '@xmldom/xmldom':
         specifier: 0.9.12
         version: 0.9.12
@@ -1336,8 +1336,8 @@ packages:
   '@wirecat/cli-messaging-sqlite@1.0.0':
     resolution: {integrity: sha512-xdPRDx6p8189iHUikaauadrOUro1LCxkQzwP3jV8fJpA1I6NUoVNmeE3sKVtIkSiT/6XmAPEGov4AgSCuqy6wg==}
 
-  '@wirecat/cli-tasks@0.2.1':
-    resolution: {integrity: sha512-og9li309jbYkddyNX7joec/8CfFWsz2tjz6iSlDAyZn26Qb1OlIbHfNgz+au+ttjybf/2n9mYRgKLAafRNd03g==}
+  '@wirecat/cli-tasks@0.3.0':
+    resolution: {integrity: sha512-l5T22uzrxnclLRA2YPdAG5KCRiNb8BbFCV9f2Z6w+47ocGzgtr/i9NNXEC+RBPGOoXa2Z5DqxHyX0voDAwGtEg==}
     engines: {node: '>=22'}
 
   '@xmldom/xmldom@0.8.15':
@@ -3686,7 +3686,7 @@ snapshots:
 
   '@wirecat/cli-messaging-sqlite@1.0.0': {}
 
-  '@wirecat/cli-tasks@0.2.1': {}
+  '@wirecat/cli-tasks@0.3.0': {}
 
   '@xmldom/xmldom@0.8.15': {}
 

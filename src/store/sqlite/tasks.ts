@@ -5,6 +5,7 @@ import {
   TASK_KINDS,
   TASK_ORIGINS,
   TASK_STATES,
+  TASK_VERDICTS,
   type Task,
   type TaskFilter,
   type TaskStore,
@@ -17,14 +18,8 @@ import { taskRowOf, thingOf } from "./things.js"
 
 export { taskIdOf, taskRowOf } from "./things.js"
 
-export const TASK_VERDICTS = ["useful", "not_useful"] as const
-
-/** `TaskStore` for `@wirecat/cli-tasks`, plus what the new task table adds: an answer and a verdict. */
+/** `TaskStore` for `@wirecat/cli-tasks`, plus a way from its task ids to the store's rows. */
 export interface StoreTaskStore extends TaskStore {
-  /** A question's answer: its text as the resolution, where it came from as an `answered-by` link. */
-  answer(id: string, input: { resolution: string; by?: string }): Promise<void>
-  /** The owner's judgement of a task an agent or a rule raised. */
-  judge(id: string, verdict: (typeof TASK_VERDICTS)[number] | null): Promise<void>
   /** What the task package calls a task — its id, or a key like `IN1A2B3C4D-3` — as the row's `tasks.id`. */
   rowOf(id: string): number | undefined
 }
