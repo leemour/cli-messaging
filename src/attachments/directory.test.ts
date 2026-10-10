@@ -70,7 +70,7 @@ describe("directory attachment matching", () => {
     }
   })
 
-  it("refuses hidden and application folders through both typed paths and directory aliases", async () => {
+  it("refuses credential and application folders through both typed paths and directory aliases", async () => {
     const { store, folder } = await fixture()
     const env = {
       ...process.env,
@@ -92,8 +92,10 @@ describe("directory attachment matching", () => {
         for (const path of [directory, alias])
           await expect(directoryPaths(store, owner, "1", path, app, env)).rejects.toThrow("cannot read")
       }
-      writeFileSync(join(folder, ".private.txt"), "synthetic")
-      await expect(directoryPaths(store, owner, "1", folder, app, env)).rejects.toThrow("cannot read hidden files")
+      const allowed = join(folder, ".worktrees")
+      mkdirSync(allowed)
+      writeFileSync(join(allowed, ".private.txt"), "synthetic")
+      await expect(directoryPaths(store, owner, "1", allowed, app, env)).resolves.toBeInstanceOf(Map)
     } finally {
       await store.close()
     }

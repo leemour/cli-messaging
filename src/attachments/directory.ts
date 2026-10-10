@@ -19,7 +19,7 @@ export const directoryPaths = async (
   if (refusedPlace(directory, app, env))
     throw new CliError(
       "validation_error",
-      "--from-dir cannot read hidden folders, the CLI's own folders or the message store",
+      "--from-dir cannot read credential folders, the CLI's own folders or the message store",
     )
   const root = await realpath(directory).catch(() => {
     throw new CliError("validation_error", "--from-dir must name an existing directory")
@@ -39,7 +39,7 @@ export const directoryPaths = async (
     if (refusedPlace(canonical, app, env))
       throw new CliError(
         "validation_error",
-        "--from-dir cannot read hidden files, the CLI's own files or the message store",
+        "--from-dir cannot read credential files, the CLI's own files or the message store",
       )
     const inside = relative(root, canonical)
     if (inside === ".." || inside.startsWith(`..${sep}`))

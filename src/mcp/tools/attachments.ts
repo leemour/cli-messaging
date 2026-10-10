@@ -93,7 +93,7 @@ export const attachmentsTools = (messenger: Messenger): Record<string, AnyTool> 
         if (args.output_dir && refusedPlace(args.output_dir, messenger.app, defaults.env))
           throw new CliError(
             "validation_error",
-            "output_dir cannot write hidden folders, the CLI's own folders or the message store",
+            "output_dir cannot write credential folders, the CLI's own folders or the message store",
           )
         if (args.from_dir && (!args.chat || args.download || args.output_dir))
           throw new CliError(

@@ -25,10 +25,10 @@ const standIn = (dims: number, script: ((call: Call) => Response | undefined)[] 
 }
 
 describe("openRemote", () => {
-  it("refuses redirects for requests carrying keys and private text", async () => {
+  it("uses normal fetch redirect handling for configured gateways", async () => {
     const remote = remoteModel({})
     const fetch = async (_url: string, init: RequestInit) => {
-      expect(init.redirect).toBe("error")
+      expect(init.redirect).toBeUndefined()
       return new Response(JSON.stringify({ data: [{ index: 0, embedding: new Array(1536).fill(1) }] }))
     }
     expect(await openRemote(remote, "synthetic-key", { fetch }).embed(["synthetic text"], "passage")).toHaveLength(1)

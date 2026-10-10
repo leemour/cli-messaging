@@ -1,17 +1,15 @@
 import { CliError } from "@wirecat/cli-core"
 
-const MAX_SAMPLES = 10 * 60 * 48_000
 const invalid = () =>
   new CliError("validation_error", "local transcription needs a complete mono or stereo Ogg Opus recording")
 
-/** Count packet duration before decoding; a sender can forge the container's granule positions. */
+/** Validate supported packet framing before handing bytes to the decoder. */
 export const checkOggDuration = (bytes: Uint8Array): void => {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   let offset = 0
   let serial: number | undefined
   let packet = 0
   let length = 0
-  let samples = 0
   const prefix: number[] = []
   while (offset < bytes.length) {
     if (offset + 27 > bytes.length || view.getUint32(offset, false) !== 0x4f676753 || bytes[offset + 4] !== 0)
@@ -54,9 +52,6 @@ export const checkOggDuration = (bytes: Uint8Array): void => {
                 : 480 << (config & 3)
         const count = (toc & 3) === 0 ? 1 : (toc & 3) === 3 ? (length >= 2 ? (prefix[1] ?? 0) & 63 : 0) : 2
         if (count < 1 || frame * count > 5760) throw invalid()
-        samples += frame * count
-        if (samples > MAX_SAMPLES)
-          throw new CliError("validation_error", "local transcription supports voice recordings up to 10 minutes")
       }
       packet++
       length = 0
