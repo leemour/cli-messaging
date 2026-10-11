@@ -4,11 +4,13 @@ Several sessions work on cli-messaging, tg-cli and max-cli at once. This page is
 
 ## Store migrations
 
-**The next free migration number is 30.** Take it by editing this line in a pull request of its own,
-merged before the migration: the runner skips every version at or below the file's, so two branches
-holding the same number would leave one migration unapplied on stores that ran the other.
+**The next free migration version is 2.** Versions are the `version` field of `MANIFEST` in
+`src/store/sqlite/manifest.ts`; the initial migration is 1. Take the next one by editing this line in a pull
+request of its own, merged before the migration: the runner skips every version at or below the file's, so two
+branches holding the same version would leave one migration unapplied on stores that ran the other.
 
-Migration 29 is reserved for the bounded direct-reply search index by `feat/combined-search`.
+Numbers from before the store rewrite (up to 29, including the one reserved for `feat/combined-search`) mean
+nothing now.
 
 ## Releases
 
