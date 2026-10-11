@@ -2,8 +2,7 @@ import { existsSync } from "node:fs"
 import { DEFAULT_STEMMERS, parseStemmers, type Stemmers } from "../search/stem.js"
 import { openCache } from "../store/open.js"
 import { storePath } from "../store/path.js"
-import { savedStemmers, stemmersOrigin } from "../store/sqlite/stems.js"
-import { openStore } from "../store/store.js"
+import { openStore, savedStemmers, stemmersOrigin } from "../store/store.js"
 import type { AppIdentity } from "./app.js"
 
 const SCRIPTS: Record<string, keyof Stemmers> = {

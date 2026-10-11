@@ -6,7 +6,7 @@ import {
   counterObservationTime,
 } from "../domain/counters.js"
 import { formatLocator, parseLocator } from "../domain/locator.js"
-import type { CounterTarget } from "../store/sqlite/counters.js"
+import type { CounterTarget } from "../store/store.js"
 import type { ServiceDeps } from "./deps.js"
 import type { SearchQuery } from "./messages.js"
 import { prepareLucene } from "./messages-search.js"

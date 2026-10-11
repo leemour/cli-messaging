@@ -1,6 +1,6 @@
 import { CliError } from "@wirecat/cli-core"
 import { formatMeetingReference } from "../domain/meeting-reference.js"
-import type { MeetingVectors } from "../store/sqlite/meeting-vectors.js"
+import type { MeetingVectors } from "../store/store.js"
 import type { MeetingEmbedder, MeetingEmbeddingModel } from "./meeting-model.js"
 
 export interface MeetingSemanticOptions {

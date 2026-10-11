@@ -19,9 +19,10 @@ import type {
 import { timezoneOf } from "../search/lucene/dates.js"
 import { codeOf, guardedWrite, type Operated } from "../sends/guarded.js"
 import { newOperationId } from "../sends/send-id.js"
-import type { AccountKey, MemberCount, MessageStore, RosterChange, TrackedChat } from "../store/store.js"
+import type { AccountStore } from "../store/account-store.js"
+import type { MemberCount, RosterChange, TrackedChat } from "../store/store.js"
 import { type ChatStats, chatStats, type StatsPeriod } from "./chat-stats.js"
-import { fromStore, nothingStored, type ServiceDeps, storeIfOpen } from "./deps.js"
+import { accountStore, accountStoreIfOpen, fromStore, nothingStored, type ServiceDeps } from "./deps.js"
 import { type MemberEvent, memberEvents } from "./member-history.js"
 import {
   AUDIT_BUDGET,
@@ -32,7 +33,7 @@ import {
   auditMembers,
   type MembersAudit,
 } from "./members-audit.js"
-import { storedChatId } from "./messages.js"
+import { chatIdIn } from "./messages.js"
 
 /** How far back `events` looks without `since`, as in max-cli. */
 export const EVENTS_DAYS = 7
@@ -170,12 +171,12 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
     const filtering = filter.search !== undefined || filter.kind !== undefined || filter.unread === true
     if (!filtering) {
       const page = fromStore(deps)
-        ? await (await deps.store()).chats(await deps.account(), window)
+        ? await (await accountStore(deps)).chats(window)
         : await capability(await deps.connection(), "chats", "list chats")(window)
       return { ...page, partial: false }
     }
     const scanned = fromStore(deps)
-      ? await (await deps.store()).chats(await deps.account(), { offset: 0 })
+      ? await (await accountStore(deps)).chats({ offset: 0 })
       : await capability(await deps.connection(), "chats", "list chats")({ offset: 0 })
     const found = scanned.items.filter(matches(filter))
     const end = window.limit === undefined ? found.length : window.offset + window.limit
@@ -184,17 +185,16 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
 
   show: async (chat) => {
     if (fromStore(deps)) {
-      const store = await deps.store()
-      const account = await deps.account()
+      const store = await accountStore(deps)
       const pushed = deps.reads === "store"
       const missing = (id: string) =>
         new CliError("not_found", pushed ? nothingStored(deps.messenger) : `no stored chat ${id}`)
-      const id = await storedChatId(deps.messenger, chat, store, account).catch((error: unknown) => {
+      const id = await chatIdIn(deps.messenger, chat, store).catch((error: unknown) => {
         throw pushed && codeOf(error) === "not_found" ? missing(chat) : error
       })
-      const found = (await store.chats(account, {})).items.find((one) => one.id === id)
+      const found = (await store.chats({})).items.find((one) => one.id === id)
       if (!found) throw missing(id)
-      return { ...found, members: await storedMembers(store, account, found.id) }
+      return { ...found, members: await storedMembers(store, found.id) }
     }
     const connection = await deps.connection()
     const shown = await connection.chat(chat)
@@ -205,16 +205,15 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
           )
         : shown
     if (card.members !== null || card.kind === "channel") return card
-    const held = await storeIfOpen(deps)
-    return held ? { ...card, members: await storedMembers(held.store, held.account, card.id) } : card
+    const held = await accountStoreIfOpen(deps)
+    return held ? { ...card, members: await storedMembers(held, card.id) } : card
   },
 
   members: async (chat, window) => {
     if (!fromStore(deps)) return capability(await deps.connection(), "members", "list a group's members")(chat, window)
-    const store = await deps.store()
-    const account = await deps.account()
-    const chatId = await storedChatId(deps.messenger, chat, store, account)
-    const everyone = await store.members(account, chatId)
+    const store = await accountStore(deps)
+    const chatId = await chatIdIn(deps.messenger, chat, store)
+    const everyone = await store.members(chatId)
     const end = window.limit === undefined ? everyone.length : window.offset + window.limit
     return { chatId, items: everyone.slice(window.offset, end), hasMore: everyone.length > end }
   },
@@ -243,14 +242,13 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
   },
 
   stats: async (chat, { since, by, timezone }) => {
-    const store = await deps.store()
-    const account = await deps.account()
-    const chatId = await storedChatId(deps.messenger, chat, store, account)
-    const [completeness] = await store.chatCompleteness(account, [chatId])
+    const store = await accountStore(deps)
+    const chatId = await chatIdIn(deps.messenger, chat, store)
+    const [completeness] = await store.chatCompleteness([chatId])
     if (!completeness) throw new CliError("not_found", `no stored chat ${chatId}`)
     const from = since ?? Date.now() - EVENTS_DAYS * 86_400_000
     const until = Date.now()
-    const messages = await storedSince(store, account, chatId, new Date(from).toISOString())
+    const messages = await storedSince(store, chatId, new Date(from).toISOString())
     const connection = fromStore(deps) ? undefined : await deps.connection()
     const events = connection?.chatEvents ? await connection.chatEvents(chatId, { since: from }) : undefined
     const admins = (await connection?.admins?.(chatId)) ?? null
@@ -264,7 +262,7 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
       ...(by ? { by } : {}),
       timezone: timezoneOf(timezone),
     })
-    const counts = await store.memberCounts(account, chatId, { since: new Date(from).toISOString().slice(0, 10) })
+    const counts = await store.memberCounts(chatId, { since: new Date(from).toISOString().slice(0, 10) })
     const counted = counts.length > 0 ? { ...stats, memberCounts: counts } : stats
     return completeness.state === "complete"
       ? counted
@@ -293,8 +291,8 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
     }
     const connection = await deps.connection()
     const { chatId: id, members: read, more, participants } = await readMembers(connection, chat, budget, pauseMs)
-    const held = await storeIfOpen(deps)
-    const stored = held ? await storedFacts(held.store, held.account, id) : undefined
+    const held = await accountStoreIfOpen(deps)
+    const stored = held ? await storedFacts(held, id) : undefined
     const { items: judged, unknown } = auditMembers(read, {
       firstMessages: stored?.firstMessages,
       self: connection.self(),
@@ -326,55 +324,46 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
     const read = await readMembers(await deps.connection(), chat, budget, pauseMs)
     const observedAt = new Date().toISOString()
     const { chatId, members, more } = read
-    const store = await deps.store()
-    const account = await deps.account()
+    const store = await accountStore(deps)
     const participants =
-      read.participants ??
-      (await store.chats(account, {})).items.find(({ id }) => id === chatId)?.participantsCount ??
-      null
+      read.participants ?? (await store.chats({})).items.find(({ id }) => id === chatId)?.participantsCount ?? null
     const complete = !more && participants !== null && members.length >= participants
-    const change = await store.saveRoster(account, chatId, {
+    const change = await store.saveRoster(chatId, {
       members,
       complete,
       participants,
       observation: { observedAt, startedAt, source: "remote_fetch" },
     })
-    if (track) await store.trackMembers(account, chatId, true)
-    const tracked = (await store.trackedChats(account)).some((one) => one.chatId === chatId)
+    if (track) await store.trackMembers(chatId, true)
+    const tracked = (await store.trackedChats()).some((one) => one.chatId === chatId)
     return { chatId, read: members.length, participants, complete, more, ...change, tracked }
   },
 
-  tracked: async () => (await deps.store()).trackedChats(await deps.account()),
+  tracked: async () => (await accountStore(deps)).trackedChats(),
 
   memberHistory: async (chat, { since }) => {
-    const store = await deps.store()
-    const account = await deps.account()
-    const chatId = await storedChatId(deps.messenger, chat, store, account)
-    const [stays, revisions] = await Promise.all([
-      store.memberStays(account, chatId),
-      store.profileRevisions(account, chatId),
-    ])
+    const store = await accountStore(deps)
+    const chatId = await chatIdIn(deps.messenger, chat, store)
+    const [stays, revisions] = await Promise.all([store.memberStays(chatId), store.profileRevisions(chatId)])
     return { chatId, events: memberEvents(stays, revisions, since) }
   },
 
   trackedChat: async (chat) => {
-    const store = await deps.store()
-    const account = await deps.account()
-    const chatId = await storedChatId(deps.messenger, chat, store, account)
-    const entry = (await store.trackedChats(account)).find((one) => one.chatId === chatId)
+    const store = await accountStore(deps)
+    const chatId = await chatIdIn(deps.messenger, chat, store)
+    const entry = (await store.trackedChats()).find((one) => one.chatId === chatId)
     const since = new Date(Date.now() - TRACKED_DAYS * 86_400_000).toISOString().slice(0, 10)
     return {
       chatId,
       trackedAt: entry?.trackedAt ?? null,
-      counts: await store.memberCounts(account, chatId, { since }),
+      counts: await store.memberCounts(chatId, { since }),
     }
   },
 
   track: async (chat, tracked) => {
-    const store = await deps.store()
-    const account = await deps.account()
-    const chatId = await storedChatId(deps.messenger, chat, store, account)
-    await store.trackMembers(account, chatId, tracked)
+    const store = await accountStore(deps)
+    const chatId = await chatIdIn(deps.messenger, chat, store)
+    await store.trackMembers(chatId, tracked)
     return { chatId, tracked }
   },
 
@@ -407,13 +396,13 @@ export const chatsService = (deps: ServiceDeps): ChatsService => ({
 })
 
 /** Each sender's first stored message in the chat; `undefined` when the store holds none of it. */
-const storedFacts = async (store: MessageStore, account: AccountKey, chatId: Id) => {
-  const chat = (await store.chats(account, {})).items.find((one) => one.id === chatId)
-  const [completeness] = await store.chatCompleteness(account, [chatId])
+const storedFacts = async (store: AccountStore, chatId: Id) => {
+  const chat = (await store.chats({})).items.find((one) => one.id === chatId)
+  const [completeness] = await store.chatCompleteness([chatId])
   const firstMessages = new Map<Id, Message>()
   let before: Id | undefined
   for (;;) {
-    const page = await store.messages(account, chatId, { limit: STATS_PAGE, ...(before ? { before } : {}) })
+    const page = await store.messages(chatId, { limit: STATS_PAGE, ...(before ? { before } : {}) })
     for (const message of [...page.items].reverse()) if (message.senderId) firstMessages.set(message.senderId, message)
     const oldest = page.items[0]
     if (!page.hasMore || !oldest) break
@@ -427,11 +416,11 @@ const storedFacts = async (store: MessageStore, account: AccountKey, chatId: Id)
 }
 
 /** Oldest first. */
-const storedSince = async (store: MessageStore, account: AccountKey, chatId: Id, since: string): Promise<Message[]> => {
+const storedSince = async (store: AccountStore, chatId: Id, since: string): Promise<Message[]> => {
   const pages: Message[][] = []
   let before: Id | undefined
   for (;;) {
-    const page = await store.messages(account, chatId, { limit: STATS_PAGE, since, ...(before ? { before } : {}) })
+    const page = await store.messages(chatId, { limit: STATS_PAGE, since, ...(before ? { before } : {}) })
     pages.unshift(page.items)
     const oldest = page.items[0]
     if (!page.hasMore || !oldest) return pages.flat()
@@ -463,8 +452,8 @@ const readMembers = async (
 }
 
 /** `null` when no member list was ever saved: not knowing who is there is not nobody being there. */
-const storedMembers = async (store: MessageStore, account: AccountKey, chatId: Id): Promise<Member[] | null> => {
-  const members = (await store.members(account, chatId)).filter((one) => one.id !== account.account)
+const storedMembers = async (store: AccountStore, chatId: Id): Promise<Member[] | null> => {
+  const members = (await store.members(chatId)).filter((one) => one.id !== store.account.account)
   return members.length === 0 ? null : members
 }
 

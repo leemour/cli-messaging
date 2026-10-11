@@ -419,11 +419,17 @@ Five layers, each calling only the ones below it: the **domain** (`src/domain/`)
 (each CLI's own, behind `MessengerAdapter`), the **ports** (`port.ts`, the store), the **services**
 (`src/services/`) and the **interface** (the commands and the MCP tools). `biome.json` refuses an import of `commander` or
 of a command file from `src/services/`, `src/sends/` and `src/mcp/`: what a service or an MCP tool
-shares with a command lives in the service, and the command imports it.
+shares with a command lives in the service, and the command imports it. It also refuses a table module under
+`src/store/sqlite/` from `src/services/`, `src/sends/`, `src/mcp/` and `src/cli/`: they reach the store
+through `src/store/store.ts`, which re-exports what they need.
 
 A service is a plain object made by a factory over `ServiceDeps` (`src/services/deps.ts`): the
 messenger, `offline`, and a connection, a store and an account that are each opened on first use —
-so a read from the store never connects. `servicesFor(deps)` hands out `messages`, `chats`, `people`,
+so a read from the store never connects. A service reads and writes through `accountStore(deps)`: the store
+with the running account bound (`store.forAccount(key)`), where no call takes an account and a row id of
+another account — an attachment, a mail thread, a meeting — is not found. A read across accounts on
+purpose takes the whole store from `crossAccount(deps, reason)`. `chats`, `conversations` and
+`attachments` work this way; the other services still pair `deps.store()` with `deps.account()`. `servicesFor(deps)` hands out `messages`, `chats`, `people`,
 `inbox` and `archive`. A command gets them from `withServices` on its context, which closes what was
 opened; an MCP tool builds them over the session's connection with `onlineDeps`, or over the store
 with `storedDeps`. The services callback can also borrow the held

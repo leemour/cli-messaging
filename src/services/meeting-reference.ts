@@ -1,7 +1,7 @@
 import { CliError } from "@wirecat/cli-core"
 import type { Meeting, Transcript, TranscriptRow } from "@wirecat/cli-meetings"
 import { formatMeetingReference, type MeetingReference, parseMeetingReference } from "../domain/meeting-reference.js"
-import type { MeetingReadCapabilities } from "../store/sqlite/meeting-reads.js"
+import type { MeetingReadCapabilities } from "../store/store.js"
 
 export type MeetingReadStore = MeetingReadCapabilities
 export interface MeetingReferenceReadOptions {

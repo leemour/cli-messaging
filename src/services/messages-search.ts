@@ -9,7 +9,7 @@ import { hasStems, hasText, isStemmed, type QueryExecution, type ResolvedNode } 
 import { type QueryAst, type QueryNode, queryError, walkQuery } from "../search/lucene/types.js"
 import { inSource, sourceOf } from "../search/query.js"
 import { createStemmer, DEFAULT_STEMMERS, type Stemmer } from "../search/stem.js"
-import type { StemsState } from "../store/sqlite/stems.js"
+import type { StemsState } from "../store/store.js"
 import {
   type AccountKey,
   CHAT_LIST_KEY,

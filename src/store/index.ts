@@ -1,3 +1,4 @@
+export type { AccountMail, AccountMeetings, AccountStore } from "./account-store.js"
 export type { CacheDatabase, CacheStatement, OpenDatabase, SqlValue } from "./driver.js"
 export { PRAGMAS } from "./driver.js"
 export { MIGRATIONS, type Migration, migrate } from "./migrations.js"
@@ -80,6 +81,7 @@ export type { TagKind, TagRow } from "./sqlite/tags.js"
 export type { StoreTaskStore } from "./sqlite/tasks.js"
 export {
   type AccountKey,
+  type AccountMessageFilter,
   type AttachmentTextEntry,
   type AttachmentView,
   type ChatStats,

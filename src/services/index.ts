@@ -45,7 +45,7 @@ export { CHAT_SCAN, chatsService, EVENTS_DAYS } from "./chats.js"
 export type { BatchStatus, Built, ConversationsService, MessageLinks } from "./conversations.js"
 export { BATCH_SIZE, conversationsService } from "./conversations.js"
 export type { ServiceDeps } from "./deps.js"
-export { OFFLINE, onlineDeps, storedDeps, storeOnlyDeps } from "./deps.js"
+export { accountStore, crossAccount, OFFLINE, onlineDeps, storedDeps, storeOnlyDeps } from "./deps.js"
 export type { Embedded, EmbeddingsService, EmbedStatus, FoundConversation } from "./embeddings.js"
 export { embeddingsService } from "./embeddings.js"
 export type { EvidenceKind, EvidenceMessage, EvidencePacket, EvidencePacketInput, EvidenceSource } from "./evidence.js"
@@ -68,7 +68,7 @@ export type {
   SearchQuery,
   SendRequest,
 } from "./messages.js"
-export { DELETE_AT_ONCE, messagesService, searchStore, storedChatId } from "./messages.js"
+export { chatIdIn, DELETE_AT_ONCE, messagesService, searchStore, storedChatId } from "./messages.js"
 export type { ModerateOptions, ModerationService, ShownRules } from "./moderation.js"
 export { moderationService } from "./moderation.js"
 export type { ContactSync, PeopleService } from "./people.js"

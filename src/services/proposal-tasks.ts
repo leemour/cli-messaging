@@ -1,7 +1,6 @@
 import { CliError } from "@wirecat/cli-core"
 import { createTaskService, type Task } from "@wirecat/cli-tasks"
-import type { ProposedAction } from "../store/sqlite/proposed-actions.js"
-import type { MessageStore } from "../store/store.js"
+import type { MessageStore, ProposedAction } from "../store/store.js"
 import { taskAccount } from "./task-rules.js"
 
 export type ProposalTaskStore = Pick<MessageStore, "proposedActions" | "tasks">

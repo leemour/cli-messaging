@@ -75,6 +75,38 @@
                       "**/cli/messenger/review*"
                     ],
                     "message": "a service, a send or an MCP tool sits beside or below the commands, never on them: move the function it needs into src/services/ or src/sends/ and import it from the command instead"
+                  },
+                  {
+                    "group": ["**/store/sqlite/**"],
+                    "message": "a command, a service or an MCP tool reaches the store through src/store/store.ts, never a table module under src/store/sqlite/: import from store.ts, and re-export there what is new"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/cli/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@mtcute/*", "ws", "**/telegram/**", "**/max/**"],
+                    "message": "cli-messaging speaks no provider: an adapter translates into the domain model, and nothing here may import a messenger library or an adapter"
+                  },
+                  {
+                    "group": ["drizzle-orm", "drizzle-orm/*"],
+                    "message": "drizzle-orm is a development dependency, bundled into dist at build time: import it through src/store/sqlite/drizzle/ (add what you need to core.ts), or tg and max crash at runtime"
+                  },
+                  {
+                    "group": ["**/store/sqlite/**"],
+                    "message": "a command, a service or an MCP tool reaches the store through src/store/store.ts, never a table module under src/store/sqlite/: import from store.ts, and re-export there what is new"
                   }
                 ]
               }
