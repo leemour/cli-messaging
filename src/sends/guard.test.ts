@@ -143,6 +143,22 @@ describe("two senders at once", () => {
     expect(() => guard("g-requests", 1).check(accept)).toThrow("the next send is possible")
   })
 
+  it("counts joining a chat, so joining many is held to the hourly limit", () => {
+    const join = { chatId: null, kind: "chat" as const, action: "join" as const }
+    guard("g-join", 1).check(join)
+    expect(() => guard("g-join", 1).check(join)).toThrow("the next send is possible")
+  })
+
+  it("counts each imported number, and refuses more at once than the limit", () => {
+    const importing = { chatId: null, kind: "account" as const, action: "contact-import" as const }
+    expect(() => guard("g-import-big", 5).check({ ...importing, count: 6 })).toThrow(
+      "6 at once is more than the hourly limit",
+    )
+    guard("g-import", 5).check({ ...importing, count: 4 })
+    expect(() => guard("g-import", 5).check({ ...importing, count: 2 })).toThrow("the next send is possible")
+    expect(() => guard("g-import", 5).check({ ...importing, count: 1 })).not.toThrow()
+  })
+
   it("weighs accepting every request by how many were counted", () => {
     expect(() =>
       guard("g-requests-all", 2).check({ chatId: "111", kind: "chat", action: "requests.accept", count: 3 }),

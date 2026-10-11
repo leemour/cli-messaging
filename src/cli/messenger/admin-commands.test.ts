@@ -813,6 +813,41 @@ describe("chats create, join and leave", () => {
     for (const digits of ["600111222", "600333444", "600 111 222"]) expect(journal).not.toContain(digits)
   })
 
+  it("**imports ten numbers a request**, each counted, and says how many went before a refusal", async () => {
+    const phones = (count: number) => {
+      const file = join(mkdtempSync(join(tmpdir(), "phones-")), "phones.txt")
+      const lines = Array.from(
+        { length: count },
+        (_, index) => `999000${String(index).padStart(4, "0")}, Alice Example`,
+      )
+      writeFileSync(file, `${lines.join("\n")}\n`)
+      return file
+    }
+    const sizes: number[] = []
+    const adapter: MessengerAdapter = {
+      ...base,
+      importContacts: async (entries) => {
+        sizes.push(entries.length)
+        return []
+      },
+    }
+
+    const env = sandbox()
+    const imported = await call(["contacts", "import", phones(25), "--json"], adapter, env)
+    expect(JSON.parse(imported.stdout[0] ?? "")).toMatchObject({ sent: 25 })
+    expect(sizes).toEqual([10, 10, 5])
+
+    const busy = sandbox()
+    const journal = new SendJournal(sendsPathFor(app, "default", busy))
+    for (let sent = 0; sent < 15; sent++)
+      journal.append({ at: new Date().toISOString(), profile: "default", chatId: "7", outcome: "sent" })
+    sizes.length = 0
+    const refused = await call(["contacts", "import", phones(25)], adapter, busy)
+    expect(refused.code).toBe(8)
+    expect(refused.stderr.join("\n")).toContain("10 of 25 numbers were sent before this")
+    expect(sizes).toEqual([10])
+  })
+
   it("**changes the profile with a photo**, masking the phone, and ends other sessions only with --others", async () => {
     const env = sandbox()
     const root = mkdtempSync(join(tmpdir(), "photo-"))

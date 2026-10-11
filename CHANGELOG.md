@@ -17,6 +17,14 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   of stemmer choices now re-indexes mail as it does notes.
 - `./store` exports `MEMORY_KINDS`, `MEMORY_STATUSES`, `MEMORY_SCOPES` and `PROPOSAL_STATUSES`.
 
+### Changed — may break callers
+
+- **Joining a chat and importing contacts count toward `sendsPerHour`.** A join counts as one, an import as one per
+  number. `contacts import` sends 10 numbers a request, each request through the guard; when the limit stops it
+  part way, the `rate_limited` error says how many numbers went (`details.sent`) and that importing again is
+  safe. A flood or freeze hold on the profile now also stops joins and imports. A profile that sets
+  `contacts.import` to `ask` is asked once per 10 numbers.
+
 ## 0.230.0 — 11.10.2026
 
 ### Added
