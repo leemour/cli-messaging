@@ -67,6 +67,8 @@ by meaning; where `bot watch` takes deliveries; and the rule for merging and rel
    fills them).
 6. **Links and tags to a meeting.** `TABLES` (`src/store/sqlite/things.ts:14-28`), `TagTarget` and
    `KnowledgeTarget` have no `meeting`; add it with a resolver test. Email is in the mail handoff.
+   *Done in `feat/meeting-link-targets`: links already resolved `meeting:` references; annotations and
+   tags now take a meeting. `TagTarget` stays the messenger's chat/contact/message tags.*
 
 ## 5. What bites
 

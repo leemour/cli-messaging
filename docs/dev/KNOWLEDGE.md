@@ -8,8 +8,8 @@ about its target, a label a `taggings` row, a relationship a `links` row, a remi
 ## Annotations and labels
 
 `addAnnotation`, `annotation`, `annotations`, `editAnnotation` and `removeAnnotation` support message
-locators, chats, contact identities, persons, tasks, organizations, projects, notes and documents. The
-target is the note's subject (`notable_type`/`notable_id`); a contact note is a note about an `identity`. An
+locators, chats, contact identities, persons, tasks, organizations, projects, notes, documents and meetings.
+A meeting is named by its store id and, like a chat, belongs to the account the call names. The target is the note's subject (`notable_type`/`notable_id`); a contact note is a note about an `identity`. An
 annotation has
 a stable ID, owner authorship, creation/update times and a revision. Edits require the current revision.
 Listing accepts an optional target, literal text, limit (1–500) and offset (0–100000).
@@ -21,7 +21,7 @@ readable/editable through both interfaces. Legacy contact notes retain their exi
 policy; general source annotations retain their target reference when an identity disappears.
 
 Labels on messages/chats/identities reuse the messenger tags. Labels on a person, task, organization,
-project, note, document or notes folder are taggings on that row; a subfolder's label is a `labelled` link
+project, note, document, meeting or notes folder are taggings on that row; a subfolder's label is a `labelled` link
 from the folder, anchored at the path. A tag of kind `topic` is made by the owner only (`createTag` refuses
 an agent's: it goes to `proposedActions`), its name is never also a tag's, and `setMainTopic` marks one
 topic per thing as its main one. A reference from the old `messages.db` (a ULID, `entity:`) resolves as not found. A
