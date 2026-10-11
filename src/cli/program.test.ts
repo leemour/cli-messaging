@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { CliError, captureStreams } from "@wirecat/cli-core"
 import { Command, Option } from "commander"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { baseContext, environmentOf } from "./context.js"
 import { createProgram, type ProgramDefinition, run } from "./program.js"
 import { startRecording } from "./runs/recording.js"
@@ -135,6 +135,46 @@ describe("running a messenger CLI", () => {
     expect(closed).toBe(true)
     expect(code).toBe(9)
     expect(JSON.parse(stderr[0] ?? "").error.code).toBe("timeout")
+  })
+})
+
+describe("the default whole-command deadline", () => {
+  const hanging = async (env: NodeJS.ProcessEnv) => {
+    let started: () => void = () => {}
+    const reached = new Promise<void>((resolve) => {
+      started = resolve
+    })
+    const action = async (command: Command) => {
+      await baseContext(command, resolveSettings).run(async () => {
+        started()
+        await new Promise(() => {})
+      })
+    }
+    const streams = captureStreams()
+    const done = run(["chats", "list"], definition(action), { streams, tty: false, env })
+    await reached
+    return { done }
+  }
+
+  afterEach(() => vi.useRealTimers())
+
+  it("ends an ordinary command after 30 s, and leaves a background fetch job running", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    const ordinary = await hanging({ ...process.env })
+    await vi.advanceTimersByTimeAsync(31_000)
+    vi.useRealTimers()
+    expect(await ordinary.done).toBe(9)
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] })
+    const job = await hanging({ ...process.env, APP_BACKFILL_JOB: "20261011T000000-abcdef" })
+    await vi.advanceTimersByTimeAsync(31_000)
+    vi.useRealTimers()
+    // A command the deadline ended settles within milliseconds of real time; give it far longer.
+    const outcome = await Promise.race([
+      job.done.then(() => "ended"),
+      new Promise((resolve) => setTimeout(() => resolve("running"), 1_000)),
+    ])
+    expect(outcome).toBe("running")
   })
 })
 

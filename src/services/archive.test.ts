@@ -134,6 +134,41 @@ describe("fetching every chat", () => {
     ])
     expect(JSON.stringify(all)).not.toContain("private provider detail")
   })
+  it("sits out a short wait the chat list asks for, then fetches", async () => {
+    const store = await emptyStore()
+    let listed = 0
+    const adapter = {
+      self: () => "500",
+      chats: async () => {
+        listed += 1
+        if (listed === 1) throw new CliError("rate_limited", "provider asks to wait", { retryAfterMs: 5 })
+        return { items: [chat], hasMore: false }
+      },
+      history: async () => {
+        await store.saveMessages(account, "7", [messageAt(1)], { via: "history" })
+        return { items: [messageAt(1)], hasMore: false }
+      },
+    } as unknown as MessengerAdapter
+    const notes: string[] = []
+    const service = archiveService({
+      ...storedDeps(messenger, store, account, guard),
+      offline: false,
+      connection: async () => adapter,
+    })
+
+    const all = await service.fetchAll({
+      limit: 100,
+      pageSize: 100,
+      pauseMs: 0,
+      note: (message) => notes.push(message),
+      stop: new AbortController().signal,
+      onPage: () => {},
+    })
+
+    expect(listed).toBe(2)
+    expect(all).toMatchObject({ chats: 1, fetched: 1 })
+    expect(notes.some((note) => note.startsWith("asked to wait"))).toBe(true)
+  })
 })
 
 describe("what a search says about the archive", () => {
