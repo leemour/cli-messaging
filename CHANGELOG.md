@@ -10,6 +10,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 - **A deleted email loses its text.** `store.mail.markDeleted` now drops the email's body, HTML, snippet and its
   attachments' text, as a deleted message loses its own; saving the email again marks it present.
+- **A history fetch fails again when its first page fails for good**, as before 0.223.0: `store fetch` and a
+  bot's `store fetch` with nothing to start from exit with the error (2 for "give --from <message link>")
+  instead of 0 with `fetched: 0` and an `issue`. A wait the messenger asks for still ends as a partial result
+  with `issue`, as does any failure after some pages.
 
 ## 0.225.0 — 11.10.2026
 

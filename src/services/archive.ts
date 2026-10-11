@@ -383,7 +383,10 @@ export const fetchInto = async ({
         stop,
       )
     } catch (error) {
-      if (!stop.aborted) issue = actionable(error)
+      if (stop.aborted) break
+      issue = actionable(error)
+      // Before the first page there is nothing to resume, and only a wait is worth reporting as partial.
+      if (chatId === undefined && !issue.retryable) throw error
       break
     }
     if ((page as { partial?: boolean }).partial) break
