@@ -4,6 +4,16 @@ Notable changes to `@wirecat/cli-messaging` (`@wirecat/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+
+## Unreleased
+
+### Added
+
+- **Mail in its own tables reaches every reader.** Any search whose accounts include an email account now reads
+  the mail tables too, not only `search mail`: a unified search across messengers and mail (memo's) finds mail
+  that memo saves through `store.mail`. In such a search a messenger field (`kind:`, `topic:`) leaves mail out
+  instead of failing. `personContext` adds a person's emails from the mail tables to their direct
+  correspondence, and an email address first seen in mail gets its own person, as a messenger contact does.
 ## 0.227.0 — 11.10.2026
 
 ### Added

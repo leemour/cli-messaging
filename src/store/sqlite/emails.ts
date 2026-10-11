@@ -6,8 +6,9 @@ import type { CacheDatabase, SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
 import type { StoredHit } from "../store.js"
 import { bool, flag, fromJson, int, page, str, toJson } from "./events.js"
+import { ensurePerson } from "./identities.js"
 import { type AttachmentInput, attachmentOf, saveAttachment, wordsQuery } from "./meetings.js"
-import type { StoreContext } from "./open.js"
+import type { Orm, StoreContext } from "./open.js"
 import { inBatch } from "./search-index.js"
 
 type Row = Record<string, unknown>
@@ -268,11 +269,13 @@ const titleOf = (subject: string | null): string | null =>
 /** An address is an identity of provider `email`; a display name fills only a nameless one. */
 const addressIdentity = (
   database: CacheDatabase,
+  orm: Orm,
   accountId: number,
   { address, name }: EmailAddress,
   now: number,
 ): number => {
   const id = identityOf(database, { address, name }, now)
+  ensurePerson(orm, id, name, now)
   // The account has seen them, so `from:` and the people of the account find mail correspondents.
   database
     .prepare(
@@ -336,13 +339,20 @@ const join = (database: CacheDatabase, emailId: number, mailboxId: number, now: 
     .prepare("INSERT OR IGNORE INTO email_mailboxes (email_id, mailbox_id, created_at) VALUES (?, ?, ?)")
     .run(emailId, mailboxId, now)
 
-const saveEmail = (database: CacheDatabase, accountId: number, threadId: number, mail: EmailInput, now: number) => {
+const saveEmail = (
+  database: CacheDatabase,
+  orm: Orm,
+  accountId: number,
+  threadId: number,
+  mail: EmailInput,
+  now: number,
+) => {
   if (!mail.externalId) throw new Error("Invalid email key")
   const from = mail.from ? { ...mail.from, address: mail.from.address.trim().toLowerCase() } : null
   const values: [string, SqlValue][] = [
     ["email_thread_id", threadId],
     ["subject", mail.subject],
-    ["from_identity_id", from ? addressIdentity(database, accountId, from, now) : null],
+    ["from_identity_id", from ? addressIdentity(database, orm, accountId, from, now) : null],
     ["from_address", from?.address ?? null],
     ["from_name", from?.name ?? null],
     ["sent_at", mail.sentAt],
@@ -397,7 +407,7 @@ const saveEmail = (database: CacheDatabase, accountId: number, threadId: number,
     for (const [field, role] of ROLES)
       for (const recipient of mail[field] ?? []) {
         const address = recipient.address.trim().toLowerCase()
-        const identity = addressIdentity(database, accountId, recipient, now)
+        const identity = addressIdentity(database, orm, accountId, recipient, now)
         insert.run(emailId, identity, address, recipient.name, role, position++, now, now)
       }
   }
@@ -424,7 +434,7 @@ const saveEmail = (database: CacheDatabase, accountId: number, threadId: number,
   return found ? Number(found.email_thread_id) : null
 }
 
-const saveThread = (database: CacheDatabase, input: ThreadSave): number => {
+const saveThread = (database: CacheDatabase, orm: Orm, input: ThreadSave): number => {
   const { accountId, externalId, now } = input
   if (!Number.isSafeInteger(accountId) || accountId <= 0 || !externalId) throw new Error("Invalid thread key")
   const found = database
@@ -446,7 +456,7 @@ const saveThread = (database: CacheDatabase, input: ThreadSave): number => {
     database.prepare("UPDATE email_threads SET metadata = ? WHERE id = ?").run(toJson(input.metadata), threadId)
   const moved = new Set<number>()
   for (const mail of input.emails) {
-    const before = saveEmail(database, accountId, threadId, mail, now)
+    const before = saveEmail(database, orm, accountId, threadId, mail, now)
     if (before !== null && before !== threadId) moved.add(before)
   }
   const first = database
@@ -577,11 +587,11 @@ export const drainEmailIndex = (database: CacheDatabase, stemmer?: Stemmer, batc
 }
 
 export const mailStoreOver = (
-  { database }: Pick<StoreContext, "database">,
+  { database, orm }: Pick<StoreContext, "database" | "orm">,
   stemmer?: () => Stemmer | undefined,
 ): MailStore => ({
   async saveThread(input) {
-    const id = inBatch(database, () => saveThread(database, input))
+    const id = inBatch(database, () => saveThread(database, orm, input))
     return threadDetails(database, id) as ThreadDetails
   },
   async threads(filter = {}) {

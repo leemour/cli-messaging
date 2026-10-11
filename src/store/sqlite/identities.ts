@@ -123,7 +123,8 @@ const revise = (orm: Orm, identity: number, next: Profile, at: number, before?: 
   return last !== undefined
 }
 
-const ensurePerson = (orm: Orm, identity: number, name: string | null, at: number): void => {
+/** A new identity's own person, as ingest gives every identity; one already linked keeps its person. */
+export const ensurePerson = (orm: Orm, identity: number, name: string | null, at: number): void => {
   if (
     orm.select({ id: identityLinks.identityId }).from(identityLinks).where(eq(identityLinks.identityId, identity)).get()
   )
