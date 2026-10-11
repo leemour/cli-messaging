@@ -4,7 +4,21 @@ Notable changes to `@wirecat/cli-messaging` (`@wirecat/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
-## 0.224.1 — 11.10.2026
+## Unreleased
+
+## 0.225.0 — 11.10.2026
+
+### Added
+
+- Meeting semantic library helpers query an explicitly opened model and current cached chunks without
+  rebuilding or generating vectors. Separate preview and explicit bounded generation retain account,
+  revision and cue provenance, and atomically skip sources corrected or deleted during model inference.
+
+### Changed — may break callers
+
+- Meeting evidence, reference resolution, person context and explicit task provenance now require bounded
+  account-scoped meeting read capabilities. Evidence uses separate stored-text page and output JSON budgets,
+  seek continuation and observed coverage; capped reads do not claim exact omitted totals or a cross-page snapshot.
 
 ### Fixed
 
@@ -14,9 +28,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
-- Meeting semantic library helpers query an explicitly opened model and current cached chunks without
-  rebuilding or generating vectors. Separate preview and explicit bounded generation retain account,
-  revision and cue provenance, and atomically skip sources corrected or deleted during model inference.
+- Explicit meeting embedding model descriptors and factories reuse installed local models and the remote
+  embedding engine, with bounded input and response bytes, cancellation and refused redirects. No model
+  is opened, downloaded or inferred during a descriptor preview.
 
 - Meeting transcript vectors reuse shared content hashes and embeddings with explicit models, bounded
   account-scoped current-revision reads and scan continuation. No model setup or network call runs automatically.
@@ -64,10 +78,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - Meeting evidence, reference resolution, person context and explicit task provenance now require bounded
   account-scoped meeting read capabilities. Evidence uses separate stored-text page and output JSON budgets,
   seek continuation and observed coverage; capped reads do not claim exact omitted totals or a cross-page snapshot.
-- Explicit meeting embedding model descriptors and factories reuse installed local models and the remote
-  embedding engine, with bounded input and response bytes, cancellation and refused redirects. No model
-  is opened, downloaded or inferred during a descriptor preview.
-
 
 - Dedicated canonical meeting references identify an account, meeting, retained transcript revision
   and optional cue position. The general reference and knowledge-target APIs keep their existing contracts.
