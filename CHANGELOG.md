@@ -5,7 +5,7 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
-## Unreleased
+## 0.230.0 — 11.10.2026
 
 ### Added
 
@@ -15,10 +15,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   result, and `proposedActions.list` lists proposals newest first, optionally by status.
 - **`agentActions.list` filters by the agent's name** (`agent: "tg-mcp"`), and each row's `actor` carries
   `name`.
-
-## 0.230.0 — 11.10.2026
-
-### Added
 
 - **Meeting consumers share the foundational SDK.** The exact cli-meetings 0.3.0 dependency exposes
   optional provider-neutral management, recording transfer, durable archive synchronization and
