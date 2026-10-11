@@ -208,6 +208,7 @@ export {
 export type { QueryMetadata, SearchCoverage } from "./messages-search.js"
 export { metadataService } from "./metadata.js"
 export {
+  embedMail,
   embedNotes,
   type FoundNote,
   type LinkedRecord,

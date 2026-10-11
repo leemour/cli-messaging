@@ -236,3 +236,38 @@ describe("search mail over the mail tables", () => {
     expect(context.recent.groups).toEqual([])
   })
 })
+
+describe("mail by meaning", () => {
+  const MODEL = "test:model:2"
+  const unit = (x: number, y: number) => new Float32Array([x, y])
+
+  it("hands out each email chunk once and answers nearest conversations with email threads", async () => {
+    const { store, accountId } = await seeded()
+    const chunks = await store.mail.chunksToEmbed(MODEL, { limit: 10 })
+    expect(chunks.length).toBe(3)
+    await store.saveVectors(
+      MODEL,
+      2,
+      chunks.map(({ hash, text }) => ({ hash, vector: text.includes("Lunch") ? unit(0, 1) : unit(1, 0) })),
+    )
+    expect(await store.mail.chunksToEmbed(MODEL, { limit: 10 })).toEqual([])
+
+    const [best] = await store.nearestConversations(MAIL, { model: MODEL, query: unit(0, 1), limit: 2 })
+    expect(best).toMatchObject({
+      summary: { chatId: "thread-2", firstMessageId: "<three@example.com>", messageCount: 1 },
+      chunk: { firstMessageId: "<three@example.com>", lastMessageId: "<three@example.com>" },
+      score: 1,
+    })
+    const inThread = await store.nearestConversations(MAIL, {
+      model: MODEL,
+      query: unit(0, 1),
+      limit: 5,
+      chatId: "thread-1",
+    })
+    expect(inThread.map(({ chunk }) => chunk.firstMessageId).sort()).toEqual(["<one@example.com>", "<two@example.com>"])
+
+    await store.mail.markDeleted(accountId, ["<three@example.com>"], at(30))
+    const after = await store.nearestConversations(MAIL, { model: MODEL, query: unit(0, 1), limit: 5 })
+    expect(after.map(({ chunk }) => chunk.firstMessageId)).not.toContain("<three@example.com>")
+  })
+})

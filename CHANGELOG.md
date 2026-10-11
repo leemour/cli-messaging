@@ -9,6 +9,12 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
+- **Mail in its own tables is found by meaning.** Emails are indexed as notes are (words, stems and chunks, one
+  shared recipe), and `embedMail(store)` embeds their chunks with the local model that conversations and notes
+  use. For an email account, `nearestConversations` — what `search conversations` and `related` read — answers
+  with email threads too: the thread as the chat, the email as the message, so a hit keeps its `msg:email/…`
+  locator. Its word half still reads mail stored as messages only; `search mail` finds mail by words. A change
+  of stemmer choices now re-indexes mail as it does notes.
 - `./store` exports `MEMORY_KINDS`, `MEMORY_STATUSES`, `MEMORY_SCOPES` and `PROPOSAL_STATUSES`.
 
 ## 0.230.0 — 11.10.2026
