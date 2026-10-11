@@ -20,6 +20,9 @@ import {
 import { mailAround, mergeMail, withMailThreads } from "./mail-search.js"
 import { chatAmong, type SearchFound, type SearchQuery, senderAmong } from "./messages.js"
 import { accountsOfKind, MAIL } from "./search-kind.js"
+
+const MAIL_FIELDS = new Set(["to", "cc", "bcc", "subject", "mailbox"])
+
 import type { SearchRefreshed } from "./search-refresh.js"
 
 export interface QueryMetadata {
@@ -153,6 +156,9 @@ export const prepareLucene = async (
   )
   const scopeAccounts = accounts.map(({ provider, account }) => ({ provider, account }))
   const chatLookup = scopeAccounts.some(({ provider }) => provider === MAIL) ? withMailThreads(store) : store
+  const mailField = leaves.find(({ field }) => MAIL_FIELDS.has(field))
+  if (mailField && !scopeAccounts.some(({ provider }) => provider === MAIL))
+    queryError("unsupported_field", mailField.span, `${mailField.field}: is a mail field — search mail reads it`)
   const globalChat =
     request.chat === undefined ? undefined : await chatAmong(messenger, chatLookup, scopeAccounts, request.chat)
   const resolve = async (node: QueryNode): Promise<ResolvedNode> => {
@@ -163,6 +169,8 @@ export const prepareLucene = async (
       }
     if (node.field === "chat")
       return { ...node, resolution: { chat: await chatAmong(messenger, chatLookup, scopeAccounts, node.value) } }
+    if (node.field === "to" || node.field === "cc" || node.field === "bcc")
+      return { ...node, resolution: { sender: await senderAmong(store, scopeAccounts, node.value) } }
     if (node.field === "from")
       return node.value.toLowerCase() === "me"
         ? { ...node, resolution: { outgoing: true } }
