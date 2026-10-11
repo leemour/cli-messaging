@@ -76,8 +76,8 @@ export interface SearchQuery {
   /** Where to search: the local archive, the messenger's server, or both (the default). */
   backend?: Backend
   server?: ServerOptions
-  /** Only these messages of the account it runs as — `--backend server` searches what the server returned. */
-  only?: { chatId: Id; id: Id }[]
+  /** Only these messages, each named with its account — `--backend server` searches what the server returned. */
+  only?: (AccountKey & { chatId: Id; id: Id })[]
   /** Strict Lucene by default; legacy discovery is explicit through language or a RegExp pattern. */
   text?: string
   discover?: boolean
@@ -256,7 +256,7 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
       query.backend === "server" && server
         ? [...server.sources.keys()].map((key) => {
             const [chatId, id] = JSON.parse(key) as [Id, Id]
-            return { chatId, id }
+            return { ...account, chatId, id }
           })
         : undefined
     const found = await searchStore(store, account, only ? { ...query, only } : query, deps.messenger)
@@ -268,7 +268,7 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
     async (query: SearchQuery): Promise<SearchFound> => {
       await topUp(store)
       const { found, server } = await serverThenStore(store, account, query)
-      return withServer(found, server)
+      return withServer(found, account, server)
     }
 
   /**
@@ -467,7 +467,7 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
         if (query.backend !== undefined && query.backend !== "archive") await topUp(store)
         const { found, server } = await serverThenStore(store, account, query)
         if (query.kind !== "mail") await remember(store, "search", query)
-        return withServer(withRefresh(found, refreshed), server)
+        return withServer(withRefresh(found, refreshed), account, server)
       })
     },
 
@@ -694,14 +694,17 @@ const withThreads = async (store: MessageStore, found: SearchFound, request: Sea
   return { ...found, items }
 }
 
-const withServer = <T extends SearchFound>(found: T, server?: ServerStep): T =>
+/** The server answers for the account it runs as only; another account's message with the same ids is the archive's. */
+const withServer = <T extends SearchFound>(found: T, account: AccountKey, server?: ServerStep): T =>
   server
     ? {
         ...found,
         server: server.report,
         items: found.items.map((hit) => ({
           ...hit,
-          source: server.sources.get(sourceKey(hit.chatId, hit.id)) ?? "archive",
+          source:
+            (keyOf(accountOf(hit)) === keyOf(account) && server.sources.get(sourceKey(hit.chatId, hit.id))) ||
+            "archive",
         })),
       }
     : found
