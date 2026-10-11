@@ -59,11 +59,12 @@ const allCommand = (messenger: Messenger): Command => {
   const command = new Command("all")
     .description(
       (messenger.serverSearch
-        ? "search everything the local store holds, and the messenger's server for messages (--backend; mail and " +
-          "notes are local only)"
-        : "search everything the local store holds") +
-        " — messenger messages, mail and notes, and with --meetings a meeting account's transcripts — best match " +
-        "first; start here when you do not know where something was written",
+        ? "search messenger messages, mail and notes in the local store, and the messenger's server for messages " +
+          "(--backend; mail and notes are local only)"
+        : "search messenger messages, mail and notes in the local store") +
+        ", and with --meetings a meeting account's transcripts — best match first; not tasks, people, memories or " +
+        "projects. Use it when you do not know where something was written; search mail, messages or notes reads one " +
+        "kind with all its fields",
     )
     .argument("<query...>", 'strict Lucene query: words, "phrases", AND/OR/NOT, field groups and date ranges')
     .option(
@@ -203,7 +204,7 @@ const notesCommand = (messenger: Messenger): Command =>
  */
 export const searchCommand = (messenger: Messenger, { topics = false }: { topics?: boolean } = {}): Command => {
   const search = new Command("search").description(
-    "find things by text: search all for everything the local store holds, or one resource",
+    "find things by text: one resource when you know it (mail, messages, notes), or search all across messages, mail and notes",
   )
   search
     .addCommand(allCommand(messenger))

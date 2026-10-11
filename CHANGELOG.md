@@ -14,6 +14,14 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   They are mail fields: a search that holds no mail account refuses them; in a search across messengers and mail
   they match mail only.
 
+### Changed — may break callers
+
+- **`search all` says what it does not search.** Its help, `search` help and the `search_all` tool description
+  name the three kinds it reads (messages, mail, notes; meetings on request), list what it skips (tasks, people,
+  memories, projects, organizations, decisions), send a known kind to its own search (`search mail` with `to:`,
+  `cc:`, `subject:`, `mailbox:`; `search_conversations` by meaning), and say what to try after an empty answer.
+  The tool's title is "Search messages, mail and notes".
+
 ## 0.231.0 — 11.10.2026
 
 ### Added

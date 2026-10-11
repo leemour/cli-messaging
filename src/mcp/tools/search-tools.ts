@@ -25,17 +25,20 @@ const timezone = v.optional(v.pipe(v.string(), v.description("the IANA timezone 
 /** One tool per `search` leaf; `search_all` is the one an agent reaches for first. */
 export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
   search_all: tool({
-    title: "Search everything",
+    title: "Search messages, mail and notes",
     description:
-      "Start here to find anything by text: messenger messages, mail and notes held in the local store, merged best " +
-      "first. Where the messenger's server can search, it is asked for messages too, as search_messages asks it " +
+      "Messenger messages, mail and notes held in the local store, merged best first — only these three kinds, and " +
+      "one meeting account with `meetings`; tasks, people, memories, projects, organizations and decisions are not " +
+      "searched here. Use it when you do not know where something was written. When you know the kind, call its own " +
+      "tool: search_mail (with from:, to:, cc:, subject:, mailbox:), search_messages, search_notes, or " +
+      "search_conversations to find by meaning. An empty answer means none of the three holds it: try the kind's own " +
+      "tool, looser words or search by meaning before you conclude it was never written. Where the messenger's server can search, it is asked for messages too, as search_messages asks it " +
       "(backend=both by default; archive for the local store only; server for the server's hits only) — mail and " +
       "notes are local only. Each item says its kind (message, mail, note), ref (msg:… or note:…), provider and account. A query " +
       "field one kind lacks skips that kind and `skipped` says why; `only` narrows the kinds. With `meetings`, one " +
       "meeting account's transcripts, chat and summaries join in as kind meeting, with meetingId, scope, id and " +
       "startMs instead of a ref, and a null timestamp when the start is unknown; true picks the one stored account " +
-      "that holds meetings and refuses when several do. An empty answer means the store does not hold it, not that " +
-      "it was never written. Returns { query, items, hasMore, searched, skipped, notes?, meetings?, server? }; " +
+      "that holds meetings and refuses when several do. Returns { query, items, hasMore, searched, skipped, notes?, meetings?, server? }; " +
       "hasMore is null when a bounded meeting scan could not tell.",
     input: v.object({
       // Typed as present so the answer code reads them; offered only where the server can search.
