@@ -6,6 +6,11 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+### Fixed
+
+- **A deleted email loses its text.** `store.mail.markDeleted` now drops the email's body, HTML, snippet and its
+  attachments' text, as a deleted message loses its own; saving the email again marks it present.
+
 ## 0.225.0 — 11.10.2026
 
 ### Added
