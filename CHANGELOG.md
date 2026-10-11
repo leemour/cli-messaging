@@ -8,6 +8,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
+- Meeting semantic library helpers query an explicitly opened model and current cached chunks without
+  rebuilding or generating vectors. Separate preview and explicit bounded generation retain account,
+  revision and cue provenance, and atomically skip sources corrected or deleted during model inference.
+
 - Meeting transcript vectors reuse shared content hashes and embeddings with explicit models, bounded
   account-scoped current-revision reads and scan continuation. No model setup or network call runs automatically.
 - Memories and decisions retain canonical meeting, transcript revision and cue evidence across reopen
