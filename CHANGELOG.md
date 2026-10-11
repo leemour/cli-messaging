@@ -9,6 +9,20 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
+- **Meeting SDK 0.4.0 integration** adds scoped explicit event/person associations, moving only the
+  chosen participant identity with a manual audit and account observation. Shared context services
+  reuse existing notes, tags and memories; native writes recheck live ownership and optional prior
+  values in one transaction. Existing memo commands remain the knowledge interface.
+- **Bounded meeting hit pages and explicit indexing** support continuation inside a large meeting,
+  account/query-bound cursors, stored text byte budgets and small account indexing batches. Coverage
+  reports pending indexing and unknown archive completeness; read pages do not drain queues.
+- **Exact transcript append receipts** count occurrence creation, inserted/replayed revisions and
+  superseded revisions in the same transaction. The old append port is unchanged; the receipt's
+  full meeting snapshot still hydrates retained history.
+- **Installed-only local speech recognition** exposes the existing engine through bounded mono PCM
+  windows and output text, with pinned model provenance and cancellation between synchronous
+  windows. Importing the speech entry point loads no engine and installs no model.
+
 - **`store.forAccount(key)` binds a store to one account.** The same calls without the account argument; `find`
   and `search` take no `account`, `accounts` or `provider`. `localPathOf` and `keepAttachmentText` refuse an
   attachment of another account (`not_found`); its `mail` and `meetings` read only that account, and
