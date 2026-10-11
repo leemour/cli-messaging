@@ -1,17 +1,23 @@
+import { CliError } from "@wirecat/cli-core"
 import type {
   Attachment,
   ChatLine,
+  MeetingContextStore,
   MeetingDetails,
   MeetingFilter,
   MeetingSave,
+  MeetingSearchIndexStore,
+  MeetingSearchStore,
   MeetingSeries,
   MeetingStore,
+  MeetingTranscriptReceiptStore,
   MeetingTranscriptStore,
   NewRecord,
   Participant,
   SearchHit,
   Summary,
   TranscriptAppend,
+  TranscriptAppendReceipt,
 } from "@wirecat/cli-meetings"
 import { MeetingError } from "@wirecat/cli-meetings"
 import type { CacheDatabase, SqlValue } from "../driver.js"
@@ -19,6 +25,9 @@ import { normalize } from "../normalize.js"
 import * as eventQueries from "./events.js"
 import { fromJson, int, page, str, toJson } from "./events.js"
 import { meetingIdentityPk } from "./identities.js"
+import { meetingContextLinksOver } from "./meeting-context-links.js"
+import { meetingHitIndexOver } from "./meeting-hit-index.js"
+import { meetingHitSearchOver } from "./meeting-hit-search.js"
 import { type MeetingReadCapabilities, meetingReadsOver } from "./meeting-reads.js"
 import { meetingOf, transcriptOf, transcriptRowOf } from "./meeting-values.js"
 import type { StoreContext } from "./open.js"
@@ -32,7 +41,7 @@ const CURSOR_KEY = "meetings"
  * Transcript rows, chat messages and summaries share `meeting_words` and their ids overlap, so each rowid is
  * the source id times 4 plus a type code: `rowid % 4` names the table, `rowid / 4` the id. Code 0 is unused.
  */
-const INDEX_CODES = { meeting_transcript_row: 1, meeting_chat_message: 2, meeting_summary: 3 } as const
+export const INDEX_CODES = { meeting_transcript_row: 1, meeting_chat_message: 2, meeting_summary: 3 } as const
 type Indexable = keyof typeof INDEX_CODES
 export const meetingRowid = (type: Indexable, id: number): number => id * 4 + INDEX_CODES[type]
 
@@ -371,7 +380,8 @@ const saveTranscripts = (
   transcripts: NonNullable<MeetingSave["transcripts"]>,
   participantId: (position: number | null) => number | null,
   now: number,
-): void => {
+): { insertedTranscripts: number; replayedTranscripts: number; supersededTranscripts: number } => {
+  const counts = { insertedTranscripts: 0, replayedTranscripts: 0, supersededTranscripts: 0 }
   const sameContent = database.prepare(
     "SELECT 1 FROM meeting_transcripts WHERE meeting_id = ? AND source = ? AND content_hash = ?",
   )
@@ -388,10 +398,14 @@ const saveTranscripts = (
        speaker_name, text, normalized_text, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
   for (const { rows, ...t } of transcripts) {
-    if (t.contentHash !== null && sameContent.get(meetingId, t.source, t.contentHash)) continue
+    if (t.contentHash !== null && sameContent.get(meetingId, t.source, t.contentHash)) {
+      counts.replayedTranscripts++
+      continue
+    }
     for (const row of rows)
       if (!Number.isSafeInteger(row.position) || row.position < 0) throw new Error("Invalid transcript position")
-    supersede.run(now, now, meetingId, t.source)
+    counts.supersededTranscripts += Number(supersede.run(now, now, meetingId, t.source).changes)
+    counts.insertedTranscripts++
     const transcriptId = Number(
       insertTranscript.get(
         meetingId,
@@ -420,9 +434,10 @@ const saveTranscripts = (
         now,
       )
   }
+  return counts
 }
 
-const append = (context: StoreContext, input: TranscriptAppend): MeetingDetails => {
+const append = (context: StoreContext, input: TranscriptAppend): TranscriptAppendReceipt => {
   const invalid = (message: string): never => {
     throw new MeetingError("validation_error", message)
   }
@@ -477,7 +492,7 @@ const append = (context: StoreContext, input: TranscriptAppend): MeetingDetails 
           },
           now: input.now,
         })
-    saveTranscripts(
+    const counts = saveTranscripts(
       database,
       meetingId,
       input.transcripts.map((t) => ({
@@ -487,7 +502,7 @@ const append = (context: StoreContext, input: TranscriptAppend): MeetingDetails 
       () => null,
       input.now,
     )
-    return details(database, meetingId) as MeetingDetails
+    return { meeting: details(database, meetingId) as MeetingDetails, created: !existing, ...counts }
   })
 }
 
@@ -512,12 +527,14 @@ const filtered = (filter: MeetingFilter = {}) => {
   }
 }
 
-const indexedText = (database: CacheDatabase, type: string, id: number): string | null => {
+export const indexedText = (database: CacheDatabase, type: string, id: number): string | null => {
   if (type === "meeting_transcript_row")
     return str(database.prepare("SELECT text FROM meeting_transcript_rows WHERE id = ?").get(id)?.text)
   if (type === "meeting_chat_message")
     return str(database.prepare("SELECT text FROM meeting_chat_messages WHERE id = ?").get(id)?.text)
-  const row = database.prepare("SELECT * FROM meeting_summaries WHERE id = ?").get(id)
+  const row = database
+    .prepare("SELECT title,overview,sections,next_steps,content FROM meeting_summaries WHERE id = ?")
+    .get(id)
   return row ? summaryText(summaryOf(row)) : null
 }
 
@@ -616,12 +633,29 @@ const participants = (database: CacheDatabase, query: string, accountId?: number
 /** The `MeetingStore` of `@wirecat/cli-meetings` over the shared store. */
 export const meetingStoreOver = (
   context: StoreContext,
-): MeetingStore & MeetingTranscriptStore & MeetingReadCapabilities => {
+): MeetingStore &
+  MeetingTranscriptStore &
+  MeetingReadCapabilities &
+  MeetingSearchStore &
+  MeetingTranscriptReceiptStore &
+  MeetingContextStore &
+  MeetingSearchIndexStore => {
   const { database } = context
   return {
     ...meetingReadsOver(context),
+    ...meetingHitSearchOver(context),
+    ...meetingHitIndexOver(context),
+    ...meetingContextLinksOver(context),
+    async appendTranscriptsWithReceipt(input) {
+      try {
+        return append(context, input)
+      } catch (error) {
+        if (error instanceof MeetingError) throw new CliError(error.code, error.message)
+        throw error
+      }
+    },
     async appendTranscripts(input) {
-      return append(context, input)
+      return append(context, input).meeting
     },
     async saveMeeting(input) {
       const id = inBatch(database, () => save(context, input))

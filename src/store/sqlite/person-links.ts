@@ -95,6 +95,48 @@ const move = (context: StoreContext, identityPk: number, from: number, to: numbe
     .run()
 }
 
+/** A reviewed meeting participant association moves only its selected identity. */
+export const linkIdentityToPerson = (
+  context: StoreContext,
+  identityPk: number,
+  target: number,
+  options: LinkOptions,
+): void => {
+  const found = context.orm
+    .select({ personId: identityLinks.personId })
+    .from(identityLinks)
+    .where(eq(identityLinks.identityId, identityPk))
+    .get()
+  if (found) {
+    move(context, identityPk, found.personId, target, options)
+    return
+  }
+  const at = context.now()
+  context.orm
+    .insert(identityLinks)
+    .values({
+      identityId: identityPk,
+      personId: target,
+      method: options.method,
+      confidence: 1,
+      createdAt: at,
+      updatedAt: at,
+      author: options.by,
+    })
+    .run()
+  context.orm
+    .insert(identityLinkEvents)
+    .values({
+      identityId: identityPk,
+      fromPersonId: null,
+      toPersonId: target,
+      method: options.method,
+      createdAt: at,
+      author: options.by,
+    })
+    .run()
+}
+
 /**
  * Makes `other` and everyone already linked to it the same person as `person`. Never inferred from a
  * name: a caller links only what someone decided belongs together, and says how in `method`.

@@ -1,7 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import { CliError } from "@wirecat/cli-core"
-import type { MeetingStore, MeetingTranscriptStore } from "@wirecat/cli-meetings"
+import type {
+  MeetingContextStore,
+  MeetingSearchIndexStore,
+  MeetingSearchStore,
+  MeetingStore,
+  MeetingTranscriptReceiptStore,
+  MeetingTranscriptStore,
+} from "@wirecat/cli-meetings"
 import type { TextRange } from "../conversations/chunks.js"
 import type { Link, LinkInput } from "../conversations/link.js"
 import type { DownloadedFile } from "../domain/attachments.js"
@@ -604,7 +611,13 @@ export interface MessageStore {
   readonly agentActions: AgentActionsStore
   /** Meetings and calendar events: the port `@wirecat/cli-meetings` defines. */
   readonly meetingVectors: MeetingVectors
-  readonly meetings: MeetingStore & MeetingTranscriptStore & MeetingReadCapabilities
+  readonly meetings: MeetingStore &
+    MeetingTranscriptStore &
+    MeetingReadCapabilities &
+    MeetingSearchStore &
+    MeetingTranscriptReceiptStore &
+    MeetingContextStore &
+    MeetingSearchIndexStore
   /** Email threads, emails, recipients and mailboxes. */
   readonly mail: MailStore
   close(): Promise<void>
