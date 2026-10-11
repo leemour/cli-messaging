@@ -5,11 +5,11 @@ import { walkQuery } from "./lucene/types.js"
 export const words = (text: string) => normalize(text).match(/[\p{L}\p{N}]+/gu) ?? []
 const scaffolding = new Set(
   words(
-    "what which how many much who where when is are was were do does did can could should we the a an for of to under from in on at has have сколько какой какая какие какое кто кому кем где когда как что во по на в к с у через ли должен должна нужно идёт идет",
+    "what which how many much who where when is are was were do does did can could should we the a an for of to under from in on at has have сколько какой какая какие какое кто кому кем где когда как что во по на в к с у через ли должен должна нужно идёт идет можно может могут",
   ),
 )
 const questionWord =
-  /\b(?:what|which|how|who|where|when)\b|(?:^|\s)(?:сколько|какой|какая|какие|какое|кто|кому|кем|где|когда|как|что)(?:\s|$)/iu
+  /\b(?:what|which|how|who|where|when|can|could|should)\b|(?:^|\s)(?:сколько|какой|какая|какие|какое|кто|кому|кем|где|когда|как|что|можно|может|могут|ли)(?:\s|$)/iu
 export function planQuestion(text: string, strict = false) {
   if (strict)
     return {
@@ -34,6 +34,9 @@ export function planQuestion(text: string, strict = false) {
       "who",
       "where",
       "when",
+      "can",
+      "could",
+      "should",
       "сколько",
       "какои",
       "какая",
@@ -46,6 +49,9 @@ export function planQuestion(text: string, strict = false) {
       "когда",
       "как",
       "что",
+      "можно",
+      "может",
+      "могут",
     ].includes(prefix[0] ?? "") ||
     (["к", "во"].includes(prefix[0] ?? "") && ["кому", "сколько"].includes(prefix[1] ?? ""))
   const natural = questionWord.test(body) && (/\?/u.test(body) || questionPrefix)

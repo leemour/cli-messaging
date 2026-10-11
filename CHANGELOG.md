@@ -5,6 +5,15 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
+## Unreleased
+
+### Fixed
+
+- Opt-in discovery recognizes English permission questions starting with “can”, “could” or “should”
+  and Russian questions containing “можно”, “может”, “могут” or “ли”. Their question mark no longer
+  acts as a wildcard that prevents partial evidence retrieval. Subjects, negation and filters remain
+  visible; explicit query syntax and strict search keep their existing behavior.
+
 ## 0.228.0 — 11.10.2026
 
 ### Added

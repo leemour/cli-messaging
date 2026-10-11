@@ -78,6 +78,17 @@ describe("archive discovery", () => {
       (await searchStore(store, account, { ...request("What time does Helix export run?"), discover: false })).items,
     ).toEqual([])
   })
+  it("retrieves partial evidence for permission questions while retaining sender filters", async () => {
+    const store = await open()
+    for (const text of ["Can operators run Helix export?", "Могут операторы выполнить Helix export?"]) {
+      const query = request(`${text} from:700`)
+      const found = await searchStore(store, account, query)
+      expect(found.query?.discovery?.method).toBe("lexical-partial")
+      expect(ids(found)).toContain("2")
+      expect(ids(found)).not.toContain("3")
+      expect(await searchStore(store, account, { ...query, discover: false })).toMatchObject({ items: [] })
+    }
+  })
   it("preserves used correction provenance for keyword discovery", async () => {
     const store = await open()
     await store.saveMessages(account, "101", [msg("6", "Helix rollout confirmed")], { via: "synthetic" })
