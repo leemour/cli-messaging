@@ -419,7 +419,9 @@ Five layers, each calling only the ones below it: the **domain** (`src/domain/`)
 (each CLI's own, behind `MessengerAdapter`), the **ports** (`port.ts`, the store), the **services**
 (`src/services/`) and the **interface** (the commands and the MCP tools). `biome.json` refuses an import of `commander` or
 of a command file from `src/services/`, `src/sends/` and `src/mcp/`: what a service or an MCP tool
-shares with a command lives in the service, and the command imports it.
+shares with a command lives in the service, and the command imports it. It also refuses a table module under
+`src/store/sqlite/` from `src/services/`, `src/sends/`, `src/mcp/` and `src/cli/`: they reach the store
+through `src/store/store.ts`, which re-exports what they need.
 
 A service is a plain object made by a factory over `ServiceDeps` (`src/services/deps.ts`): the
 messenger, `offline`, and a connection, a store and an account that are each opened on first use —

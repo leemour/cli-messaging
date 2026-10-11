@@ -1,8 +1,7 @@
 import { parseLocator } from "../domain/locator.js"
 import type { Chat, Message, Page } from "../domain/models.js"
-import { messageOfEmail } from "../store/sqlite/emails.js"
-import type { ScoredHit } from "../store/sqlite/words.js"
-import type { AccountKey, MessageStore } from "../store/store.js"
+import type { AccountKey, MessageStore, ScoredHit } from "../store/store.js"
+import { messageOfEmail } from "../store/store.js"
 
 const THREADS_PAGE = 500
 

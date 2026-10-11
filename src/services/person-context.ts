@@ -2,8 +2,8 @@ import { CliError } from "@wirecat/cli-core"
 import { formatLocator } from "../domain/locator.js"
 import type { ChatKind, Id, Message, Provider } from "../domain/models.js"
 import { pickPerson } from "../resolve.js"
-import { messageOfEmail } from "../store/sqlite/emails.js"
 import type { AccountKey, IdentityRef, LinkedIdentity, MessageStore, PersonRecord } from "../store/store.js"
+import { messageOfEmail } from "../store/store.js"
 
 export const CONTEXT_MESSAGES = 10
 export const CONTEXT_BYTES = 64 * 1024

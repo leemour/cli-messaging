@@ -22,14 +22,23 @@ import { MIGRATIONS, migrate } from "../../store/migrations.js"
 import { openCache } from "../../store/open.js"
 import { storePath } from "../../store/path.js"
 import { deleteCopy, type RepairReport, repairStore } from "../../store/repair.js"
-import { resetAttachmentWords } from "../../store/sqlite/attachment-texts.js"
-import { pendingNormalization } from "../../store/sqlite/backfill.js"
-import { orphanPointers } from "../../store/sqlite/entity-types.js"
-import { involvementStoreOver } from "../../store/sqlite/involvements.js"
-import { drainNoteIndex, noteIndexState, resetNoteIndex } from "../../store/sqlite/note-index.js"
-import { fillSearchIndex, resetSearchIndex, searchIndexState } from "../../store/sqlite/search-index.js"
-import { fillStems, resetStems, stemmerCache, stemsState } from "../../store/sqlite/stems.js"
-import { openStore } from "../../store/store.js"
+import {
+  drainNoteIndex,
+  fillSearchIndex,
+  fillStems,
+  involvementStoreOver,
+  noteIndexState,
+  openStore,
+  orphanPointers,
+  pendingNormalization,
+  resetAttachmentWords,
+  resetNoteIndex,
+  resetSearchIndex,
+  resetStems,
+  searchIndexState,
+  stemmerCache,
+  stemsState,
+} from "../../store/store.js"
 import { environmentOf, outputFor } from "../context.js"
 import { answerOf } from "./ask.js"
 import type { Messenger } from "./context.js"
