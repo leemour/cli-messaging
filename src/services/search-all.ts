@@ -4,7 +4,7 @@ import { parseLocator } from "../domain/locator.js"
 import type { AccountKey, MessageStore } from "../store/store.js"
 import { type SearchFound, type SearchQuery, searchStore } from "./messages.js"
 import { RRF_K, searchNotes } from "./notes-search.js"
-import type { ServerSearched } from "./server-search.js"
+import type { Backend, ServerOptions, ServerSearched } from "./server-search.js"
 
 export const RESOURCES_SEARCHED = ["messages", "mail", "notes"] as const
 export type SearchedResource = (typeof RESOURCES_SEARCHED)[number]
@@ -41,6 +41,9 @@ export interface SearchAllRequest {
   only?: readonly SearchedResource[]
   exact?: boolean
   timezone?: string
+  /** For messages only; mail and notes are always the local store's. */
+  backend?: Backend
+  server?: ServerOptions
   env?: NodeJS.ProcessEnv
   signal?: AbortSignal
 }
@@ -52,8 +55,9 @@ const skippable = (error: unknown): error is CliError =>
   error instanceof CliError && (error.code === "validation_error" || error.code === "not_found")
 
 /**
- * `search all`: messages, mail and notes from the local store, each list best first, merged by
- * reciprocal rank so no resource's own scores have to be compared with another's.
+ * `search all`: messages, mail and notes from the local store — messages also from the messenger's
+ * server, as `search messages` asks it — each list best first, merged by reciprocal rank so no
+ * resource's own scores have to be compared with another's.
  */
 export const searchAll = async (
   store: MessageStore,
@@ -78,7 +82,13 @@ export const searchAll = async (
       text: request.text,
       language: "lucene",
       kind,
-      ...(kind === "messages" ? { source: "all" } : {}),
+      ...(kind === "messages"
+        ? {
+            source: "all",
+            ...(request.backend === undefined ? {} : { backend: request.backend }),
+            ...(request.server === undefined ? {} : { server: request.server }),
+          }
+        : {}),
       limit: request.limit,
       ...(request.exact ? { exact: true } : {}),
       ...(request.timezone === undefined ? {} : { timezone: request.timezone }),

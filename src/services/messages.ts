@@ -73,7 +73,7 @@ export interface AroundWindow {
 export interface SearchQuery {
   thread?: ThreadOptions
   syncFirst?: SyncOptions
-  /** Where to search: the local archive (default), the messenger's server, or both. */
+  /** Where to search: the local archive, the messenger's server, or both (the default). */
   backend?: Backend
   server?: ServerOptions
   /** Only these messages of the account it runs as — `--backend server` searches what the server returned. */
@@ -250,12 +250,25 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
   const inStore = async <T>(read: (store: MessageStore, account: AccountKey) => Promise<T>): Promise<T> =>
     read(await deps.store(), await deps.account())
 
+  const serverThenStore = async (store: MessageStore, account: AccountKey, query: SearchQuery) => {
+    const server = await searchServer(deps, query)
+    const only =
+      query.backend === "server" && server
+        ? [...server.sources.keys()].map((key) => {
+            const [chatId, id] = JSON.parse(key) as [Id, Id]
+            return { chatId, id }
+          })
+        : undefined
+    const found = await searchStore(store, account, only ? { ...query, only } : query, deps.messenger)
+    return { found, server }
+  }
+
   const unifiedMessages =
     (store: MessageStore, account: AccountKey) =>
     async (query: SearchQuery): Promise<SearchFound> => {
       await topUp(store)
-      const server = await searchServer(deps, query)
-      return withServer(await searchStore(store, account, query, deps.messenger), server)
+      const { found, server } = await serverThenStore(store, account, query)
+      return withServer(found, server)
     }
 
   /**
@@ -452,15 +465,7 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
         const refreshed = await refreshSearch(deps, query)
         // The server step reads the indexes to translate the query, so they are topped up first.
         if (query.backend !== undefined && query.backend !== "archive") await topUp(store)
-        const server = await searchServer(deps, query)
-        const only =
-          query.backend === "server" && server
-            ? [...server.sources.keys()].map((key) => {
-                const [chatId, id] = JSON.parse(key) as [Id, Id]
-                return { chatId, id }
-              })
-            : undefined
-        const found = await searchStore(store, account, only ? { ...query, only } : query, deps.messenger)
+        const { found, server } = await serverThenStore(store, account, query)
         if (query.kind !== "mail") await remember(store, "search", query)
         return withServer(withRefresh(found, refreshed), server)
       })

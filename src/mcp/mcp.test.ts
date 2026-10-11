@@ -630,6 +630,45 @@ describe("the MCP server", () => {
     ).not.toHaveProperty("backend")
   })
 
+  it("search_all takes backend for its messages: archive never connects, server keeps the server's hits", async () => {
+    const root = await filledRoot()
+    const searchMessages = vi.fn(async () => ({
+      items: [{ ...message, id: "30", text: "chapter thirty", chatTitle: "Book club" }],
+      hasMore: false,
+      chats: [],
+    }))
+    const backend = scripted({ searchMessages })
+    const { client, call } = await connect(backend, { root, serverSearch: true })
+    const ids = (body: { items: { kind: string; ref: string }[] }) =>
+      body.items.filter(({ kind }) => kind === "message").map(({ ref }) => ref.split("/").at(-1))
+
+    const archive = await call("chat_search_all", { text: "chapter", backend: "archive" })
+    expect(archive.body.server).toBeUndefined()
+    expect(ids(archive.body)).toEqual(["1"])
+    expect(backend.opened()).toBe(0)
+
+    const server = await call("chat_search_all", { text: "chapter", backend: "server", server_time: "2s" })
+    expect(server.body.server).toMatchObject({ backend: "server", calls: 1, new: 1, complete: true })
+    expect(ids(server.body)).toEqual(["30"])
+
+    const both = await call("chat_search_all", { text: "chapter", backend: "both" })
+    expect(both.body.server).toMatchObject({ backend: "both", calls: 1 })
+    expect(ids(both.body).sort()).toEqual(["1", "30"])
+
+    searchMessages.mockClear()
+    const unasked = await call("chat_search_all", { text: "chapter" })
+    expect(searchMessages).toHaveBeenCalledTimes(1)
+    expect(ids(unasked.body).sort()).toEqual(["1", "30"])
+
+    const { tools } = await client.listTools()
+    expect(tools.find((tool) => tool.name === "chat_search_all")?.inputSchema.properties).toHaveProperty("backend")
+    const plain = await connect(scripted(), { root })
+    const listed = await plain.client.listTools()
+    expect(listed.tools.find((tool) => tool.name === "chat_search_all")?.inputSchema.properties).not.toHaveProperty(
+      "backend",
+    )
+  })
+
   it.each(["readonly", "ask", "deny"])(
     "answers from the archive under messages.server-search %s and never asks the server",
     async (level) => {
@@ -644,6 +683,8 @@ describe("the MCP server", () => {
       expect(found.body).toMatchObject({ server: { skipped: "not_allowed" }, items: [{ id: "1", source: "archive" }] })
       const strict = await call("chat_search_messages", { text: "chapter", backend: "server" })
       expect(strict.isError).toBe(true)
+      const strictAll = await call("chat_search_all", { text: "chapter", backend: "server" })
+      expect(strictAll.isError).toBe(true)
       expect(searchMessages).not.toHaveBeenCalled()
     },
   )

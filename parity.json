@@ -3040,6 +3040,13 @@
     "search all": {
       "in": "all",
       "options": {
+        "--backend": {
+          "in": [],
+          "planned": {
+            "max": "each CLI’s next cli-messaging bump",
+            "tg": "each CLI’s next cli-messaging bump"
+          }
+        },
         "--exact": "all",
         "--limit": "all",
         "--max-meetings": {
@@ -3057,6 +3064,13 @@
           }
         },
         "--only": "all",
+        "--server-time": {
+          "in": [],
+          "planned": {
+            "max": "each CLI’s next cli-messaging bump",
+            "tg": "each CLI’s next cli-messaging bump"
+          }
+        },
         "--timezone": "all"
       }
     },
