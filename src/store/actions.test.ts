@@ -73,3 +73,27 @@ describe("the agent log", () => {
     expect(raw).not.toContain("secret words")
   })
 })
+
+describe("listing proposals and the agent log", () => {
+  it("lists proposals newest first, by status, and names the agent behind each logged call", async () => {
+    const { store } = await open()
+    const first = await store.proposedActions.propose({ kind: "reply", by: { bot: "helper" } })
+    const second = await store.proposedActions.propose({ kind: "ban", by: { bot: "helper" } })
+    await store.proposedActions.reject(first.id)
+
+    expect((await store.proposedActions.list()).map(({ id }) => id)).toEqual([second.id, first.id])
+    expect((await store.proposedActions.list({ status: "rejected" })).map(({ id }) => id)).toEqual([first.id])
+    await expect(store.proposedActions.list({ status: "lost" as never })).rejects.toMatchObject({
+      code: "validation_error",
+    })
+
+    const call = { tier: "read" as const, status: "ok" as const, startedAt: 1, finishedAt: 2 }
+    expect(await store.agentActions.record({ ...call, actor: { bot: "tg-mcp" }, tool: "messages_list" })).toMatchObject(
+      {
+        actor: { type: "bot", name: "tg-mcp" },
+      },
+    )
+    await store.agentActions.record({ ...call, actor: { bot: "memo-mcp" }, tool: "memories_add" })
+    expect((await store.agentActions.list({ agent: "memo-mcp" })).map(({ tool }) => tool)).toEqual(["memories_add"])
+  })
+})

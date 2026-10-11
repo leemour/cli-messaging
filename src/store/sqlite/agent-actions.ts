@@ -25,7 +25,8 @@ export interface AgentActionInput {
 
 export interface AgentAction {
   id: string
-  actor: { type: Actor["type"]; id: string }
+  /** `name` is a bot's handle; `null` for a person. */
+  actor: { type: Actor["type"]; id: string; name: string | null }
   tool: string
   tier: AgentActionInput["tier"]
   target: { type: string; id: string } | null
@@ -37,17 +38,23 @@ export interface AgentAction {
 
 export interface AgentActionsStore {
   record(input: AgentActionInput): Promise<AgentAction>
-  /** Newest first. */
-  list(options?: { tool?: string; limit?: number }): Promise<AgentAction[]>
+  /** Newest first; `agent` is a bot's name, such as `tg-mcp`. */
+  list(options?: { tool?: string; agent?: string; limit?: number }): Promise<AgentAction[]>
 }
 
 const CODE = /^[a-z][a-z0-9_]{0,63}$/
+const NAMED =
+  "SELECT a.*, b.name AS actor_name FROM agent_actions a LEFT JOIN bots b ON a.actor_type = 'bot' AND b.id = a.actor_id"
 
 export const agentActionsStoreOver = (context: StoreContext, afterRecord: () => void = () => {}): AgentActionsStore => {
   const { database, now } = context
   const actionOf = (row: Record<string, unknown>): AgentAction => ({
     id: String(row.id),
-    actor: { type: row.actor_type as Actor["type"], id: String(row.actor_id) },
+    actor: {
+      type: row.actor_type as Actor["type"],
+      id: String(row.actor_id),
+      name: row.actor_name == null ? null : String(row.actor_name),
+    },
     tool: String(row.tool),
     tier: row.tier as AgentAction["tier"],
     target: row.target_type == null ? null : { type: String(row.target_type), id: String(row.target_id) },
@@ -70,7 +77,7 @@ export const agentActionsStoreOver = (context: StoreContext, afterRecord: () => 
       const row = database
         .prepare(
           "INSERT INTO agent_actions (actor_type, actor_id, tool, tier, target_type, target_id, status, error, started_at, finished_at, created_at) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
         )
         .get(
           actor.type,
@@ -87,12 +94,14 @@ export const agentActionsStoreOver = (context: StoreContext, afterRecord: () => 
         )
       database.prepare("UPDATE bots SET last_seen_at = ? WHERE ? = 'bot' AND id = ?").run(now(), actor.type, actor.id)
       afterRecord()
-      return actionOf(row as Record<string, unknown>)
+      return actionOf(database.prepare(`${NAMED} WHERE a.id = ?`).get(Number(row?.id)) as Record<string, unknown>)
     },
-    list: async ({ tool, limit = 100 } = {}) =>
+    list: async ({ tool, agent, limit = 100 } = {}) =>
       database
-        .prepare("SELECT * FROM agent_actions WHERE (? IS NULL OR tool = ?) ORDER BY started_at DESC, id DESC LIMIT ?")
-        .all(tool ?? null, tool ?? null, Math.min(Math.max(limit, 1), 500))
+        .prepare(
+          `${NAMED} WHERE (? IS NULL OR a.tool = ?) AND (? IS NULL OR b.name = ?) ORDER BY a.started_at DESC, a.id DESC LIMIT ?`,
+        )
+        .all(tool ?? null, tool ?? null, agent ?? null, agent ?? null, Math.min(Math.max(limit, 1), 500))
         .map(actionOf),
   }
 }
