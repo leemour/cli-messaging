@@ -1688,8 +1688,23 @@ const storeOver = (context: StoreContext): MessageStore => {
 export type { CounterField, CounterObservations, CounterState } from "../domain/counters.js"
 export type { RetentionOptions } from "../domain/retention.js"
 export type { AdminStoreRequest, AdminStoreResult } from "./sqlite/admin-statistics.js"
-export type { AttachmentTextEntry, AttachmentView, FileAttachment, TextOrigin } from "./sqlite/attachment-texts.js"
+export {
+  type AttachmentTextEntry,
+  type AttachmentView,
+  type FileAttachment,
+  resetAttachmentWords,
+  type TextOrigin,
+} from "./sqlite/attachment-texts.js"
+export { pendingNormalization } from "./sqlite/backfill.js"
 export { CHAT_LIST_KEY, type ChatCompleteness, fetchedKey, historyStartKey } from "./sqlite/completeness.js"
+export type { CounterTarget } from "./sqlite/counters.js"
+export { messageOfEmail } from "./sqlite/emails.js"
+export { orphanPointers } from "./sqlite/entity-types.js"
+export { involvementStoreOver } from "./sqlite/involvements.js"
+export type { MeetingReadCapabilities } from "./sqlite/meeting-reads.js"
+export type { MeetingVectors } from "./sqlite/meeting-vectors.js"
+export { drainNoteIndex, noteIndexState, resetNoteIndex } from "./sqlite/note-index.js"
+export type { ProposedAction } from "./sqlite/proposed-actions.js"
 export type { RankedEvidence, RankingEvidenceItem, RankingEvidenceRequest } from "./sqlite/ranking-evidence.js"
 export type { RankedStoreFound, RankedStoreRow, RankingRequest } from "./sqlite/rankings.js"
 export type { RetentionResult } from "./sqlite/retention.js"
@@ -1701,6 +1716,16 @@ export type {
   RosterRead,
   TrackedChat,
 } from "./sqlite/roster.js"
+export { fillSearchIndex, resetSearchIndex, searchIndexState } from "./sqlite/search-index.js"
 export type { SearchCommand, SearchRecord, StoredSearch } from "./sqlite/searches.js"
+export {
+  fillStems,
+  resetStems,
+  type StemsState,
+  savedStemmers,
+  stemmerCache,
+  stemmersOrigin,
+  stemsState,
+} from "./sqlite/stems.js"
 export type { StoredTag, TagFilter, TagTarget } from "./sqlite/tags.js"
 export type { ScoredHit, SearchScope, WordOptions, WordQuery } from "./sqlite/words.js"
