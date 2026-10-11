@@ -1,8 +1,14 @@
 # Changelog
 
-Notable changes to `@wirecat/cli-messaging` (`@leemour/cli-messaging` up to 0.214.0), one section per
+Notable changes to `@wirecat/cli-messaging` (`@wirecat/cli-messaging` up to 0.214.0), one section per
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
+
+## 0.224.1 — 11.10.2026
+
+### Fixed
+
+- Package references, documentation and fixtures use the WireCat namespace throughout; unused historical SDK aliases are removed.
 
 ## 0.224.0 — 11.10.2026
 
@@ -266,9 +272,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 ### Changed — may break callers
 
 - **The package is now `@wirecat/cli-messaging`, and the repository is `WireCatLabs/cli-messaging`.**
-  Install `@wirecat/cli-messaging` and change imports from `@leemour/cli-messaging`. It depends on
+  Install `@wirecat/cli-messaging` and change imports from `@wirecat/cli-messaging`. It depends on
   `@wirecat/cli-tasks` 0.2.0 and `@wirecat/cli-messaging-{sqlite,onnx}` 1.0.0, and its peer is now
-  `@wirecat/cli-core` >=0.18.1 <0.19.0. The code is the same as 0.214.0. `@leemour/cli-messaging` gets
+  `@wirecat/cli-core` >=0.18.1 <0.19.0. The code is the same as 0.214.0. `@wirecat/cli-messaging` gets
   no new versions.
 
 ## 0.214.0 — 09.10.2026
@@ -592,7 +598,7 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 - `chats start <bot> [--payload]` starts a bot in a one-to-one chat, as its Start button does — guarded as a
   message under `chats.start`; `chats app <bot> [--start]` prints the address of the bot's mini app, which signs
   the owner in — guarded as a reaction under `chats.app`. Through the optional `BotChats` (`startBot`, `botApp`).
-- `MessageButtons` and `BotChats` exported from `@leemour/cli-messaging/cli`.
+- `MessageButtons` and `BotChats` exported from `@wirecat/cli-messaging/cli`.
 
 ### Changed — may break callers
 
@@ -616,7 +622,7 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   max still plans list and revoke.
 - Parity: max's chat folder order, group photo, privacy, mute, media, calls, stickers and chat delete/clear
   are shipped rows now (max only, tg planned), with their options in the catalogue.
-- `skipFlagFor` from `@leemour/cli-messaging/sends`: the flag that skips a permission's question,
+- `skipFlagFor` from `@wirecat/cli-messaging/sends`: the flag that skips a permission's question,
   `--allow-dangerous` for a deletion nobody gets back and `--yes` for the rest, so a CLI keeps no copy of the list.
 
 ## 0.192.0 — 08.10.2026
@@ -1353,7 +1359,7 @@ Released early: max-cli chart adoption needs the capability that hides unsupport
   by name, and closes it once you answer. Run twice over the same chats, it adds nothing; a task you
   dismissed stays dismissed. Only your own answers count, and an `@handle` mention is not seen yet.
   `review --json` and `serve`'s final summary say how many tasks were opened and closed (`tasks`).
-- **Open tasks in the store (store version 20).** `store.tasks` keeps what `@leemour/cli-tasks` tracks — a
+- **Open tasks in the store (store version 20).** `store.tasks` keeps what `@wirecat/cli-tasks` tracks — a
   question, request, mention or promise waiting on the owner — as a locator to its message, never the text.
   Backup, restore and export carry the tasks with the messages. Builds from 0.49.0 on still open the file.
 - `contacts profile <person> [--show-phone]` and read-only MCP `contacts_profile`: what the messenger says about
@@ -1396,8 +1402,8 @@ Released early: max-cli chart adoption needs the capability that hides unsupport
 
 ### Changed — may break callers
 
-- `MessageStore` has a new required member, `tasks`: the `TaskStore` of `@leemour/cli-tasks` over store version 20.
-  A `MessageStore` written by hand — a test fake — adds it, `memoryTaskStore()` from `@leemour/cli-tasks/testing`
+- `MessageStore` has a new required member, `tasks`: the `TaskStore` of `@wirecat/cli-tasks` over store version 20.
+  A `MessageStore` written by hand — a test fake — adds it, `memoryTaskStore()` from `@wirecat/cli-tasks/testing`
   will do; `openStore` already does.
 - `MessageStore` has a new required method, `senderStats`: one person's stored messages per chat. A store
   written by hand — a test fake — adds it; `openStore` already does.
@@ -2288,7 +2294,7 @@ Released early: tg-cli and max-cli cannot install local MCP setup until cli-mess
 - **`mcp setup codex|claude-code` and `mcp doctor`** register a messenger's local MCP server in
   the chosen client and check its handshake and tool list. Setup refuses an existing client entry;
   doctor reads no messages and does not verify the messenger login. Each consuming CLI needs the
-  new `@leemour/cli-core/mcp` export.
+  new `@wirecat/cli-core/mcp` export.
 
 ## 0.112.0 — 03.10.2026
 
@@ -2581,7 +2587,7 @@ Released early: tg-cli and max-cli cannot move to the breaking release, and thre
   downloaded once into the shared models folder (`~/.cache/cli-common/models/text/`), each file pinned to a
   commit and checked by sha256. `e5-small` (MIT, 135 MB) is the default; `embeddinggemma` (219 MB) comes
   under Google's Gemma terms and downloads only with `--accept-terms`. A download loads the model once to
-  check it works. They run through `@leemour/cli-messaging-onnx`, ONNX Runtime's WebAssembly build for
+  check it works. They run through `@wirecat/cli-messaging-onnx`, ONNX Runtime's WebAssembly build for
   Node and Bun in 15 MB — a new dependency, with `@huggingface/tokenizers`.
 - **`bot watch`, `bot callbacks answer`, `bot commands list|set|clear`, `bot webhooks list|set|delete`**,
   the shared commands over four new optional groups on `BotAdapter`: `BotUpdates`, `BotCallbacks`,
@@ -2800,10 +2806,10 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
 
 ### Changed — may break callers
 
-- **`@leemour/cli-core` is a peer dependency now**, `>=0.13.0 <0.15.0`, not a dependency of this
+- **`@wirecat/cli-core` is a peer dependency now**, `>=0.13.0 <0.15.0`, not a dependency of this
   package. The install has one copy of it, the CLI's own: with two, `annotate()` marks went missing from
   `commands --json` and an error from one copy was not an `instanceof` the other's class. What to
-  change: depend on `@leemour/cli-core` yourself, at 0.13.0 or 0.14.x (tg-cli is on 0.14.0; max-cli,
+  change: depend on `@wirecat/cli-core` yourself, at 0.13.0 or 0.14.x (tg-cli is on 0.14.0; max-cli,
   on 0.12.0, moves up), and drop the pnpm `overrides` entry for it once on this version.
 - **The parity manifest marks `messages send --at-time`, `messages list --before-id|--before-time|--after-id|
   --after-time` and `messages context --before-n|--after-n` as in both tools,** and drops the old `--at`,
@@ -2845,8 +2851,8 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
   still link; `readonly` or `deny` on it refuses. A batch id stays valid while its messages are answered,
   and not once a message inside it is added or deleted.
 - **Our own SQLite where the runtime's falls short.** Bun on macOS now always uses the SQLite of
-  `@leemour/cli-messaging-sqlite` (3.53.4) instead of the system's, which on macOS 13 is too old for
-  the message store. `ensureSqlite()` (`@leemour/cli-messaging/sqlite-runtime`), run first by a
+  `@wirecat/cli-messaging-sqlite` (3.53.4) instead of the system's, which on macOS 13 is too old for
+  the message store. `ensureSqlite()` (`@wirecat/cli-messaging/sqlite-runtime`), run first by a
   command, starts it again on that SQLite when a Linux distribution's Node brings one the store
   cannot use. On every other setup nothing changes.
 
@@ -2880,7 +2886,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
 
 ### Changed — may break callers
 
-- **Depends on `@leemour/cli-core` 0.11.0.** A CLI that uses this package moves to cli-core 0.11.0 in
+- **Depends on `@wirecat/cli-core` 0.11.0.** A CLI that uses this package moves to cli-core 0.11.0 in
   the same change, or pins one copy with a pnpm override.
 
 - **`BotMessenger.connect(command, token, { stop, events })`** (P8): the bot client gets the run's
@@ -2926,7 +2932,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
 
 ### Changed — may break callers
 
-- **Depends on `@leemour/cli-core` 0.10.0.** A CLI that uses this package moves to cli-core 0.10.0 in
+- **Depends on `@wirecat/cli-core` 0.10.0.** A CLI that uses this package moves to cli-core 0.10.0 in
   the same change, or pins one copy with a pnpm override: with two copies, a command marked as
   changing something (`annotate`) loses the mark in the other copy's `describeProgram`, and errors
   from one copy are not instances of the other's classes.
@@ -3004,7 +3010,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
   same file. `GroupMember.registeredAt`; `Messenger.knowsAccountAge: false` refuses the `newAccount`
   rule. `judge`, `act` and `Moderator` are exported for a bot.
 - The manifest says the contact writes and `account update|sessions end` are in both tools.
-- **`@leemour/cli-messaging/background`** (P6): the lock per app and profile, `alive`/`carries`/
+- **`@wirecat/cli-messaging/background`** (P6): the lock per app and profile, `alive`/`carries`/
   `holdersOf`, the `ServerSystem` seam, and systemd and launchd units, moved out of the `serve` and
   `server` commands so max's server can use them too. The commands behave as before; `./cli` still
   exports `servingProfiles` and `ServerSystem`.
@@ -3021,7 +3027,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
   `bot:<profile>` under the app's own service, `<PREFIX>_BOT_TOKEN` first, then a 0600 file),
   `ChatRegistry` and `registryProfiles` (the chats a bot has seen, one 0600 file per bot),
   `botFiles` and `botsDirectory` (max-cli's paths, unchanged), and the types `BotMessenger` and
-  `BotAdapter`. From `@leemour/cli-messaging/cli`.
+  `BotAdapter`. From `@wirecat/cli-messaging/cli`.
 
 - **A bot's settings** (P8): the file gains `personal` and `bot` sections, each with `defaults` and
   `profiles`; the most specific entry wins — this profile's bot entry, the profile, every bot,
@@ -3370,7 +3376,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
 
 ### Changed — may break callers
 
-- **Depends on `@leemour/cli-core` 0.9.0.** A CLI that uses this package moves to cli-core 0.9.0 in the
+- **Depends on `@wirecat/cli-core` 0.9.0.** A CLI that uses this package moves to cli-core 0.9.0 in the
   same change: two copies of cli-core in one install lose the error codes, because an error from one
   copy is not an instance of the other's classes.
 
@@ -3388,7 +3394,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
   both CLIs, each `both`, one-sided with a reason, or `planned` with who closes it, and the option
   catalogue — one name, one meaning. A CLI checks itself against it with
   `<tool> commands --json | cli-messaging-parity <max|tg>`, which exits 1 and names each difference;
-  `@leemour/cli-messaging/parity` exports the same check.
+  `@wirecat/cli-messaging/parity` exports the same check.
 
 ## 0.67.0 — 30.09.2026
 
@@ -3495,7 +3501,7 @@ Released early: max-cli 6c (T6 store group): its parity check needs the store ro
 
 ### Added
 
-- **`@leemour/cli-messaging/services`, and a CLI's own version of a use case** — the last step of
+- **`@wirecat/cli-messaging/services`, and a CLI's own version of a use case** — the last step of
   `docs/plans/2026-09-30-services.md`. The new entry exports the services (`messages`, `chats`,
   `people`, `inbox`, `archive`), their factories, `ServiceDeps`, `onlineDeps`, `storedDeps` and
   `Override`. `Messenger.services` takes an `Override`: it returns the services it changes and can
@@ -3675,8 +3681,8 @@ they now fail as unknown commands or options.
 - **Store version 6, and builds before it refuse the file.** `min_compatible` rises to 6: a tg or
   max built on an earlier cli-messaging opens an upgraded `messages.db` only to say «the message
   store was written by a newer version … — upgrade this tool». Release a CLI's bump of this package
-  together with the other's, then upgrade both: `npm install -g @leemour/tg-cli@latest
-  @leemour/max-cli@latest`. Version 6 adds `chats.username`, `membership_state`, `is_searchable` and
+  together with the other's, then upgrade both: `npm install -g @wirecat/tg-cli@latest
+  @wirecat/max-cli@latest`. Version 6 adds `chats.username`, `membership_state`, `is_searchable` and
   `message_count` (kept by triggers), and `messages.normalized_text` with `normalizer_version`. The
   upgrade holds the write lock for about 0.4 s on a million messages.
 
@@ -3832,7 +3838,7 @@ they now fail as unknown commands or options.
   Unit names are unchanged, so a unit written by `service install` is still found.
 - **`Defaults`, what an MCP tool's `online` receives, carries `settings` and `env`.** A CLI that
   builds its own tools from `tool()` and calls them directly must pass both.
-- **`@leemour/cli-messaging` now depends on `sherpa-onnx` and `ogg-opus-decoder`** (about 15 MB of
+- **`@wirecat/cli-messaging` now depends on `sherpa-onnx` and `ogg-opus-decoder`** (about 15 MB of
   WebAssembly). Both are loaded only when a model runs.
 
 ### Added
@@ -4039,7 +4045,7 @@ they now fail as unknown commands or options.
 
 ### Fixed
 
-- **Depends on `@leemour/cli-core` 0.8.0** (was 0.7.0), the version max-cli uses. With two versions a CLI
+- **Depends on `@wirecat/cli-core` 0.8.0** (was 0.7.0), the version max-cli uses. With two versions a CLI
   installed two copies, and `isCliError()` — an `instanceof` check — did not recognise an error made by
   the other copy.
 
