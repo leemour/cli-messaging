@@ -278,14 +278,17 @@ describe("mail by meaning", () => {
   const MODEL = "test:model:2"
   const unit = (x: number, y: number) => new Float32Array([x, y])
 
-  it("hands out each email chunk once and answers nearest conversations with email threads", async () => {
+  it("hands out each email and attachment chunk once and answers nearest conversations with email threads", async () => {
     const { store, accountId } = await seeded()
     const chunks = await store.mail.chunksToEmbed(MODEL, { limit: 10 })
-    expect(chunks.length).toBe(3)
+    expect(chunks.length).toBe(4)
     await store.saveVectors(
       MODEL,
       2,
-      chunks.map(({ hash, text }) => ({ hash, vector: text.includes("Lunch") ? unit(0, 1) : unit(1, 0) })),
+      chunks.map(({ hash, text }) => ({
+        hash,
+        vector: text.includes("Lunch") ? unit(0, 1) : text.includes("Invoice") ? unit(-1, 0) : unit(1, 0),
+      })),
     )
     expect(await store.mail.chunksToEmbed(MODEL, { limit: 10 })).toEqual([])
 
@@ -295,6 +298,9 @@ describe("mail by meaning", () => {
       chunk: { firstMessageId: "<three@example.com>", lastMessageId: "<three@example.com>" },
       score: 1,
     })
+    const [byFile] = await store.nearestConversations(MAIL, { model: MODEL, query: unit(-1, 0), limit: 1 })
+    expect(byFile).toMatchObject({ chunk: { firstMessageId: "<two@example.com>" }, score: 1 })
+
     const inThread = await store.nearestConversations(MAIL, {
       model: MODEL,
       query: unit(0, 1),

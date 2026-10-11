@@ -9,6 +9,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ### Added
 
+- **An email's attachments are found by meaning.** Their extracted text is cut into pieces as an email's own text
+  is, written when the email's attachments are saved and dropped (with vectors no longer used) when the email is
+  marked deleted. `embedMail` embeds them, and `nearestConversations` answers a match in an attachment with its
+  email.
 - **`store.forAccount(key)` binds a store to one account.** The same calls without the account argument; `find`
   and `search` take no `account`, `accounts` or `provider`. `localPathOf` and `keepAttachmentText` refuse an
   attachment of another account (`not_found`); its `mail` and `meetings` read only that account, and

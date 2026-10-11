@@ -229,7 +229,18 @@ describe("mail store", () => {
       extractedAt: 1500,
     }
     await mail.saveThread(thread([email({ bodyHtml: "<p>roadmap</p>", snippet: "Let us", attachments: [file] })]))
+    const pieces = () =>
+      database.prepare("SELECT content_hash AS hash FROM chunks WHERE chunkable_type = 'attachment'").all()
+    const [piece] = pieces()
+    expect(piece).toBeDefined()
+    database
+      .prepare(
+        "INSERT INTO embeddings (content_hash, model, dims, vector, created_at, updated_at) VALUES (?, 'test:model:2', 2, ?, 1, 1)",
+      )
+      .run(String(piece?.hash), new Uint8Array(8))
     await mail.markDeleted(1, ["<first@example.com>"], 3000)
+    expect(pieces()).toEqual([])
+    expect(database.prepare("SELECT count(*) AS n FROM embeddings").get()?.n).toBe(0)
 
     const gone = await mail.email(1, "<first@example.com>")
     expect(gone).toMatchObject({ deletedAt: 3000, bodyText: null, bodyHtml: null, snippet: null })

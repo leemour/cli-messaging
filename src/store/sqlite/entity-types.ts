@@ -6,6 +6,7 @@ import type { CacheDatabase } from "../driver.js"
  */
 export const ENTITY_TABLES = {
   account: "accounts",
+  attachment: "attachments",
   bot: "bots",
   chat: "chats",
   conversation: "conversations",
