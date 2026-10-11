@@ -10,6 +10,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 ### Added
 
 - `./store` exports `MEMORY_KINDS`, `MEMORY_STATUSES`, `MEMORY_SCOPES` and `PROPOSAL_STATUSES`.
+- **`search all` and MCP `search_all` take `--backend archive|server|both` and `--server-time`** (`backend`,
+  `server_time`), as `search messages` does, where the messenger's server can search. They choose where messages
+  are searched; mail and notes stay local. The default is still `both`, falling back to the archive silently;
+  `archive` never connects, and `server` keeps only the messages the server returned.
 
 ## 0.230.0 — 11.10.2026
 
@@ -19,10 +23,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   as a `request` task in the account that would act and records `{ task }` as the proposal's result; a retry
   finds the same task, and a proposal without an account is refused. `proposedActions.approve` takes that
   result, and `proposedActions.list` lists proposals newest first, optionally by status.
-- **`search all` and MCP `search_all` take `--backend archive|server|both` and `--server-time`** (`backend`,
-  `server_time`), as `search messages` does, where the messenger's server can search. They choose where messages
-  are searched; mail and notes stay local. The default is still `both`, falling back to the archive silently;
-  `archive` never connects, and `server` keeps only the messages the server returned.
 - **`agentActions.list` filters by the agent's name** (`agent: "tg-mcp"`), and each row's `actor` carries
   `name`.
 
