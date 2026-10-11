@@ -10,6 +10,14 @@ export {
   vadPath,
 } from "./install.js"
 export {
+  type LocalSpeechBackend,
+  type LocalSpeechRecognitionModel,
+  type LocalSpeechRecognizer,
+  type LocalSpeechRecognizerOptions,
+  localSpeechRecognitionModel,
+  openLocalSpeechRecognizer,
+} from "./local.js"
+export {
   DEFAULT_ORDER,
   findModel,
   MODELS,
