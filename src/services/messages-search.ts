@@ -17,7 +17,7 @@ import {
   type ChatStats,
   type MessageStore,
 } from "../store/store.js"
-import { mergeMail, withMailThreads } from "./mail-search.js"
+import { mailAround, mergeMail, withMailThreads } from "./mail-search.js"
 import { chatAmong, type SearchFound, type SearchQuery, senderAmong } from "./messages.js"
 import { accountsOfKind } from "./search-kind.js"
 import type { SearchRefreshed } from "./search-refresh.js"
@@ -432,10 +432,12 @@ export const searchLucene = async (
       const locator = parseLocator(hit.locator)
       return {
         ...hit,
-        context: await store.around({ provider: locator.provider, account: locator.account }, hit.chatId, hit.id, {
-          before: request.context,
-          after: request.context,
-        }),
+        context:
+          (request.kind === "mail" ? await mailAround(store, hit, request.context) : undefined) ??
+          (await store.around({ provider: locator.provider, account: locator.account }, hit.chatId, hit.id, {
+            before: request.context,
+            after: request.context,
+          })),
       }
     }),
   )

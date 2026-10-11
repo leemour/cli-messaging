@@ -12,7 +12,7 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   language: words, stems, phrases, patterns, `from:`, `chat:` and `--chat` (a thread, by id or subject), `date:`,
   `tag:`, `has:`, `filename:`, `mime:`, `size:` and `content:` over email attachments. Mail an older import stored
   as messages is still found; an email in both places is listed once, from the mail tables. Hits keep the
-  `msg:email/…` locator. `kind:` and `topic:` are refused for mail. Emails' stems are written as they are
+  `msg:email/…` locator, and `--context` reads the hit's thread. `kind:` and `topic:` are refused for mail. Emails' stems are written as they are
   indexed, and saving a thread makes its correspondents people of the account, so `from:` finds them.
 
 ## 0.226.0 — 11.10.2026

@@ -1794,6 +1794,51 @@ describe("the shared read commands", () => {
     expect(mail.stderr.join("\n")).toContain("no mail in the store yet")
   })
 
+  it("**search all** and **search mail** find mail saved in the mail tables, with context", async () => {
+    const root = mkdtempSync(join(tmpdir(), "search-mail-"))
+    const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }
+    await call(["messages", "context", "Book", "2", "--json"], async () => fake, env)
+    const store = await openStore({ path: env.MESSAGING_STORE })
+    const accountId = await store.saveAccount({ provider: "email", account: "owner@example.test" }, { name: null })
+    const sent = (externalId: string, day: number, bodyText: string) => ({
+      externalId,
+      subject: "Reading group",
+      from: { address: "alice@example.test", name: "Alice Example" },
+      sentAt: Date.UTC(2026, 0, day),
+      receivedAt: Date.UTC(2026, 0, day),
+      bodyText,
+    })
+    await store.mail.saveThread({
+      accountId,
+      externalId: "thread-7",
+      now: Date.UTC(2026, 0, 9),
+      emails: [sent("<a@example.test>", 1, "Which chapter next?"), sent("<b@example.test>", 2, "The third one.")],
+    })
+    await store.close()
+    const never = vi.fn(async (): Promise<MessengerAdapter> => {
+      throw new Error("search must never connect")
+    })
+
+    const all = JSON.parse((await call(["search", "all", "chapter", "--json"], never, env)).stdout[0] ?? "")
+    const mail = all.items.find(({ kind }: { kind: string }) => kind === "mail")
+    expect(mail.ref).toBe("msg:email/owner%40example.test/thread-7/%3Ca%40example.test%3E")
+    expect(mail.title).toBe("Reading group")
+
+    const kinds = JSON.parse(
+      (await call(["search", "all", "chapter kind:group", "--json"], never, env)).stdout[0] ?? "",
+    )
+    expect(kinds.skipped.map(({ resource }: { resource: string }) => resource)).toContain("mail")
+
+    const withContext = await call(["search", "mail", "chapter", "--context", "1", "--json"], never, env)
+    expect(withContext.code).toBe(0)
+    const [hit] = JSON.parse(withContext.stdout[0] ?? "").items
+    expect(hit.id).toBe("<a@example.test>")
+    expect(hit.context.map(({ id, anchor }: { id: string; anchor?: boolean }) => [id, anchor ?? false])).toEqual([
+      ["<a@example.test>", true],
+      ["<b@example.test>", false],
+    ])
+  })
+
   it("**search all** finds a message, a mail and a note with one query, each typed, and says what it skipped", async () => {
     const root = mkdtempSync(join(tmpdir(), "search-all-"))
     const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }

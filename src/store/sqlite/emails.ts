@@ -1,5 +1,6 @@
 import type { Attachment, Metadata } from "@wirecat/cli-meetings"
 import { formatLocator } from "../../domain/locator.js"
+import type { Message } from "../../domain/models.js"
 import type { Stemmer } from "../../search/stem.js"
 import type { CacheDatabase, SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
@@ -486,6 +487,35 @@ const emailWhere = (filter: EmailFilter): [string, SqlValue[]] => {
   return [where.join(" AND "), params]
 }
 
+/** An email as a message of its thread, the shape mail had when it was stored as messages. */
+export const messageOfEmail = (email: Email, thread: string): Message => {
+  const role = (wanted: EmailRecipient["role"]) =>
+    email.recipients.filter(({ role }) => role === wanted).map(({ address }) => address)
+  return {
+    id: email.externalId,
+    chatId: thread,
+    senderId: email.fromAddress,
+    senderName: email.fromName,
+    timestamp: new Date(email.sentAt ?? email.receivedAt ?? email.createdAt).toISOString(),
+    editedAt: null,
+    text: [email.subject, email.bodyText].filter(Boolean).join("\n\n"),
+    outgoing: email.outgoing,
+    attachments: email.attachments.map((a) => ({
+      kind: a.kind,
+      ...(a.name === null ? {} : { name: a.name }),
+      ...(a.mime === null ? {} : { mime: a.mime }),
+      ...(a.size === null ? {} : { size: a.size }),
+      ...(a.providerRef !== null && typeof a.providerRef === "object" && !Array.isArray(a.providerRef)
+        ? { providerRef: a.providerRef }
+        : {}),
+    })),
+    providerMetadata: { emailHeaders: { cc: role("cc"), bcc: role("bcc") } },
+    replyTo: null,
+    forwardedFrom: null,
+    reactions: null,
+  }
+}
+
 /** Emails as search hits, in the order of `pks`: the thread is the chat, so a hit's locator is the one mail had as messages. */
 export const emailHitsByPk = (database: CacheDatabase, pks: number[]): StoredHit[] => {
   const read = database.prepare(
@@ -496,39 +526,17 @@ export const emailHitsByPk = (database: CacheDatabase, pks: number[]): StoredHit
   return pks.flatMap((pk) => {
     const row = read.get(pk)
     if (!row) return []
-    const email = emailOf(database, row)
     const thread = String(row.thread)
-    const role = (wanted: EmailRecipient["role"]) =>
-      email.recipients.filter(({ role }) => role === wanted).map(({ address }) => address)
+    const message = messageOfEmail(emailOf(database, row), thread)
     return [
       {
-        id: email.externalId,
-        chatId: thread,
-        senderId: email.fromAddress,
-        senderName: email.fromName,
-        timestamp: new Date(email.sentAt ?? email.receivedAt ?? email.createdAt).toISOString(),
-        editedAt: null,
-        text: [email.subject, email.bodyText].filter(Boolean).join("\n\n"),
-        outgoing: email.outgoing,
-        attachments: email.attachments.map((a) => ({
-          kind: a.kind,
-          ...(a.name === null ? {} : { name: a.name }),
-          ...(a.mime === null ? {} : { mime: a.mime }),
-          ...(a.size === null ? {} : { size: a.size }),
-          ...(a.providerRef !== null && typeof a.providerRef === "object" && !Array.isArray(a.providerRef)
-            ? { providerRef: a.providerRef }
-            : {}),
-        })),
-        providerMetadata: { emailHeaders: { cc: role("cc"), bcc: role("bcc") } },
-        replyTo: null,
-        forwardedFrom: null,
-        reactions: null,
+        ...message,
         chatTitle: str(row.thread_subject),
         locator: formatLocator({
           provider: String(row.provider),
           account: String(row.account),
           chat: thread,
-          message: email.externalId,
+          message: message.id,
         }),
       },
     ]

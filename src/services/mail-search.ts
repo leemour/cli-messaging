@@ -1,4 +1,6 @@
-import type { Chat, Page } from "../domain/models.js"
+import { parseLocator } from "../domain/locator.js"
+import type { Chat, Message, Page } from "../domain/models.js"
+import { messageOfEmail } from "../store/sqlite/emails.js"
 import type { ScoredHit } from "../store/sqlite/words.js"
 import type { AccountKey, MessageStore } from "../store/store.js"
 
@@ -66,4 +68,28 @@ export const mergeMail = (
     items: items.slice(0, limit),
     hasMore: messages.hasMore || mail.hasMore || items.length > limit,
   }
+}
+
+/**
+ * The emails around a hit from the mail tables, oldest first, the hit marked as `anchor`; `undefined` when the
+ * hit is mail an older import stored as messages, whose context the store's `around` reads.
+ */
+export const mailAround = async (
+  store: MessageStore,
+  hit: { locator: string; chatId: string; id: string },
+  count: number,
+): Promise<(Message & { anchor?: true })[] | undefined> => {
+  const { provider, account } = parseLocator(hit.locator)
+  const stored = await store.storedAccount({ provider, account }).catch(() => undefined)
+  if (!stored) return undefined
+  const emails = (await store.mail.emails({ accountId: stored.id, threadExternalId: hit.chatId })).reverse()
+  const at = emails.findIndex(({ externalId }) => externalId === hit.id)
+  if (at < 0) return undefined
+  return emails
+    .slice(Math.max(0, at - count), at + count + 1)
+    .map((email) =>
+      email.externalId === hit.id
+        ? { ...messageOfEmail(email, hit.chatId), anchor: true as const }
+        : messageOfEmail(email, hit.chatId),
+    )
 }
