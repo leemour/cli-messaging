@@ -5,7 +5,7 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
-## Unreleased
+## 0.232.0 — 11.10.2026
 
 ### Added
 
@@ -13,6 +13,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   (name or address), `mailbox:` a folder or label by its id or name, and `subject:` words of the subject alone.
   They are mail fields: a search that holds no mail account refuses them; in a search across messengers and mail
   they match mail only.
+- **`search all` and MCP `search_all` take `--backend archive|server|both` and `--server-time`** (`backend`,
+  `server_time`), as `search messages` does, where the messenger's server can search. They choose where messages
+  are searched; mail and notes stay local. The default is still `both`, falling back to the archive silently;
+  `archive` never connects, and `server` keeps only the messages the server returned.
 
 ### Changed — may break callers
 
@@ -21,25 +25,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   memories, projects, organizations, decisions), send a known kind to its own search (`search mail` with `to:`,
   `cc:`, `subject:`, `mailbox:`; `search_conversations` by meaning), and say what to try after an empty answer.
   The tool's title is "Search messages, mail and notes".
-
-## 0.231.0 — 11.10.2026
-
-### Added
-
-- **Mail in its own tables is found by meaning.** Emails are indexed as notes are (words, stems and chunks, one
-  shared recipe), and `embedMail(store)` embeds their chunks with the local model that conversations and notes
-  use. For an email account, `nearestConversations` — what `search conversations` and `related` read — answers
-  with email threads too: the thread as the chat, the email as the message, so a hit keeps its `msg:email/…`
-  locator. Its word half still reads mail stored as messages only; `search mail` finds mail by words. A change
-  of stemmer choices now re-indexes mail as it does notes.
-- `./store` exports `MEMORY_KINDS`, `MEMORY_STATUSES`, `MEMORY_SCOPES` and `PROPOSAL_STATUSES`.
-- **`search all` and MCP `search_all` take `--backend archive|server|both` and `--server-time`** (`backend`,
-  `server_time`), as `search messages` does, where the messenger's server can search. They choose where messages
-  are searched; mail and notes stay local. The default is still `both`, falling back to the archive silently;
-  `archive` never connects, and `server` keeps only the messages the server returned.
-
-### Changed — may break callers
-
 - **Joining a chat and importing contacts count toward `sendsPerHour`.** A join counts as one, an import as one per
   number. `contacts import` sends 10 numbers a request, each request through the guard; when the limit stops it
   part way, the `rate_limited` error says how many numbers went (`details.sent`) and that importing again is
@@ -53,6 +38,18 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   message with the same ids came back as a server hit; it now matches in the account the search runs as only.
   Under `--backend both`, such a message is labelled `archive`, not `server` or `both`. `SearchQuery.only` keys
   now name their account (`provider`, `account`).
+
+## 0.231.0 — 11.10.2026
+
+### Added
+
+- **Mail in its own tables is found by meaning.** Emails are indexed as notes are (words, stems and chunks, one
+  shared recipe), and `embedMail(store)` embeds their chunks with the local model that conversations and notes
+  use. For an email account, `nearestConversations` — what `search conversations` and `related` read — answers
+  with email threads too: the thread as the chat, the email as the message, so a hit keeps its `msg:email/…`
+  locator. Its word half still reads mail stored as messages only; `search mail` finds mail by words. A change
+  of stemmer choices now re-indexes mail as it does notes.
+- `./store` exports `MEMORY_KINDS`, `MEMORY_STATUSES`, `MEMORY_SCOPES` and `PROPOSAL_STATUSES`.
 
 ## 0.230.0 — 11.10.2026
 
