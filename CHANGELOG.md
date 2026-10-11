@@ -11,8 +11,8 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 - **`messages list --limit` returns as many messages as it was asked for.** A messenger hands out its history a
   page at a time (Telegram at most 100), and `--limit 500` used to stop after one page with `hasMore: true`. It now
-  reads on from the page's edge until the limit or the start of the chat, back or forward with `--after-id` or
-  `--after-time`. Messengers that page by send time (MAX) still return one page.
+  reads on from the page's edge until the limit or the start of the chat: back, from `--before-time`, or forward
+  with `--after-id` or `--after-time`. Messengers that page by send time (MAX) still return one page.
 
 ## 0.232.0 — 11.10.2026
 

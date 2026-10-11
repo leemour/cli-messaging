@@ -360,13 +360,14 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
       const forward = window.after !== undefined
       let page = await listPage(chat, window)
       let items = page.items
-      const byId = (deps.messenger.fetching?.orderBy ?? "id") === "id" && window.beforeTime === undefined
+      const byId = (deps.messenger.fetching?.orderBy ?? "id") === "id"
       while (byId && page.hasMore && items.length < window.limit) {
         const edge = forward ? items.at(-1) : items[0]
         if (!edge) break
+        const { beforeTime: _first, ...rest } = window
         const next = forward
-          ? { ...window, limit: window.limit - items.length, after: { id: edge.id } }
-          : { ...window, limit: window.limit - items.length, before: edge.id }
+          ? { ...rest, limit: window.limit - items.length, after: { id: edge.id } }
+          : { ...rest, limit: window.limit - items.length, before: edge.id }
         page = await listPage(chat, next)
         const seen = new Set(items.map((one) => one.id))
         const fresh = page.items.filter((one) => !seen.has(one.id))
