@@ -5,7 +5,7 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
-## Unreleased
+## 0.233.0 — 11.10.2026
 
 ### Added
 
