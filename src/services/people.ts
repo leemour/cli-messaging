@@ -1,4 +1,5 @@
 import { CliError } from "@wirecat/cli-core"
+import { isCliFailure } from "../cli/failures.js"
 import { capability } from "../cli/messenger/port.js"
 import type { Chat, Contact, Id, Member, Page, PersonCard, PersonProfile, PhoneBookEntry } from "../domain/models.js"
 import { pickPerson } from "../resolve.js"
@@ -64,7 +65,10 @@ export interface PeopleService {
   /** `other` may name another messenger of the store: `max:Ana`. */
   link(person: string, other: string, method?: string): Promise<PersonRecord>
   unlink(person: string): Promise<PersonRecord>
-  /** Only counts and the people recognised: never a number. */
+  /**
+   * Only counts and the people recognised: never a number. `IMPORT_CHUNK` numbers a request, each request
+   * through the guard, each number counted toward the hourly limit.
+   */
   import(entries: PhoneBookEntry[]): Promise<Operated<{ sent: number; recognised: Member[] }>>
 }
 
@@ -276,15 +280,33 @@ export const peopleService = (deps: ServiceDeps): PeopleService => {
       const connection = await online("contacts import")
       const importing = capability(connection, "importContacts", "import contacts")
       const operationId = newOperationId()
-      const recognised = await guardedWrite(
-        deps.guard,
-        { operationId, chatId: null, kind: "account", action: "contact-import", count: entries.length },
-        () => importing(entries),
-      )
+      const recognised: Member[] = []
+      for (let sent = 0; sent < entries.length; sent += IMPORT_CHUNK) {
+        const chunk = entries.slice(sent, sent + IMPORT_CHUNK)
+        try {
+          recognised.push(
+            ...(await guardedWrite(
+              deps.guard,
+              { operationId, chatId: null, kind: "account", action: "contact-import", count: chunk.length },
+              () => importing(chunk),
+            )),
+          )
+        } catch (error) {
+          if (sent === 0 || !isCliFailure(error)) throw error
+          throw new CliError(
+            error.code,
+            `${error.message} — ${sent} of ${entries.length} numbers were sent before this; importing again is safe`,
+            { ...error.details, operationId, sent },
+          )
+        }
+      }
       return { operationId, sent: entries.length, recognised }
     },
   }
 }
+
+/** Numbers per request: one big list in one request is what a contact-scraping account sends. */
+const IMPORT_CHUNK = 10
 
 /** Digits, with the `+` and the spaces, dashes and brackets people type dropped. */
 export const phoneOf = (typed: string): string => {

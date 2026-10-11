@@ -102,6 +102,7 @@ type Counted = Pick<SendEntry, "kind" | "action" | "notify" | "count" | "people"
  * forward, an edit, a pin that notifies, a new group and people added to one all do. A reaction,
  * a quiet pin or a change of title wakes nobody. A deletion wakes nobody either, but many at once
  * is what a ban for automation looks like. An accepted join request adds a person, as `members.add` does.
+ * Joining chats and importing phone numbers in bulk wake nobody either, but are what spam accounts do first.
  */
 const countsTowardLimit = ({ kind = "message", action, notify }: Counted) =>
   kind === "message" ||
@@ -111,13 +112,18 @@ const countsTowardLimit = ({ kind = "message", action, notify }: Counted) =>
   (kind === "pin" && notify === true) ||
   action === "create" ||
   action === "members.add" ||
-  action === "requests.accept"
+  action === "requests.accept" ||
+  action === "join" ||
+  action === "contact-import"
 
-/** Each deleted message, and each person added to a group or let in by a request, counts as one. */
+/**
+ * Each deleted message, each person added to a group or let in by a request, and each imported number
+ * counts as one.
+ */
 const weightOf = ({ kind, action, count, people }: Counted): number =>
   kind === "delete"
     ? (count ?? 1)
-    : action === "create" || action === "members.add" || action === "requests.accept"
+    : action === "create" || action === "members.add" || action === "requests.accept" || action === "contact-import"
       ? Math.max(1, people ?? count ?? 1)
       : 1
 
