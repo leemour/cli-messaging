@@ -17,6 +17,7 @@ import { inSource } from "../../search/query.js"
 import type { SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
 import type { ScoredHit } from "../store.js"
+import { emailHitsByPk } from "./emails.js"
 import type { StoreContext } from "./open.js"
 import { hitsByPk } from "./search.js"
 
@@ -52,6 +53,20 @@ const MESSAGES: Corpus = {
   vocab: "message_words_vocab",
   item: "message",
   thread: "chat",
+}
+
+// The same column names as messages and chats, so every rule reads mail as it reads messages.
+const MAIL: Corpus = {
+  rows: `(SELECT id, account_id, email_thread_id AS chat_id, external_id, deleted_at, from_identity_id AS sender_identity_id,
+    outgoing, coalesce(sent_at, received_at) AS sent_at,
+    CASE WHEN coalesce(subject, '') = '' THEN coalesce(body_text, '') WHEN coalesce(body_text, '') = '' THEN subject
+      ELSE subject || char(10, 10) || body_text END AS text FROM emails)`,
+  threads: "(SELECT id, account_id, external_id, subject AS title, 1 AS searchable FROM email_threads)",
+  words: "email_words",
+  stems: "email_stems",
+  vocab: "email_words_vocab",
+  item: "email",
+  thread: "email_thread",
 }
 
 const quoted = (value: string) => `"${value.replaceAll('"', '""')}"`
@@ -123,7 +138,10 @@ export const queryMessagePks = (context: StoreContext, execution: QueryExecution
   runQuery(context, execution, "pks") as Promise<number[]>
 const compileQuery = (context: StoreContext, execution: QueryExecution, boundedAttachments = false) => {
   const { database } = context
-  const corpus = MESSAGES
+  const corpus = execution.corpus === "mail" ? MAIL : MESSAGES
+  const mail = corpus === MAIL
+  if (mail && (execution.only || execution.conversationIds || execution.conversationSince !== undefined))
+    throw new CliError("validation_error", "mail has no server search or conversations")
   const started = context.now()
   const budget: MatchBudget = { work: 0 }
   let states = 0,
@@ -323,6 +341,11 @@ const compileQuery = (context: StoreContext, execution: QueryExecution, boundedA
         tag,
         tag,
       )
+    } else if (mail && (field === "topic" || field === "kind")) {
+      throw new CliError("validation_error", `search: ${field}: is a messenger field — mail has no ${field}`, {
+        reason: "unsupported_field",
+        span: node.span,
+      })
     } else if (field === "topic") fragment = bound("m.thread_external_id = ?", value)
     else if (field === "kind") {
       const kind = value.toLowerCase()
@@ -335,8 +358,8 @@ const compileQuery = (context: StoreContext, execution: QueryExecution, boundedA
       fragment =
         kind === "link"
           ? bound(
-              `(m.id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?) OR EXISTS (SELECT 1 FROM attachments att WHERE att.attachable_type='${corpus.item}' AND att.attachable_id=m.id AND att.kind IN ('share','webpage')))`,
-              quoted("://"),
+              `(${mail ? "m.text LIKE '%' || ? || '%'" : "m.id IN (SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?)"} OR EXISTS (SELECT 1 FROM attachments att WHERE att.attachable_type='${corpus.item}' AND att.attachable_id=m.id AND att.kind IN ('share','webpage')))`,
+              mail ? "://" : quoted("://"),
             )
           : kind === "attachment"
             ? bound(
@@ -580,9 +603,11 @@ const compileQuery = (context: StoreContext, execution: QueryExecution, boundedA
         count: Number(row.count),
       }))
   }
+  const hits = (pks: number[]) => (mail ? emailHitsByPk(database, pks) : hitsByPk(context, pks))
   return {
     corpus,
     rowsFrom,
+    hits,
     database,
     check,
     grouped,
@@ -690,6 +715,7 @@ const runQuery = async (
   const {
     corpus,
     rowsFrom,
+    hits,
     database,
     check,
     grouped,
@@ -749,10 +775,7 @@ const runQuery = async (
       ...otherRows.map(({ id, relevance }) => ({ id, relevance, exact: false })),
     ]
     return {
-      items: hitsByPk(
-        context,
-        rows.slice(0, execution.limit).map(({ id }) => Number(id)),
-      ).map((hit, index) => ({
+      items: hits(rows.slice(0, execution.limit).map(({ id }) => Number(id))).map((hit, index) => ({
         ...hit,
         score: rows[index]?.relevance == null ? null : -Number(rows[index]?.relevance),
         exact: rows[index]?.exact === true,
@@ -769,10 +792,7 @@ const runQuery = async (
     await new Promise<void>((resolve) => setImmediate(resolve))
     check()
     return {
-      items: hitsByPk(
-        context,
-        rows.slice(0, execution.limit).map(({ id }) => Number(id)),
-      ).map((hit, index) => ({
+      items: hits(rows.slice(0, execution.limit).map(({ id }) => Number(id))).map((hit, index) => ({
         ...hit,
         score: rows[index]?.relevance == null ? null : -Number(rows[index]?.relevance),
         ...(exactColumn ? { exact: Number(rows[index]?.exact) === 1 } : {}),
@@ -817,7 +837,7 @@ const runQuery = async (
   if (by === "pks") return found
   if (by) return grouped(by, "m.id IN (SELECT value FROM json_each(?))", [JSON.stringify(found)], joinedFrom)
   return {
-    items: hitsByPk(context, found.slice(0, execution.limit)).map((hit, index) => ({
+    items: hits(found.slice(0, execution.limit)).map((hit, index) => ({
       ...hit,
       score: scores.get(found[index] as number) ?? null,
       ...(exactColumn ? { exact: exactness.get(found[index] as number) === true } : {}),

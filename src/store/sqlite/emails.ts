@@ -1,6 +1,9 @@
 import type { Attachment, Metadata } from "@wirecat/cli-meetings"
+import { formatLocator } from "../../domain/locator.js"
+import type { Stemmer } from "../../search/stem.js"
 import type { CacheDatabase, SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
+import type { StoredHit } from "../store.js"
 import { bool, flag, fromJson, int, page, str, toJson } from "./events.js"
 import { type AttachmentInput, attachmentOf, saveAttachment, wordsQuery } from "./meetings.js"
 import type { StoreContext } from "./open.js"
@@ -262,7 +265,23 @@ const titleOf = (subject: string | null): string | null =>
   subject?.replace(/^\s*((re|fwd?|aw|wg)\s*:\s*)+/i, "").trim() || null
 
 /** An address is an identity of provider `email`; a display name fills only a nameless one. */
-const addressIdentity = (database: CacheDatabase, { address, name }: EmailAddress, now: number): number => {
+const addressIdentity = (
+  database: CacheDatabase,
+  accountId: number,
+  { address, name }: EmailAddress,
+  now: number,
+): number => {
+  const id = identityOf(database, { address, name }, now)
+  // The account has seen them, so `from:` and the people of the account find mail correspondents.
+  database
+    .prepare(
+      "INSERT INTO account_identities (account_id, identity_id, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING",
+    )
+    .run(accountId, id, now, now)
+  return id
+}
+
+const identityOf = (database: CacheDatabase, { address, name }: EmailAddress, now: number): number => {
   const key = address.trim().toLowerCase()
   const found = database
     .prepare("SELECT id, name FROM identities WHERE provider = 'email' AND external_id = ?")
@@ -322,7 +341,7 @@ const saveEmail = (database: CacheDatabase, accountId: number, threadId: number,
   const values: [string, SqlValue][] = [
     ["email_thread_id", threadId],
     ["subject", mail.subject],
-    ["from_identity_id", from ? addressIdentity(database, from, now) : null],
+    ["from_identity_id", from ? addressIdentity(database, accountId, from, now) : null],
     ["from_address", from?.address ?? null],
     ["from_name", from?.name ?? null],
     ["sent_at", mail.sentAt],
@@ -377,7 +396,7 @@ const saveEmail = (database: CacheDatabase, accountId: number, threadId: number,
     for (const [field, role] of ROLES)
       for (const recipient of mail[field] ?? []) {
         const address = recipient.address.trim().toLowerCase()
-        const identity = addressIdentity(database, recipient, now)
+        const identity = addressIdentity(database, accountId, recipient, now)
         insert.run(emailId, identity, address, recipient.name, role, position++, now, now)
       }
   }
@@ -467,12 +486,63 @@ const emailWhere = (filter: EmailFilter): [string, SqlValue[]] => {
   return [where.join(" AND "), params]
 }
 
+/** Emails as search hits, in the order of `pks`: the thread is the chat, so a hit's locator is the one mail had as messages. */
+export const emailHitsByPk = (database: CacheDatabase, pks: number[]): StoredHit[] => {
+  const read = database.prepare(
+    `SELECT e.*, t.external_id AS thread, t.subject AS thread_subject, a.provider, a.external_id AS account
+       FROM emails e JOIN email_threads t ON t.id = e.email_thread_id JOIN accounts a ON a.id = e.account_id
+       WHERE e.id = ?`,
+  )
+  return pks.flatMap((pk) => {
+    const row = read.get(pk)
+    if (!row) return []
+    const email = emailOf(database, row)
+    const thread = String(row.thread)
+    const role = (wanted: EmailRecipient["role"]) =>
+      email.recipients.filter(({ role }) => role === wanted).map(({ address }) => address)
+    return [
+      {
+        id: email.externalId,
+        chatId: thread,
+        senderId: email.fromAddress,
+        senderName: email.fromName,
+        timestamp: new Date(email.sentAt ?? email.receivedAt ?? email.createdAt).toISOString(),
+        editedAt: null,
+        text: [email.subject, email.bodyText].filter(Boolean).join("\n\n"),
+        outgoing: email.outgoing,
+        attachments: email.attachments.map((a) => ({
+          kind: a.kind,
+          ...(a.name === null ? {} : { name: a.name }),
+          ...(a.mime === null ? {} : { mime: a.mime }),
+          ...(a.size === null ? {} : { size: a.size }),
+          ...(a.providerRef !== null && typeof a.providerRef === "object" && !Array.isArray(a.providerRef)
+            ? { providerRef: a.providerRef }
+            : {}),
+        })),
+        providerMetadata: { emailHeaders: { cc: role("cc"), bcc: role("bcc") } },
+        replyTo: null,
+        forwardedFrom: null,
+        reactions: null,
+        chatTitle: str(row.thread_subject),
+        locator: formatLocator({
+          provider: String(row.provider),
+          account: String(row.account),
+          chat: thread,
+          message: email.externalId,
+        }),
+      },
+    ]
+  })
+}
+
 /** Indexes the queued emails, words only: the subject, then the plain-text body. A deleted email leaves the index. */
-export const drainEmailIndex = (database: CacheDatabase, batch = 500): number => {
+export const drainEmailIndex = (database: CacheDatabase, stemmer?: Stemmer, batch = 500): number => {
   const next = database.prepare("SELECT id FROM email_index_pending WHERE indexable_type = 'email' LIMIT ?")
   const read = database.prepare("SELECT subject, body_text, deleted_at FROM emails WHERE id = ?")
   const drop = database.prepare("DELETE FROM email_words WHERE rowid = ?")
   const insert = database.prepare("INSERT INTO email_words (rowid, normalized_text, scope) VALUES (?, ?, 'email')")
+  const dropStems = database.prepare("DELETE FROM email_stems WHERE rowid = ?")
+  const insertStems = database.prepare("INSERT INTO email_stems (rowid, stems, scope) VALUES (?, ?, 'email')")
   const dequeue = database.prepare("DELETE FROM email_index_pending WHERE indexable_type = 'email' AND id = ?")
   let done = 0
   for (;;) {
@@ -480,10 +550,14 @@ export const drainEmailIndex = (database: CacheDatabase, batch = 500): number =>
       const ids = next.all(batch).map((row) => Number(row.id))
       for (const id of ids) {
         drop.run(id)
+        dropStems.run(id)
         const row = read.get(id)
         if (row && row.deleted_at === null) {
-          const words = normalize([str(row.subject), str(row.body_text)].filter(Boolean).join("\n\n"))
+          const text = [str(row.subject), str(row.body_text)].filter(Boolean).join("\n\n")
+          const words = normalize(text)
           if (words) insert.run(id, words)
+          const stems = stemmer?.indexText(text)
+          if (stems) insertStems.run(id, stems)
         }
         dequeue.run(id)
       }
@@ -494,7 +568,10 @@ export const drainEmailIndex = (database: CacheDatabase, batch = 500): number =>
   }
 }
 
-export const mailStoreOver = ({ database }: Pick<StoreContext, "database">): MailStore => ({
+export const mailStoreOver = (
+  { database }: Pick<StoreContext, "database">,
+  stemmer?: () => Stemmer | undefined,
+): MailStore => ({
   async saveThread(input) {
     const id = inBatch(database, () => saveThread(database, input))
     return threadDetails(database, id) as ThreadDetails
@@ -589,7 +666,7 @@ export const mailStoreOver = ({ database }: Pick<StoreContext, "database">): Mai
     const match = wordsQuery(query)
     if (match === null) return []
     const [limit, offset] = page(filter)
-    drainEmailIndex(database)
+    drainEmailIndex(database, stemmer?.())
     const [where, params] = emailWhere({ ...filter, includeDeleted: false })
     return database
       .prepare(

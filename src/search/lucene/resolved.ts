@@ -32,6 +32,8 @@ export interface QueryExecution {
   stemmer?: Stemmer
   /** Stemmed leaves match their words only, because the stems are not ready to search. */
   unstemmed?: boolean
+  /** `mail` searches the mail tables; the default is messages. */
+  corpus?: "messages" | "mail"
 }
 /** A leaf that reads the word index: every `text` and `exact` leaf, stemmed or not. */
 export const hasText = (node: QueryNode): boolean =>

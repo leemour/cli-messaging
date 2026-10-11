@@ -17,6 +17,7 @@ import {
   type ChatStats,
   type MessageStore,
 } from "../store/store.js"
+import { mergeMail, withMailThreads } from "./mail-search.js"
 import { chatAmong, type SearchFound, type SearchQuery, senderAmong } from "./messages.js"
 import { accountsOfKind } from "./search-kind.js"
 import type { SearchRefreshed } from "./search-refresh.js"
@@ -151,8 +152,9 @@ export const prepareLucene = async (
     messenger.app?.command,
   )
   const scopeAccounts = accounts.map(({ provider, account }) => ({ provider, account }))
+  const chatLookup = request.kind === "mail" ? withMailThreads(store) : store
   const globalChat =
-    request.chat === undefined ? undefined : await chatAmong(messenger, store, scopeAccounts, request.chat)
+    request.chat === undefined ? undefined : await chatAmong(messenger, chatLookup, scopeAccounts, request.chat)
   const resolve = async (node: QueryNode): Promise<ResolvedNode> => {
     if (node.kind === "boolean")
       return {
@@ -160,7 +162,7 @@ export const prepareLucene = async (
         clauses: await Promise.all(node.clauses.map(async ({ occur, node }) => ({ occur, node: await resolve(node) }))),
       }
     if (node.field === "chat")
-      return { ...node, resolution: { chat: await chatAmong(messenger, store, scopeAccounts, node.value) } }
+      return { ...node, resolution: { chat: await chatAmong(messenger, chatLookup, scopeAccounts, node.value) } }
     if (node.field === "from")
       return node.value.toLowerCase() === "me"
         ? { ...node, resolution: { outgoing: true } }
@@ -186,7 +188,7 @@ export const prepareLucene = async (
   const selectedChat =
     globalChat ??
     (chats.length === 1 && requiresChat(ast.root, chats[0] as QueryNode)
-      ? await chatAmong(messenger, store, scopeAccounts, (chats[0] as { value: string }).value)
+      ? await chatAmong(messenger, chatLookup, scopeAccounts, (chats[0] as { value: string }).value)
       : undefined)
   if (leaves.some(({ field }) => field === "topic")) {
     if (!globalChat && (chats.length !== 1 || !requiresChat(ast.root, chats[0] as QueryNode)))
@@ -413,7 +415,16 @@ export const searchLucene = async (
   const execute = store.matchQuery
   if (!execute)
     throw new CliError("validation_error", "this store does not support the Lucene profile — upgrade cli-messaging")
-  const found = prepared.scopeAccounts.length ? await execute(prepared.execution) : { items: [], hasMore: false }
+  const found = !prepared.scopeAccounts.length
+    ? { items: [], hasMore: false }
+    : request.kind === "mail"
+      ? mergeMail(
+          await execute(prepared.execution),
+          await execute({ ...prepared.execution, corpus: "mail" }),
+          request.limit,
+          request.newest,
+        )
+      : await execute(prepared.execution)
   const { completeness, coverage } = await coverageOf(store, prepared, messenger)
   const items = await Promise.all(
     found.items.map(async (hit) => {

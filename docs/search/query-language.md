@@ -14,7 +14,8 @@ StandardSyntaxParser и PrecedenceQueryParser, default AND, default field `text`
 
 Этот профиль — для всех команд `search`: `search all` (сообщения, почта и заметки сразу — с неё
 начинать, если неизвестно, где написано), `search messages` (только сообщения мессенджеров), `search mail`
-(только почта, импортированная `memo mail import`) и `search notes` (заметки; у них только поля `text`,
+(только почта, импортированная `memo mail import`; `chat:` и `--chat` там — тред по id или теме, полей `kind` и
+`topic` нет) и `search notes` (заметки; у них только поля `text`,
 `exact`, `body`, `tag`, `date`, `in`), и для их MCP-инструментов `search_*`. Поле, которого у вида нет,
 в `search all` пропускает этот вид, и ответ называет причину в `skipped`. `bot search messages`
 сохраняет legacy discovery; строгий поиск общего архива выбирает bot accounts через `in:bots`.
