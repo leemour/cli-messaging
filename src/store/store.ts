@@ -25,6 +25,7 @@ import type { RetentionOptions } from "../domain/retention.js"
 import type { PeopleLookup } from "../resolve.js"
 import type { QueryExecution } from "../search/lucene/resolved.js"
 import type { Stemmers } from "../search/stem.js"
+import { type AccountStore, bindAccount } from "./account-store.js"
 import { migrate } from "./migrations.js"
 import { removeOldStore } from "./old-store.js"
 import { storeCapable } from "./open.js"
@@ -172,11 +173,8 @@ export interface PersonRecord {
   identities: LinkedIdentity[]
 }
 
-export interface MessageFilter {
-  provider?: Provider
-  account?: AccountKey
-  /** Several accounts of `provider`, by native id — a read across some of them, never all by accident. */
-  accounts?: Id[]
+/** What a search of one account's messages takes, the account given apart. */
+export interface AccountMessageFilter {
   senders?: Id[]
   together?: boolean
   text?: string
@@ -186,12 +184,19 @@ export interface MessageFilter {
    */
   pattern?: RegExp
   signal?: AbortSignal
-  /** Only this chat of the account; needs `account`, or `find` refuses it. */
+  /** Only this chat of the account. */
   chatId?: Id
   /** With `perChat`, the newest `limit` of each chat rather than of all of them together. */
   limit: number
   perChat?: boolean
 }
+
+/** A chat id is one account's, so `chatId` comes only with `account`. */
+export type MessageFilter = AccountMessageFilter & {
+  provider?: Provider
+  /** Several accounts of `provider`, by native id — a read across some of them, never all by accident. */
+  accounts?: Id[]
+} & ({ account: AccountKey } | { account?: undefined; chatId?: undefined })
 
 export interface Delta {
   chats?: Chat[]
@@ -607,6 +612,8 @@ export interface MessageStore {
   readonly meetings: MeetingStore & MeetingTranscriptStore & MeetingReadCapabilities
   /** Email threads, emails, recipients and mailboxes. */
   readonly mail: MailStore
+  /** The same store with this account bound — what a service of one account reads and writes through. */
+  forAccount(key: AccountKey): AccountStore
   close(): Promise<void>
 }
 
@@ -841,7 +848,7 @@ const storeOver = (context: StoreContext): MessageStore => {
     return mail
   }
 
-  return {
+  const store: MessageStore = {
     meetingVectors: meetingVectorsOver(context),
     saveAccount: async (key, { name }) => {
       const pk = accountPk(key, name)
@@ -1668,8 +1675,14 @@ const storeOver = (context: StoreContext): MessageStore => {
       return mailOf()
     },
 
+    forAccount: (key) =>
+      bindAccount(store, key, {
+        accountPk: () => findAccountPk(key),
+        attachmentAccount: (attachmentPk) => attachmentTexts.accountOf(context, attachmentPk),
+      }),
     close: async () => database.close(),
   }
+  return store
 }
 
 export type { CounterField, CounterObservations, CounterState } from "../domain/counters.js"

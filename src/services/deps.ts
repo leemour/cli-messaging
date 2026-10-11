@@ -4,6 +4,7 @@ import type { Messenger } from "../cli/messenger/context.js"
 import type { MessengerAdapter } from "../cli/messenger/port.js"
 import type { WarmEmbedders } from "../embeddings/embed.js"
 import type { SendGuard } from "../sends/guard.js"
+import type { AccountStore } from "../store/account-store.js"
 import type { AccountKey, MessageStore } from "../store/store.js"
 
 /**
@@ -21,6 +22,10 @@ export interface ServiceDeps {
   connection: () => Promise<MessengerAdapter>
   /** A retained session serializes the whole fetch, including ingestion. */
   withConnection?: <T>(work: (adapter: MessengerAdapter) => Promise<T>) => Promise<T>
+  /**
+   * The whole store, every account in it. A service reads through `accountStore(deps)`; a read across
+   * accounts on purpose names itself with `crossAccount(deps, reason)`.
+   */
   store: () => Promise<MessageStore>
   guard: SendGuard
   /** For the profile's own files — a group's moderation rules. `default` and `process.env` when unset. */
@@ -32,6 +37,25 @@ export interface ServiceDeps {
   history?: boolean
   searchCatchUp?: boolean
   agentText?: true
+}
+
+/** The store with the running account bound: the default for a service's reads and writes. */
+export const accountStore = async (deps: Pick<ServiceDeps, "store" | "account">): Promise<AccountStore> =>
+  (await deps.store()).forAccount(await deps.account())
+
+/**
+ * The whole store, for a read that spans accounts on purpose — `--source all`, `in:all`, `search all`.
+ * `reason` says which, so every such read is found by searching for this name.
+ */
+export const crossAccount = (deps: Pick<ServiceDeps, "store">, _reason: string): Promise<MessageStore> => deps.store()
+
+/** `accountStore`, or nothing when the store will not open or the account is not known yet. */
+export const accountStoreIfOpen = async (deps: ServiceDeps): Promise<AccountStore | undefined> => {
+  try {
+    return await accountStore(deps)
+  } catch {
+    return undefined
+  }
 }
 
 /**

@@ -4,13 +4,13 @@ import { CliError } from "@wirecat/cli-core"
 import type { AppIdentity } from "../cli/app.js"
 import { NOT_FILES } from "../domain/attachments.js"
 import { refusedPlace } from "../sends/upload.js"
-import type { AccountKey, AttachmentView, MessageStore } from "../store/store.js"
+import type { AccountStore } from "../store/account-store.js"
+import type { AttachmentView } from "../store/store.js"
 
 const MAX_FILES = 10_000
 
 export const directoryPaths = async (
-  store: MessageStore,
-  account: AccountKey,
+  store: AccountStore,
   chat: string,
   directory: string,
   app: AppIdentity,
@@ -46,7 +46,7 @@ export const directoryPaths = async (
       throw new CliError("validation_error", "a file escapes --from-dir")
     files.set(name, canonical)
   }
-  const held = await store.attachments(account, { chatId: chat, limit: MAX_FILES + 1 })
+  const held = await store.attachments({ chatId: chat, limit: MAX_FILES + 1 })
   if (held.length > MAX_FILES)
     throw new CliError(
       "validation_error",

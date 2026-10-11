@@ -39,15 +39,15 @@ describe("directory attachment matching", () => {
     try {
       writeFileSync(join(folder, "1-1-same.txt"), "first")
       writeFileSync(join(folder, "1-2-other.txt"), "second")
-      const paths = await directoryPaths(store, owner, "1", folder, app, process.env)
+      const paths = await directoryPaths(store.forAccount(owner), "1", folder, app, process.env)
       const held = await store.attachments(owner, { chatId: "1", limit: 10 })
       expect(paths.get(held.find((file) => file.messageId === "1" && file.position === 0)?.pk as number)).toBe(
         join(folder, "1-1-same.txt"),
       )
       expect(paths.get(held.find((file) => file.messageId === "2")?.pk as number)).toBeNull()
-      expect(await directoryPaths(store, { ...owner, account: "other" }, "1", folder, app, process.env)).toEqual(
-        new Map(),
-      )
+      expect(
+        await directoryPaths(store.forAccount({ ...owner, account: "other" }), "1", folder, app, process.env),
+      ).toEqual(new Map())
     } finally {
       await store.close()
     }
@@ -57,12 +57,12 @@ describe("directory attachment matching", () => {
     const { store, folder } = await fixture()
     try {
       writeFileSync(join(folder, "same.txt"), "ambiguous")
-      await expect(directoryPaths(store, owner, "1", folder, app, process.env)).rejects.toMatchObject({
+      await expect(directoryPaths(store.forAccount(owner), "1", folder, app, process.env)).rejects.toMatchObject({
         code: "validation_error",
       })
       writeFileSync(join(folder, "1-1-a.txt"), "one")
       writeFileSync(join(folder, "1-1-b.txt"), "two")
-      await expect(directoryPaths(store, owner, "1", folder, app, process.env)).rejects.toMatchObject({
+      await expect(directoryPaths(store.forAccount(owner), "1", folder, app, process.env)).rejects.toMatchObject({
         code: "validation_error",
       })
     } finally {
@@ -90,12 +90,12 @@ describe("directory attachment matching", () => {
         const alias = join(folder, `alias-${index}`)
         symlinkSync(directory, alias, "junction")
         for (const path of [directory, alias])
-          await expect(directoryPaths(store, owner, "1", path, app, env)).rejects.toThrow("cannot read")
+          await expect(directoryPaths(store.forAccount(owner), "1", path, app, env)).rejects.toThrow("cannot read")
       }
       const allowed = join(folder, ".worktrees")
       mkdirSync(allowed)
       writeFileSync(join(allowed, ".private.txt"), "synthetic")
-      await expect(directoryPaths(store, owner, "1", allowed, app, env)).resolves.toBeInstanceOf(Map)
+      await expect(directoryPaths(store.forAccount(owner), "1", allowed, app, env)).resolves.toBeInstanceOf(Map)
     } finally {
       await store.close()
     }

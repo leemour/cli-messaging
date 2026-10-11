@@ -15,6 +15,7 @@ import type { PermissionKey } from "../sends/permissions.js"
 import { sendAsCheck } from "../sends/send-as.js"
 import { newOperationId, newSendId } from "../sends/send-id.js"
 import type { Upload } from "../sends/upload.js"
+import type { AccountStore } from "../store/account-store.js"
 import type {
   AccountKey,
   ChatCompleteness,
@@ -821,13 +822,24 @@ export const storedChatId = async (
   reference: string,
   store: MessageStore,
   account: AccountKey,
+): Promise<string> => chatIdAmong(messenger, reference, account, () => store.chats(account, {}))
+
+/** `storedChatId`, among the chats of the account the store is bound to. */
+export const chatIdIn = (messenger: Saved, reference: string, store: AccountStore): Promise<string> =>
+  chatIdAmong(messenger, reference, store.account, () => store.chats({}))
+
+const chatIdAmong = async (
+  messenger: Saved,
+  reference: string,
+  account: AccountKey,
+  held: () => Promise<Page<Chat>>,
 ): Promise<string> => {
   const trimmed = reference.trim()
   if (messenger.savedChatId && ["me", "self", "saved"].includes(trimmed.toLowerCase())) {
     return messenger.savedChatId(account)
   }
   if (/^-?\d+$/.test(trimmed)) return trimmed
-  const chats = (await store.chats(account, {})).items
+  const chats = (await held()).items
   const exact = chats.find((one) => one.id === trimmed)
   if (exact) return exact.id
   if (trimmed.startsWith("@")) {
