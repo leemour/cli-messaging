@@ -21,7 +21,7 @@ export interface NoteIndexState {
  */
 export interface Corpus {
   /** The singular table name: `indexable_type` in the queue, `chunkable_type` in chunks. */
-  type: "document" | "note" | "memory"
+  type: "document" | "note" | "memory" | "email"
   /** Its row in `search_index_state`. */
   index: string
   table: string
@@ -49,6 +49,14 @@ export const CORPORA = {
     index: "memory_index",
     table: "memories",
     read: "SELECT NULL AS title, body, status <> 'superseded' AS live, scope FROM memories WHERE id = ?",
+  },
+  email: {
+    type: "email",
+    index: "email_index",
+    table: "emails",
+    read:
+      "SELECT e.subject AS title, coalesce(e.body_text, '') AS body, e.deleted_at IS NULL AS live, a.scope FROM emails e " +
+      "JOIN accounts a ON a.id = e.account_id WHERE e.id = ?",
   },
 } as const satisfies Record<string, Corpus>
 
@@ -137,6 +145,12 @@ export const drainCorpus = (
   stemmerFor: (stemmers: Stemmers) => Stemmer,
   { batch = 200, until = () => false }: { batch?: number; until?: () => boolean } = {},
 ): number => {
+  // The first schema seeded no row for mail; a data row, so no migration.
+  database
+    .prepare(
+      "INSERT OR IGNORE INTO search_index_state (name, watermark, filled_through, terms_through, normalizer_version) VALUES (?, 0, 0, 0, 1)",
+    )
+    .run(corpus.index)
   const state = corpusIndexState(database, corpus)
   if (state.wanted === null) return 0
   const stemmer = stemmerFor(savedStemmers(database) ?? DEFAULT_STEMMERS)

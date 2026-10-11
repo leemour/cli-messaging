@@ -118,8 +118,9 @@ const withLocal = async <T>(
  * as conversations, so a chunk whose text a conversation shares is embedded once. A missing model is
  * an error naming the download command; nothing is downloaded.
  */
-export const embedNotes = async (
+const embedChunks = async (
   store: MessageStore,
+  source: Pick<MessageStore["notes"], "chunksToEmbed">,
   {
     model: choice,
     maxChunks = Number.POSITIVE_INFINITY,
@@ -131,13 +132,12 @@ export const embedNotes = async (
   } = {},
 ): Promise<NotesEmbedded> => {
   const { model, directory, key } = localModel(choice, env, command)
-  if ((await store.notes.chunksToEmbed(key, { limit: 1 })).length === 0)
-    return { model: model.id, embedded: 0, left: false }
+  if ((await source.chunksToEmbed(key, { limit: 1 })).length === 0) return { model: model.id, embedded: 0, left: false }
   return withLocal(model, directory, threads, async (embedder) => {
     let embedded = 0
     let after: string | undefined
     while (embedded < maxChunks) {
-      const batch = await store.notes.chunksToEmbed(key, {
+      const batch = await source.chunksToEmbed(key, {
         limit: Math.min(NOTE_BATCH, maxChunks - embedded),
         ...(after === undefined ? {} : { after }),
       })
@@ -154,11 +154,17 @@ export const embedNotes = async (
       )
       embedded += batch.length
     }
-    const left =
-      (await store.notes.chunksToEmbed(key, { limit: 1, ...(after === undefined ? {} : { after }) })).length > 0
+    const left = (await source.chunksToEmbed(key, { limit: 1, ...(after === undefined ? {} : { after }) })).length > 0
     return { model: model.id, embedded, left }
   })
 }
+
+export const embedNotes = (store: MessageStore, options: NotesEmbedOptions & { command?: string } = {}) =>
+  embedChunks(store, store.notes, options)
+
+/** Embeds mail's chunks as notes' are embedded: same model and key, so search by meaning reads both. */
+export const embedMail = (store: MessageStore, options: NotesEmbedOptions & { command?: string } = {}) =>
+  embedChunks(store, store.mail, options)
 
 /** Notes nearest in meaning to the query, best first; only notes already embedded can be found. */
 export const nearestNotes = async (

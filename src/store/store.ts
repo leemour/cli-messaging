@@ -790,7 +790,7 @@ const storeOver = (context: StoreContext): MessageStore => {
   }
 
   const mailIndexed = (execution: QueryExecution) => {
-    if (execution.corpus === "mail") drainEmailIndex(database, stems.currentStemmer(database, stemmerFor))
+    if (execution.corpus === "mail") drainEmailIndex(database, stemmerFor)
     return execution
   }
   const accountPk = (key: AccountKey, name: string | null = null) => accounts.accountPk(context, key, name)
@@ -836,6 +836,10 @@ const storeOver = (context: StoreContext): MessageStore => {
   let agentActions: MessageStore["agentActions"] | undefined
   let meetings: MessageStore["meetings"] | undefined
   let mail: MessageStore["mail"] | undefined
+  const mailOf = () => {
+    mail ??= mailStoreOver(context, stemmerFor)
+    return mail
+  }
 
   return {
     meetingVectors: meetingVectorsOver(context),
@@ -1168,7 +1172,40 @@ const storeOver = (context: StoreContext): MessageStore => {
       const accountPk = findAccountPk(key)
       if (accountPk === undefined) return []
       const chatKey = chatId === undefined ? undefined : chatKeyOf(key, chatId)
-      if (chatId !== undefined && chatKey === undefined) return []
+      const mailToo =
+        key.provider === "email" &&
+        conversations === undefined &&
+        scope === undefined &&
+        projectId === undefined &&
+        personId === undefined &&
+        before === undefined
+      const mailHits = async (): Promise<ConversationHit[]> =>
+        mailToo
+          ? (
+              await mailOf().nearest(model, query, {
+                accountId: accountPk,
+                limit,
+                ...(chatId === undefined ? {} : { threadExternalId: chatId }),
+                ...(since === undefined ? {} : { since: Date.parse(since) }),
+              })
+            ).map((hit) => ({
+              summary: {
+                id: `email:${hit.emailId}`,
+                chatId: hit.threadExternalId,
+                firstMessageId: hit.threadFirstExternalId,
+                firstAt: new Date(hit.threadFirstAt ?? 0).toISOString(),
+                lastAt: new Date(hit.threadLastAt ?? hit.threadFirstAt ?? 0).toISOString(),
+                messageCount: hit.threadEmails,
+                senders: hit.threadSenders,
+                builtAt: new Date(context.now()).toISOString(),
+                algorithmVersion: 0,
+              },
+              chunk: { firstMessageId: hit.externalId, lastMessageId: hit.externalId },
+              score: hit.score,
+              stale: false,
+            }))
+          : []
+      if (chatId !== undefined && chatKey === undefined) return mailHits()
       const nearest = vectors.nearestChunks(context, accountPk, {
         ...(chatKey === undefined ? {} : { chatKey }),
         ...(since === undefined ? {} : { since: Date.parse(since) }),
@@ -1191,7 +1228,7 @@ const storeOver = (context: StoreContext): MessageStore => {
         context,
         nearest.flatMap(({ firstMessagePk, lastMessagePk }) => [firstMessagePk, lastMessagePk]),
       )
-      return nearest.flatMap((chunk) => {
+      const messageHits: ConversationHit[] = nearest.flatMap((chunk) => {
         const summary = found.get(chunk.conversationPk)
         const first = ids.get(chunk.firstMessagePk)
         const last = ids.get(chunk.lastMessagePk)
@@ -1207,6 +1244,8 @@ const storeOver = (context: StoreContext): MessageStore => {
             ]
           : []
       })
+      if (!mailToo) return messageHits
+      return [...messageHits, ...(await mailHits())].sort((a, b) => b.score - a.score).slice(0, limit)
     },
 
     conversationVectors: async (key, id, model) => {
@@ -1626,8 +1665,7 @@ const storeOver = (context: StoreContext): MessageStore => {
       return meetings
     },
     get mail() {
-      mail ??= mailStoreOver(context, () => stems.currentStemmer(database, stemmerFor))
-      return mail
+      return mailOf()
     },
 
     close: async () => database.close(),

@@ -17,6 +17,7 @@ export type {
   EmailInput,
   EmailRecipient,
   EmailThread,
+  EmailVectorHit,
   Mailbox,
   MailboxInput,
   MailFilter,

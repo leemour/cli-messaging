@@ -1,15 +1,18 @@
 import type { Attachment, Metadata } from "@wirecat/cli-meetings"
 import { formatLocator } from "../../domain/locator.js"
 import type { Message } from "../../domain/models.js"
-import type { Stemmer } from "../../search/stem.js"
+import type { Stemmer, Stemmers } from "../../search/stem.js"
 import type { CacheDatabase, SqlValue } from "../driver.js"
 import { normalize } from "../normalize.js"
 import type { StoredHit } from "../store.js"
 import { bool, flag, fromJson, int, page, str, toJson } from "./events.js"
 import { ensurePerson } from "./identities.js"
 import { type AttachmentInput, attachmentOf, saveAttachment, wordsQuery } from "./meetings.js"
+import { CORPORA, drainCorpus, noteIndexText } from "./note-index.js"
 import type { Orm, StoreContext } from "./open.js"
 import { inBatch } from "./search-index.js"
+import { stemmerCache } from "./stems.js"
+import { dot } from "./vectors.js"
 
 type Row = Record<string, unknown>
 
@@ -132,6 +135,19 @@ export interface ThreadDetails {
   emails: Email[]
 }
 
+export interface EmailVectorHit {
+  emailId: number
+  externalId: string
+  threadExternalId: string
+  /** The thread's first email, and its first and last time. */
+  threadFirstExternalId: string
+  threadFirstAt: number | null
+  threadLastAt: number | null
+  threadEmails: number
+  threadSenders: number
+  score: number
+}
+
 export interface MailFilter {
   accountId?: number
   includeDeleted?: boolean
@@ -175,6 +191,14 @@ export interface MailStore {
   markDeleted(accountId: number, externalIds: string[], now: number): Promise<number>
   /** Every word of the query, as a prefix, in the subject or body; newest first. */
   search(query: string, filter?: Omit<EmailFilter, "includeDeleted">): Promise<Email[]>
+  /** Text pieces of live emails with no vector of `model`, by content hash, for an embedder to fill. */
+  chunksToEmbed(model: string, options: { after?: string; limit: number }): Promise<{ hash: string; text: string }[]>
+  /** The emails of one account nearest in meaning to `query`, each by its best chunk, best first. */
+  nearest(
+    model: string,
+    query: Float32Array,
+    options: { accountId: number; limit: number; threadExternalId?: string; since?: number },
+  ): Promise<EmailVectorHit[]>
 }
 
 const ROLES = [
@@ -553,42 +577,13 @@ export const emailHitsByPk = (database: CacheDatabase, pks: number[]): StoredHit
   })
 }
 
-/** Indexes the queued emails, words only: the subject, then the plain-text body. A deleted email leaves the index. */
-export const drainEmailIndex = (database: CacheDatabase, stemmer?: Stemmer, batch = 500): number => {
-  const next = database.prepare("SELECT id FROM email_index_pending WHERE indexable_type = 'email' LIMIT ?")
-  const read = database.prepare("SELECT subject, body_text, deleted_at FROM emails WHERE id = ?")
-  const drop = database.prepare("DELETE FROM email_words WHERE rowid = ?")
-  const insert = database.prepare("INSERT INTO email_words (rowid, normalized_text, scope) VALUES (?, ?, 'email')")
-  const dropStems = database.prepare("DELETE FROM email_stems WHERE rowid = ?")
-  const insertStems = database.prepare("INSERT INTO email_stems (rowid, stems, scope) VALUES (?, ?, 'email')")
-  const dequeue = database.prepare("DELETE FROM email_index_pending WHERE indexable_type = 'email' AND id = ?")
-  let done = 0
-  for (;;) {
-    const count = inBatch(database, () => {
-      const ids = next.all(batch).map((row) => Number(row.id))
-      for (const id of ids) {
-        drop.run(id)
-        dropStems.run(id)
-        const row = read.get(id)
-        if (row && row.deleted_at === null) {
-          const text = [str(row.subject), str(row.body_text)].filter(Boolean).join("\n\n")
-          const words = normalize(text)
-          if (words) insert.run(id, words)
-          const stems = stemmer?.indexText(text)
-          if (stems) insertStems.run(id, stems)
-        }
-        dequeue.run(id)
-      }
-      return ids.length
-    })
-    if (count === 0) return done
-    done += count
-  }
-}
+/** Indexes the queued emails as the notes are indexed: words, stems and chunks of the subject, then the body. */
+export const drainEmailIndex = (database: CacheDatabase, stemmerFor: (stemmers: Stemmers) => Stemmer): number =>
+  drainCorpus(database, CORPORA.email, stemmerFor)
 
 export const mailStoreOver = (
   { database, orm }: Pick<StoreContext, "database" | "orm">,
-  stemmer?: () => Stemmer | undefined,
+  stemmerFor: (stemmers: Stemmers) => Stemmer = stemmerCache(),
 ): MailStore => ({
   async saveThread(input) {
     const id = inBatch(database, () => saveThread(database, orm, input))
@@ -680,11 +675,90 @@ export const mailStoreOver = (
       return threads.length
     })
   },
+  async chunksToEmbed(model, { after, limit }) {
+    drainEmailIndex(database, stemmerFor)
+    const read = database.prepare(CORPORA.email.read)
+    return database
+      .prepare(
+        `SELECT k.content_hash AS hash, min(k.chunkable_id) AS owner, k.start_offset AS start, k.end_offset AS end
+           FROM chunks k JOIN emails e ON k.chunkable_type = 'email' AND e.id = k.chunkable_id
+          WHERE k.content_hash > ? AND e.deleted_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM embeddings v WHERE v.model = ? AND v.content_hash = k.content_hash)
+          GROUP BY k.content_hash ORDER BY k.content_hash LIMIT ?`,
+      )
+      .all(after ?? "", model, limit)
+      .flatMap((row) => {
+        const email = read.get(Number(row.owner))
+        if (!email) return []
+        const text = noteIndexText(str(email.title), String(email.body))
+        return [{ hash: String(row.hash), text: text.slice(Number(row.start), Number(row.end)) }]
+      })
+  },
+  async nearest(model, query, { accountId, limit, threadExternalId, since }) {
+    drainEmailIndex(database, stemmerFor)
+    const page = database.prepare(
+      `SELECT k.id, k.chunkable_id AS email, v.vector FROM chunks k
+         JOIN emails e ON k.chunkable_type = 'email' AND e.id = k.chunkable_id
+         JOIN embeddings v ON v.model = ? AND v.content_hash = k.content_hash
+        WHERE k.id > ? AND e.account_id = ? AND e.deleted_at IS NULL
+          AND (? IS NULL OR e.email_thread_id IN (SELECT id FROM email_threads WHERE account_id = e.account_id AND external_id = ?))
+          AND (? IS NULL OR coalesce(e.received_at, e.sent_at) >= ?)
+        ORDER BY k.id LIMIT 500`,
+    )
+    const best = new Map<number, number>()
+    for (let after = 0; ; ) {
+      const rows = page.all(
+        model,
+        after,
+        accountId,
+        threadExternalId ?? null,
+        threadExternalId ?? null,
+        since ?? null,
+        since ?? null,
+      )
+      for (const row of rows) {
+        const score = dot(query, row.vector as Uint8Array)
+        const email = Number(row.email)
+        if (score > (best.get(email) ?? Number.NEGATIVE_INFINITY)) best.set(email, score)
+      }
+      if (rows.length < 500) break
+      after = Number(rows.at(-1)?.id)
+    }
+    const describe = database.prepare(
+      `SELECT e.external_id, t.external_id AS thread, t.last_email_at, t.emails_count,
+         (SELECT f.external_id FROM emails f WHERE f.email_thread_id = t.id AND f.deleted_at IS NULL
+           ORDER BY coalesce(f.sent_at, f.received_at), f.id LIMIT 1) AS first_email,
+         (SELECT min(coalesce(f.sent_at, f.received_at)) FROM emails f WHERE f.email_thread_id = t.id AND f.deleted_at IS NULL) AS first_at,
+         (SELECT count(DISTINCT f.from_address) FROM emails f WHERE f.email_thread_id = t.id AND f.deleted_at IS NULL) AS senders
+         FROM emails e JOIN email_threads t ON t.id = e.email_thread_id WHERE e.id = ?`,
+    )
+    return [...best.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit)
+      .flatMap(([emailId, score]) => {
+        const row = describe.get(emailId)
+        return row
+          ? [
+              {
+                emailId,
+                externalId: String(row.external_id),
+                threadExternalId: String(row.thread),
+                threadFirstExternalId: String(row.first_email ?? row.external_id),
+                threadFirstAt: int(row.first_at),
+                threadLastAt: int(row.last_email_at),
+                threadEmails: Number(row.emails_count),
+                threadSenders: Number(row.senders),
+                score,
+              },
+            ]
+          : []
+      })
+  },
   async search(query, filter = {}) {
     const match = wordsQuery(query)
     if (match === null) return []
     const [limit, offset] = page(filter)
-    drainEmailIndex(database, stemmer?.())
+    drainEmailIndex(database, stemmerFor)
     const [where, params] = emailWhere({ ...filter, includeDeleted: false })
     return database
       .prepare(
