@@ -91,6 +91,16 @@ const BOUND: [string, Read][] = [
     "search messages --backend both",
     ({ store }) => asAlpha(store, "server").messages.search({ ...search, backend: "both" }),
   ],
+  [
+    "search all --backend server",
+    ({ store }) =>
+      asAlpha(store, "server").messages.searchAll({
+        text: SHARED_WORD,
+        limit: 50,
+        only: ["messages"],
+        backend: "server",
+      }),
+  ],
   ["search stats by chat", ({ store }) => asAlpha(store).messages.stats({ ...search, by: "chat" })],
   ["chats list", ({ store }) => asAlpha(store).chats.list({}, { limit: 10, offset: 0 })],
   ["attachments list", ({ store }) => asAlpha(store).attachments.list({ chat: CHAT, limit: 10 })],
@@ -126,16 +136,19 @@ const BOUND: [string, Read][] = [
   ],
 ]
 
-/** Reads that span accounts on purpose: each must find both twins, so this list says which ones do. */
+/** Reads that span accounts today: each must find both twins, so this list says which ones do. */
 const ACROSS: [string, Read][] = [
   ["search messages --source all", ({ store }) => asAlpha(store).messages.search({ ...search, source: "all" })],
   [
     "search messages in:all",
     ({ store }) => asAlpha(store).messages.search({ ...search, text: `${SHARED_WORD} in:all` }),
   ],
-  ["search mail reads every mailbox", ({ store }) => asAlpha(store).messages.search({ ...search, kind: "mail" })],
+  [
+    "today: search mail spans every mailbox — owner to confirm",
+    ({ store }) => asAlpha(store).messages.search({ ...search, kind: "mail" }),
+  ],
   ["search all", ({ store }) => searchAll(store, alpha, { text: SHARED_WORD, limit: 50 })],
-  ["notes across folders", ({ store }) => store.notes.notes({})],
+  ["today: notes without a folder span every folder — owner to confirm", ({ store }) => store.notes.notes({})],
   [
     "direct replies, both parents named",
     async ({ store }) =>
@@ -162,6 +175,21 @@ describe("one account's reads never answer with another's", () => {
     const answer = await read(twin)
     expect(leaksOf(answer, "alpha")).not.toEqual([])
     expect(leaksOf(answer, "bravo")).not.toEqual([])
+  })
+
+  it("across accounts, a server hit is the running account's; the twin's same ids stay archive hits", async () => {
+    const { store } = await twinStore()
+    const found = await asAlpha(store, "server").messages.search({ ...search, source: "all", backend: "both" })
+    expect(found.server).toMatchObject({ calls: 1 })
+    const bravo = found.items.filter(({ locator }) => locator.startsWith("msg:synthetic/600/"))
+    expect(bravo.map(({ id }) => id).sort()).toEqual(["1", "2", "3"])
+    expect(bravo.map(({ source }) => source)).toEqual(["archive", "archive", "archive"])
+  })
+
+  it("--source all --backend server answers only the running account's hits", async () => {
+    const { store } = await twinStore()
+    const found = await asAlpha(store, "server").messages.search({ ...search, source: "all", backend: "server" })
+    expect(found.items.map(({ locator }) => locator)).toEqual(["msg:synthetic/500/7/1"])
   })
 
   it("a chat named across accounts that both hold is ambiguous, never both chats' hits", async () => {
