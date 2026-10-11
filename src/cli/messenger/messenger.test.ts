@@ -3968,11 +3968,27 @@ describe("the guard, account and mcp config commands", () => {
       },
     }
 
-    const byId = await call(["messages", "list", "7", "--after-id", "41", "--jsonl"], async () => forward, env)
-    await call(["messages", "list", "7", "--after-time", "2026-09-27T10:00:00Z", "--json"], async () => forward, env)
-    await call(["messages", "list", "7", "--after-time", "2026-09-27", "--json"], async () => forward, env)
-    await call(["messages", "list", "7", "--after-id", "urn:li:msg:4F2", "--json"], async () => forward, env)
-    await call(["messages", "list", "7", "--after-time", "2h", "--json"], async () => forward, env)
+    const byId = await call(
+      ["messages", "list", "7", "--after-id", "41", "--limit", "3", "--jsonl"],
+      async () => forward,
+      env,
+    )
+    await call(
+      ["messages", "list", "7", "--after-time", "2026-09-27T10:00:00Z", "--limit", "3", "--json"],
+      async () => forward,
+      env,
+    )
+    await call(
+      ["messages", "list", "7", "--after-time", "2026-09-27", "--limit", "3", "--json"],
+      async () => forward,
+      env,
+    )
+    await call(
+      ["messages", "list", "7", "--after-id", "urn:li:msg:4F2", "--limit", "3", "--json"],
+      async () => forward,
+      env,
+    )
+    await call(["messages", "list", "7", "--after-time", "2h", "--limit", "3", "--json"], async () => forward, env)
 
     expect(asked.slice(0, 4)).toEqual([
       { id: "41" },

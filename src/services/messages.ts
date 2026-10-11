@@ -324,31 +324,56 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
     return capability(await deps.connection(), "topicHistory", "read one forum topic")(chat, threadId, window)
   }
 
+  const listPage = async (
+    chat: string,
+    { limit, before, beforeTime, after, threadId: typedThread }: ListWindow,
+  ): Promise<Page<Message>> => {
+    const threadId = threadIdOf(typedThread)
+    if (threadId !== undefined) return topicPage(chat, threadId, { limit, before, beforeTime, after })
+    if (beforeTime !== undefined) {
+      if (deps.offline)
+        throw new CliError("validation_error", "reading back from a time asks the messenger; not with --offline")
+      if (fromStore(deps)) throw new CliError("validation_error", `${PUSHED}, which pages back from a message only`)
+      const connection = await deps.connection()
+      return capability(connection, "historyBefore", "read back from a time")(chat, { limit, time: beforeTime })
+    }
+    if (after !== undefined) {
+      if (deps.offline)
+        throw new CliError("validation_error", "reading forward asks the messenger; the store pages only backwards")
+      if (fromStore(deps)) throw new CliError("validation_error", `${PUSHED}, which pages only backwards`)
+      const connection = await deps.connection()
+      return capability(connection, "historyAfter", "read forward from a message")(chat, { limit, after })
+    }
+    const window = { limit, ...(before === undefined ? {} : { before }) }
+    if (fromStore(deps)) {
+      return inStore(async (store, account) =>
+        store.messages(account, await readChatId(deps, chat, store, account), window),
+      )
+    }
+    return capability(await deps.connection(), "history", "read a chat's history")(chat, window)
+  }
+
   return {
-    list: async (chat, { limit, before, beforeTime, after, threadId: typedThread }) => {
-      const threadId = threadIdOf(typedThread)
-      if (threadId !== undefined) return topicPage(chat, threadId, { limit, before, beforeTime, after })
-      if (beforeTime !== undefined) {
-        if (deps.offline)
-          throw new CliError("validation_error", "reading back from a time asks the messenger; not with --offline")
-        if (fromStore(deps)) throw new CliError("validation_error", `${PUSHED}, which pages back from a message only`)
-        const connection = await deps.connection()
-        return capability(connection, "historyBefore", "read back from a time")(chat, { limit, time: beforeTime })
+    // A provider caps its pages (Telegram at 100), so a larger --limit reads on from the last page's edge.
+    // Only by id: where `before` is a send time (MAX), messages sharing the edge moment would be skipped.
+    list: async (chat, window) => {
+      const forward = window.after !== undefined
+      let page = await listPage(chat, window)
+      let items = page.items
+      const byId = (deps.messenger.fetching?.orderBy ?? "id") === "id" && window.beforeTime === undefined
+      while (byId && page.hasMore && items.length < window.limit) {
+        const edge = forward ? items.at(-1) : items[0]
+        if (!edge) break
+        const next = forward
+          ? { ...window, limit: window.limit - items.length, after: { id: edge.id } }
+          : { ...window, limit: window.limit - items.length, before: edge.id }
+        page = await listPage(chat, next)
+        const seen = new Set(items.map((one) => one.id))
+        const fresh = page.items.filter((one) => !seen.has(one.id))
+        if (fresh.length === 0) break
+        items = forward ? [...items, ...fresh] : [...fresh, ...items]
       }
-      if (after !== undefined) {
-        if (deps.offline)
-          throw new CliError("validation_error", "reading forward asks the messenger; the store pages only backwards")
-        if (fromStore(deps)) throw new CliError("validation_error", `${PUSHED}, which pages only backwards`)
-        const connection = await deps.connection()
-        return capability(connection, "historyAfter", "read forward from a message")(chat, { limit, after })
-      }
-      const window = { limit, ...(before === undefined ? {} : { before }) }
-      if (fromStore(deps)) {
-        return inStore(async (store, account) =>
-          store.messages(account, await readChatId(deps, chat, store, account), window),
-        )
-      }
-      return capability(await deps.connection(), "history", "read a chat's history")(chat, window)
+      return { items, hasMore: page.hasMore }
     },
 
     around: async (reference, message, window) => {
