@@ -48,7 +48,10 @@ export interface ProposedActionsStore {
   get(id: string): Promise<ProposedAction>
   /** What waits for a decision, oldest first. */
   pending(options?: { limit?: number }): Promise<ProposedAction[]>
-  approve(id: string): Promise<ProposedAction>
+  /** Newest first; every status unless one is named. */
+  list(options?: { status?: ProposedAction["status"]; limit?: number }): Promise<ProposedAction[]>
+  /** `result` records what the approval made, such as the task it became. */
+  approve(id: string, result?: unknown): Promise<ProposedAction>
   reject(id: string): Promise<ProposedAction>
   /** An approved action the adapter carried out, with what the provider answered. */
   executed(id: string, result?: unknown): Promise<ProposedAction>
@@ -117,12 +120,13 @@ export const proposedActionsStoreOver = (context: StoreContext): ProposedActions
         .run(to, now(), ...(values as (string | number | null)[]), Number(id))
       return actionOf(rowOf(id))
     })
-  const decide = (id: string, to: "approved" | "rejected") => {
+  const decide = (id: string, to: "approved" | "rejected", result?: unknown) => {
     const { actor } = authorActor(context, "owner")
-    return move(id, ["proposed"], to, ", decided_by_type = ?, decided_by_id = ?, decided_at = ?", [
+    return move(id, ["proposed"], to, ", decided_by_type = ?, decided_by_id = ?, decided_at = ?, result = ?", [
       actor.type,
       actor.id,
       now(),
+      result === undefined ? null : JSON.stringify(result),
     ])
   }
 
@@ -175,7 +179,17 @@ export const proposedActionsStoreOver = (context: StoreContext): ProposedActions
         .prepare("SELECT * FROM proposed_actions WHERE status = 'proposed' ORDER BY created_at, id LIMIT ?")
         .all(Math.min(Math.max(limit, 1), 500))
         .map(actionOf),
-    approve: async (id) => decide(id, "approved"),
+    list: async ({ status, limit = 100 } = {}) => {
+      if (status !== undefined && !PROPOSAL_STATUSES.includes(status))
+        throw new CliError("validation_error", `a status is one of ${PROPOSAL_STATUSES.join(", ")}`)
+      return database
+        .prepare(
+          "SELECT * FROM proposed_actions WHERE (? IS NULL OR status = ?) ORDER BY created_at DESC, id DESC LIMIT ?",
+        )
+        .all(status ?? null, status ?? null, Math.min(Math.max(limit, 1), 500))
+        .map(actionOf)
+    },
+    approve: async (id, result) => decide(id, "approved", result),
     reject: async (id) => decide(id, "rejected"),
     executed: async (id, result) =>
       move(id, ["approved"], "executed", ", executed_at = ?, result = ?", [

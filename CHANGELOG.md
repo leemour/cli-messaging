@@ -5,6 +5,17 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
+## Unreleased
+
+### Added
+
+- **An approved proposal can become a task.** `approveAsTask(store, id)` (`./services`) files a proposed action
+  as a `request` task in the account that would act and records `{ task }` as the proposal's result; a retry
+  finds the same task, and a proposal without an account is refused. `proposedActions.approve` takes that
+  result, and `proposedActions.list` lists proposals newest first, optionally by status.
+- **`agentActions.list` filters by the agent's name** (`agent: "tg-mcp"`), and each row's `actor` carries
+  `name`.
+
 ## 0.230.0 — 11.10.2026
 
 ### Changed

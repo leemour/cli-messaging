@@ -65,9 +65,12 @@ the owner's is accepted at once, and accepting one that supersedes another ends 
 holds what agents concluded — summary, digest, fact, preference — with author bot and model, confidence,
 status and a scope that has no default: a memory without scope or evidence is refused. Memories have their
 own words index. `proposedActions` keeps what an agent wants done outside the store until the owner
-approves or rejects it; a messenger adapter executes an approved one and reports `executed` or `failed`.
-The payload may hold a reply's text, shown to the approver and never logged. `agentActions` is the audit
-trail: the MCP server writes one row per tool call (tool, tier, outcome code, times), never its arguments.
+approves or rejects it; `list` filters by status. `approveAsTask` (`./services`) approves one as a `request`
+task in the account that would act, with source `proposed-action:<id>`, and records `{ task }` as its result;
+a retry finds the same task. A messenger adapter could instead execute an approved one and report `executed`
+or `failed`. The payload may hold a reply's text, shown to the approver and never logged. `agentActions` is
+the audit trail: the MCP server writes one row per tool call (tool, tier, outcome code, times), never its
+arguments; `list` filters by tool and by the agent's name, such as `tg-mcp`.
 
 ## Document extraction
 
