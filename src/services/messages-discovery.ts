@@ -83,8 +83,18 @@ export const searchDiscovery = async (
     if (proposed.items.length) {
       const only = candidates
         .concat(proposed.items.map((m) => ({ ...m, fused: 0 })))
-        .filter((m) => !request.only || request.only.some((key) => key.chatId === m.chatId && key.id === m.id))
-        .map((m) => ({ chatId: m.chatId, id: m.id }))
+        .map((m) => {
+          const { provider, account } = parseLocator(m.locator)
+          return { provider, account, chatId: m.chatId, id: m.id }
+        })
+        .filter(
+          (m) =>
+            !request.only ||
+            request.only.some(
+              (key) =>
+                key.provider === m.provider && key.account === m.account && key.chatId === m.chatId && key.id === m.id,
+            ),
+        )
       const eligible = await searchLucene(
         store,
         account,

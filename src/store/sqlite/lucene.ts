@@ -468,6 +468,7 @@ const compileQuery = (context: StoreContext, execution: QueryExecution, boundedA
         {
           sql: `m.id IN (SELECT picked.id FROM json_each(?) j CROSS JOIN accounts allowed CROSS JOIN chats scoped CROSS JOIN messages picked
             WHERE (${execution.accounts.map(() => "(allowed.provider=? AND allowed.external_id=?)").join(" OR ") || "0"})
+              AND allowed.provider=json_extract(j.value,'$.provider') AND allowed.external_id=json_extract(j.value,'$.account')
               AND scoped.account_id=allowed.id AND scoped.external_id=json_extract(j.value,'$.chatId')
               AND picked.chat_id=scoped.id AND picked.external_id=json_extract(j.value,'$.id'))`,
           params: [JSON.stringify(execution.only), ...execution.accounts.flatMap((key) => [key.provider, key.account])],

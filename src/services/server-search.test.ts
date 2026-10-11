@@ -148,6 +148,33 @@ describe("server search beside the archive", () => {
   })
 
   it.each([
+    { name: "--source all", query: { text: "invoice", source: "all" } },
+    { name: "in:all", query: { text: "invoice in:all" } },
+  ])("**keeps --backend server to the account it runs as** under $name", async ({ query }) => {
+    const one = await setup()
+    const twin = { provider: "test", account: "501" }
+    await one.store.saveChats(twin, [chat("7"), chat("8")])
+    await one.store.saveMessages(twin, "7", [message("7", "1", "invoice paid")], { via: "history" })
+    await one.store.saveMessages(twin, "8", [message("8", "2", "invoices sent")], { via: "history" })
+    const found = await one.search({ ...query, backend: "server" })
+    expect(found.items.map(({ locator, source }) => [locator, source]).sort()).toEqual([
+      ["msg:test/500/7/1", "both"],
+      ["msg:test/500/8/2", "server"],
+    ])
+  })
+
+  it("labels another account's twin of a server hit as the archive's under --backend both", async () => {
+    const one = await setup()
+    const twin = { provider: "test", account: "501" }
+    await one.store.saveChats(twin, [chat("7")])
+    await one.store.saveMessages(twin, "7", [message("7", "1", "invoice paid")], { via: "history" })
+    const found = await one.search({ text: "invoice", source: "all", backend: "both" })
+    expect(found.items.filter(({ locator }) => locator.startsWith("msg:test/501/"))).toEqual([
+      expect.objectContaining({ locator: "msg:test/501/7/1", source: "archive" }),
+    ])
+  })
+
+  it.each([
     { text: "invoice chat:7", sent: [{ text: "invoice", chat: "7" }] },
     { text: "invoice", chat: "7", sent: [{ text: "invoice", chat: "7" }] },
     { text: "invoice OR receipt", sent: [{ text: "invoice" }, { text: "receipt" }] },

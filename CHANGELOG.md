@@ -15,6 +15,14 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   are searched; mail and notes stay local. The default is still `both`, falling back to the archive silently;
   `archive` never connects, and `server` keeps only the messages the server returned.
 
+### Fixed
+
+- **`search messages --backend server` with `--source all` or `in:all` no longer answers another account's
+  messages.** A server hit was matched by chat and message id in every account searched, so another account's
+  message with the same ids came back as a server hit; it now matches in the account the search runs as only.
+  Under `--backend both`, such a message is labelled `archive`, not `server` or `both`. `SearchQuery.only` keys
+  now name their account (`provider`, `account`).
+
 ## 0.230.0 — 11.10.2026
 
 ### Added
