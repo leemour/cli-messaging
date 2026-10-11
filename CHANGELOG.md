@@ -5,7 +5,19 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
-## Unreleased
+## 0.230.0 — 11.10.2026
+
+### Changed
+
+- **Meeting consumers share the foundational SDK.** The exact cli-meetings 0.3.0 dependency exposes
+  optional provider-neutral management, recording transfer, durable archive synchronization and
+  schedule ports. Existing meeting store interfaces remain available; consumers pin this producer
+  alongside the same meetings version to avoid duplicate SDK implementations.
+
+### Fixed
+
+- **`@wirecat/cli-messaging-sqlite` and `@wirecat/cli-messaging-onnx` 1.0.1**, which ship the Apache 2.0 license file
+  the rest of the package has; no code changed.
 
 ## 0.229.0 — 11.10.2026
 
@@ -15,9 +27,6 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   and Russian questions containing “можно”, “может”, “могут” or “ли”. Their question mark no longer
   acts as a wildcard that prevents partial evidence retrieval. Subjects, negation and filters remain
   visible; explicit query syntax and strict search keep their existing behavior.
-
-- **`@wirecat/cli-messaging-sqlite` and `@wirecat/cli-messaging-onnx` 1.0.1**, which ship the Apache 2.0 license file
-  the rest of the package has; no code changed.
 
 ## 0.228.0 — 11.10.2026
 
