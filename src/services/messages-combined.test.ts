@@ -117,7 +117,12 @@ describe("internal combined search", () => {
     )
     expect(ids(found)).toEqual(["1"])
     expect(
-      ids(await searchCombined(store, account, { ...request("aurora rolluot"), only: [{ chatId: "101", id: "3" }] })),
+      ids(
+        await searchCombined(store, account, {
+          ...request("aurora rolluot"),
+          only: [{ ...account, chatId: "101", id: "3" }],
+        }),
+      ),
     ).toEqual(["3"])
     expect(
       ids(

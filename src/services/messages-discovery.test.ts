@@ -125,12 +125,12 @@ describe("archive discovery", () => {
     expect(ids(scoped)).not.toContain("4")
     const childOnly = await searchStore(store, account, {
       ...request("What time does Helix export run?"),
-      only: [{ chatId: "101", id: "2" }],
+      only: [{ ...account, chatId: "101", id: "2" }],
     })
     expect(childOnly.items).toEqual([])
     const parentOnly = await searchStore(store, account, {
       ...request("What time does Helix export run?"),
-      only: [{ chatId: "101", id: "1" }],
+      only: [{ ...account, chatId: "101", id: "1" }],
     })
     expect(ids(parentOnly)).toEqual(["1"])
     const fromChild = await searchStore(store, account, request("What time does Helix export run? from:701"))

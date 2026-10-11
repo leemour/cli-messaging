@@ -29,6 +29,14 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   safe. A flood or freeze hold on the profile now also stops joins and imports. A profile that sets
   `contacts.import` to `ask` is asked once per 10 numbers.
 
+### Fixed
+
+- **`search messages --backend server` with `--source all` or `in:all` no longer answers another account's
+  messages.** A server hit was matched by chat and message id in every account searched, so another account's
+  message with the same ids came back as a server hit; it now matches in the account the search runs as only.
+  Under `--backend both`, such a message is labelled `archive`, not `server` or `both`. `SearchQuery.only` keys
+  now name their account (`provider`, `account`).
+
 ## 0.230.0 — 11.10.2026
 
 ### Added

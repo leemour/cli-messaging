@@ -26,8 +26,8 @@ export interface QueryExecution {
   /** Internal conversation eligibility, applied before lexical ranking. */
   conversationIds?: string[]
   conversationSince?: number
-  /** Only these messages, by chat and message id, in the account's chats. */
-  only?: { chatId: string; id: string }[]
+  /** Only these messages, by account, chat and message id. */
+  only?: (AccountKey & { chatId: string; id: string })[]
   /** The store's stemmer, set when a leaf is stemmed: queries stem with the choices that built the index. */
   stemmer?: Stemmer
   /** Stemmed leaves match their words only, because the stems are not ready to search. */
