@@ -222,3 +222,28 @@ it("keeps earlier history pages and tells the caller when and where to resume", 
   })
   expect(calls).toBe(2)
 })
+
+it("fails the fetch when the first page fails, as there is nothing to resume", async () => {
+  const store = await emptyStore()
+  const adapter = {
+    self: () => "500",
+    history: async () => {
+      throw new CliError("validation_error", "give --from <message link>")
+    },
+  } as unknown as MessengerAdapter
+  const service = archiveService({
+    ...storedDeps(messenger, store, account, guard),
+    offline: false,
+    connection: async () => adapter,
+  })
+  await expect(
+    service.fetch("7", {
+      limit: 100,
+      pageSize: 2,
+      pauseMs: 0,
+      note: () => {},
+      stop: new AbortController().signal,
+      onPage: () => {},
+    }),
+  ).rejects.toMatchObject({ code: "validation_error" })
+})
