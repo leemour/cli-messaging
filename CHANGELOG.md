@@ -6,6 +6,12 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+### Added
+
+- **A meeting can be annotated and tagged.** `KnowledgeTarget` takes `{ type: "meeting", id }`, a meeting's
+  store id within the named account, and `labelled` takes the type `meeting`. Code that switches over every
+  `KnowledgeTarget` or `LabelledType` value meets a new one.
+
 ### Fixed
 
 - **A deleted email loses its text.** `store.mail.markDeleted` now drops the email's body, HTML, snippet and its
@@ -14,6 +20,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   bot's `store fetch` with nothing to start from exit with the error (2 for "give --from <message link>")
   instead of 0 with `fetched: 0` and an `issue`. A wait the messenger asks for still ends as a partial result
   with `issue`, as does any failure after some pages.
+- **`knowledge.annotations` no longer fails once a note is about a meeting.** A note with
+  `about: ["meeting:…"]` made every annotation listing throw "is not a reference"; it is now listed, and a note
+  about a transcript or a cue is left out of the list as a memory is.
 
 ## 0.225.0 — 11.10.2026
 

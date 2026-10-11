@@ -1,5 +1,6 @@
 import { CliError } from "@wirecat/cli-core"
 import { parseLocator } from "../../domain/locator.js"
+import { formatMeetingReference } from "../../domain/meeting-reference.js"
 import { formatReference, parseReference, type Reference } from "../../domain/references.js"
 import { normalizeTag } from "../../domain/tags.js"
 import type { AccountKey } from "../store.js"
@@ -35,6 +36,8 @@ export type KnowledgeTarget =
   | { type: "project"; id: string }
   | { type: "note"; id: string }
   | { type: "document"; id: string }
+  /** A meeting by its store id; one account's, like a chat. */
+  | { type: "meeting"; id: string }
   /** A notes folder by id; `path` names one subfolder inside it, `null` or absent the whole folder. */
   | { type: "folder"; id: string; path?: string | null }
 
@@ -102,7 +105,7 @@ export interface Reminder {
   receipt: string | null
 }
 
-export type LabelledType = "note" | "document" | "person" | "organization" | "project" | "task" | "folder"
+export type LabelledType = "note" | "document" | "person" | "organization" | "project" | "task" | "meeting" | "folder"
 
 export interface KnowledgeStore {
   taskIds(
@@ -208,6 +211,7 @@ const LABELLED: Record<string, LabelledType> = {
   organization: "organization",
   project: "project",
   task: "task",
+  meeting: "meeting",
   account: "folder",
 }
 
@@ -226,7 +230,7 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
   const taskAccount = (key: AccountKey) => `${key.provider}:${key.account}`
 
   /** The typed reference a target names, checked against the account when one is given. */
-  const referenceOf = (key: KnowledgeScope, target: KnowledgeTarget): Reference => {
+  const referenceOf = (key: KnowledgeScope, target: KnowledgeTarget): Reference | string => {
     if (target.type === "message") {
       const locator = parseLocator(target.locator)
       if (locator.provider === "notes")
@@ -236,16 +240,33 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
       return { type: "message", ...locator }
     }
     if (
-      !["chat", "contact", "person", "task", "organization", "project", "note", "document", "folder"].includes(
-        target.type,
-      )
+      ![
+        "chat",
+        "contact",
+        "person",
+        "task",
+        "organization",
+        "project",
+        "note",
+        "document",
+        "meeting",
+        "folder",
+      ].includes(target.type)
     )
       throw new CliError("validation_error", "unknown knowledge target")
     if (!target.id.trim()) throw new CliError("validation_error", "target id must not be empty")
     if (target.type === "folder")
       return parseReference(formatReference({ type: "folder", id: target.id, path: target.path ?? null }))
-    if (key === null && (target.type === "chat" || target.type === "contact"))
+    if (key === null && (target.type === "chat" || target.type === "contact" || target.type === "meeting"))
       throw new CliError("validation_error", `a ${target.type} is one account's — name the account`)
+    if (target.type === "meeting") {
+      if (!/^[1-9]\d{0,15}$/.test(target.id)) throw new CliError("validation_error", "a meeting id is a store id")
+      return formatMeetingReference({
+        type: "meeting",
+        accountId: account(key as AccountKey),
+        meetingId: Number(target.id),
+      })
+    }
     if (target.type === "chat")
       return {
         type: "chat",
@@ -257,8 +278,9 @@ export const knowledgeStoreOver = (context: StoreContext): KnowledgeStore => {
     return { type: target.type, id: target.id }
   }
   const targetOfThing = (thing: Thing): KnowledgeTarget | undefined => {
+    if (thing.type === "meeting") return { type: "meeting", id: String(thing.id) }
     const reference = referenceOfThing(database, thing)
-    if (reference === undefined) return undefined
+    if (reference === undefined || reference.startsWith("meeting:")) return undefined
     const parsed = parseReference(reference)
     if (parsed.type === "message") return { type: "message", locator: reference }
     if (parsed.type === "chat") return { type: "chat", id: parsed.chat }

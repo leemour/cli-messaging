@@ -86,3 +86,40 @@ it("persists canonical meeting, retained revision and actual cue references as m
     await store.close()
   }
 })
+
+it("annotates and tags a meeting of the named account, and lists notes about a meeting", async () => {
+  const store = await openStore({ path: join(mkdtempSync(join(tmpdir(), "meeting-knowledge-")), "store.db") })
+  try {
+    const alice = { provider: "example", account: "alice-example" }
+    const bob = { provider: "example", account: "bob-sample" }
+    const accountId = await store.saveAccount(alice, { name: "Alice Example" })
+    await store.saveAccount(bob, { name: "Bob Sample" })
+    const input = sampleMeeting()
+    input.meeting.accountId = accountId
+    const saved = await store.meetings.saveMeeting(input)
+    const target = { type: "meeting", id: String(saved.meeting.id) } as const
+
+    await store.notes.addNote({
+      text: "Written about the meeting",
+      about: [`meeting:${accountId}/${saved.meeting.id}`],
+    })
+    const annotation = await store.knowledge.addAnnotation(alice, target, "Follow up with Bob Sample")
+    expect(annotation.target).toEqual(target)
+    expect((await store.knowledge.annotations(null)).items.map(({ text }) => text).sort()).toEqual([
+      "Follow up with Bob Sample",
+      "Written about the meeting",
+    ])
+    expect(await store.knowledge.addTags(alice, target, ["planning"])).toEqual(["planning"])
+    expect(await store.knowledge.tags(alice, target)).toEqual(["planning"])
+    expect((await store.knowledge.labelled(null, { type: "meeting" })).items).toMatchObject([
+      { target, tags: ["planning"], targetState: "available" },
+    ])
+
+    await expect(store.knowledge.addTags(bob, target, ["planning"])).rejects.toMatchObject({ code: "not_found" })
+    await expect(store.knowledge.addTags(null, target, ["planning"])).rejects.toMatchObject({
+      code: "validation_error",
+    })
+  } finally {
+    await store.close()
+  }
+})
