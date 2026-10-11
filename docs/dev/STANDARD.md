@@ -299,6 +299,7 @@ its meaning, and this table is regenerated from it. **Bold** marks a clash still
 | Option | Value | Meaning | Default | Commands |
 |---|---|---|---|---|
 | `--accept-terms` |  | accept the model's licence terms, for a model that has its own |  | `models text download` |
+| `--account` | `<address>` | only this mail account, by its address; every mail account when unset |  | `search mail` (planned) |
 | `--add` | `<chat>` | put a chat into a folder; repeat it for more |  | `bot webhooks set` (max-only), `chats folders update` |
 | `--after-id` | `<id>` | read what came after this message id; not with --after-time or the --before pair |  | `messages list` |
 | `--after-n` | `<n>` | how many messages after it |  | `messages context` |

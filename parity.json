@@ -4,6 +4,10 @@
     "--accept-terms": {
       "meaning": "accept the model's licence terms, for a model that has its own"
     },
+    "--account": {
+      "value": "<address>",
+      "meaning": "only this mail account, by its address; every mail account when unset"
+    },
     "--add": {
       "value": "<chat>",
       "meaning": "put a chat into a folder; repeat it for more"
@@ -3116,6 +3120,13 @@
     "search mail": {
       "in": "all",
       "options": {
+        "--account": {
+          "in": [],
+          "planned": {
+            "max": "each CLI’s next cli-messaging bump",
+            "tg": "each CLI’s next cli-messaging bump"
+          }
+        },
         "--chat": "all",
         "--context": "all",
         "--exact": "all",

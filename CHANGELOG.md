@@ -16,6 +16,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   gives a service the running account's bound store and `crossAccount(deps, reason)` the whole store for a read
   across accounts on purpose; `chatIdIn(messenger, reference, bound)` is `storedChatId` over a bound store.
   `chats`, `conversations` and `attachments` services read and write through it.
+- **`search mail --account <address>` and `search_mail`'s `account` narrow mail search to one mail account.**
+  Without it, mail search still reads every mail account; an address the store does not hold is `not_found`
+  and names the ones it holds. `SearchQuery.mailAccount` carries it. `search notes --folder` and
+  `search_notes`'s `folders` already narrow notes to some folders; without them every folder is read.
 
 ### Changed — may break callers
 

@@ -1090,6 +1090,38 @@ describe("the MCP server", () => {
     expect(telegram.opened()).toBe(1)
   })
 
+  it("search_mail reads every mail account, and account narrows it to one", async () => {
+    const { call, env } = await connect(scripted())
+    await call("chat_chats_list")
+    const store = await openStore({ path: env.MESSAGING_STORE })
+    for (const address of ["alice@example.test", "bob@example.test"]) {
+      const accountId = await store.saveAccount({ provider: "email", account: address }, { name: null })
+      await store.mail.saveThread({
+        accountId,
+        externalId: "thread-1",
+        now: Date.UTC(2026, 0, 2),
+        emails: [
+          {
+            externalId: `<${address}>`,
+            subject: "Reading group",
+            from: { address, name: null },
+            sentAt: Date.UTC(2026, 0, 1),
+            bodyText: "Which chapter next?",
+          },
+        ],
+      })
+    }
+    await store.close()
+
+    const every = await call("chat_search_mail", { text: "chapter" })
+    expect(every.body.items.map(({ id }: { id: string }) => id).sort()).toEqual([
+      "<alice@example.test>",
+      "<bob@example.test>",
+    ])
+    const one = await call("chat_search_mail", { text: "chapter", account: "bob@example.test" })
+    expect(one.body.items.map(({ id }: { id: string }) => id)).toEqual(["<bob@example.test>"])
+  })
+
   it("search_all takes meetings: the one stored meeting account, or one named; never without asking", async () => {
     const telegram = scripted()
     const { call, env } = await connect(telegram)

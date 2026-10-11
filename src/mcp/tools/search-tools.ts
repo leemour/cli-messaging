@@ -120,7 +120,7 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
     title: "Search mail",
     description:
       "Search the mail imported into the local store (memo mail import), in the same query language as " +
-      "search_messages; one mail thread is one chat. Returns { items, page, limit, hasMore, completeness, query }.",
+      "search_messages; one mail thread is one chat. It reads every mail account; `account` (an address) narrows it to one. Returns { items, page, limit, hasMore, completeness, query }.",
     input: mailSearchInput(messenger),
     annotations: { ...READ, openWorldHint: false },
     stored: (store, account, args, defaults) => {

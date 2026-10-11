@@ -25,7 +25,7 @@ import type {
   StoredHit,
   WordQuery,
 } from "../store/store.js"
-import { fromStore, nothingStored, PUSHED, type ServiceDeps } from "./deps.js"
+import { crossAccount, fromStore, nothingStored, PUSHED, type ServiceDeps } from "./deps.js"
 import { searchDiscovery } from "./messages-discovery.js"
 import {
   type MessageStats,
@@ -94,6 +94,8 @@ export interface SearchQuery {
   accounts?: AccountKey[]
   /** `messages` leaves mail out and refuses `in:email`; `mail` reads the mailboxes only. Every kind when unset. */
   kind?: SearchKind
+  /** With `kind: "mail"`, only this mail account, by its address; every mail account when unset. */
+  mailAccount?: string
   /** Any of these senders, already resolved by the caller; not with `from:`. */
   senders?: { provider: Provider; id: Id }[]
   limit: number
@@ -461,7 +463,12 @@ export const messagesService = (deps: ServiceDeps): MessagesService => {
         // Mail is only ever in the local store, and a saved search replays as `search messages`.
         ...(request.kind === "mail" || request.discover ? { backend: "archive" as const } : {}),
       }
-      return inStore(async (store, account) => {
+      const opened =
+        query.kind === "mail"
+          ? crossAccount(deps, "search mail reads every mail account unless --account names one")
+          : deps.store()
+      return opened.then(async (store) => {
+        const account = await deps.account()
         if (query.thread) threadBounds(query.thread)
         const refreshed = await refreshSearch(deps, query)
         // The server step reads the indexes to translate the query, so they are topped up first.

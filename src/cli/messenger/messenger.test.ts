@@ -1837,6 +1837,12 @@ describe("the shared read commands", () => {
       ["<a@example.test>", true],
       ["<b@example.test>", false],
     ])
+
+    const one = await call(["search", "mail", "chapter", "--account", "Owner@example.test", "--json"], never, env)
+    expect(JSON.parse(one.stdout[0] ?? "").items.map(({ id }: { id: string }) => id)).toEqual(["<a@example.test>"])
+    const unheld = await call(["search", "mail", "chapter", "--account", "other@example.test", "--json"], never, env)
+    expect(unheld.code).not.toBe(0)
+    expect(unheld.stderr.join("\n")).toContain("owner@example.test")
   })
 
   it("**search all** finds a message, a mail and a note with one query, each typed, and says what it skipped", async () => {

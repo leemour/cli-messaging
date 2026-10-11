@@ -46,7 +46,9 @@ export const messagesSearchCommand = (messenger: Messenger, kind: SearchKind = "
         ? "only this mail thread, by id or subject"
         : `only this chat — the same as chat: in the query; ${messenger.chatArgument}`,
     )
-  if (!mail)
+  if (mail)
+    command.option("--account <address>", "only this mail account, by its address; every mail account when unset")
+  else
     command
       .option(
         "--source <messenger>",
@@ -92,6 +94,7 @@ const searchAction = (messenger: Messenger, kind: SearchKind) =>
       type === undefined ? given : given.length === 0 ? [TYPES[type]] : [`(${given.join(" ")}) AND ${TYPES[type]}`]
     const {
       chat,
+      account,
       source,
       regex,
       language,
@@ -104,6 +107,7 @@ const searchAction = (messenger: Messenger, kind: SearchKind) =>
       saved,
     } = this.opts<{
       chat?: string
+      account?: string
       source?: string
       regex?: boolean
       discover?: boolean
@@ -126,6 +130,7 @@ const searchAction = (messenger: Messenger, kind: SearchKind) =>
     const typed = {
       ...(chat === undefined ? {} : { chat }),
       ...(source === undefined ? {} : { source }),
+      ...(account === undefined ? {} : { mailAccount: account }),
       ...(discover === undefined ? {} : { discover }),
       ...(language === undefined ? {} : { language }),
       ...(timezone === undefined ? {} : { timezone }),
