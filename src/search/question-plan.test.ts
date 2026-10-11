@@ -86,3 +86,23 @@ test("question words in a filter title cannot turn keywords into a question", ()
   assert.deepEqual(planQuestion(text).queries, [text])
   assert.equal(planQuestion(text).changed, false)
 })
+
+test("permission questions preserve subjects, negation and scope", () => {
+  for (const text of [
+    "Can contractors access Nimbus now? chat:101",
+    "Could contractors access Nimbus chat:101",
+    "Should vendors connect to Nimbus? chat:101",
+    "Подрядчики могут подключиться к Лотос сейчас? chat:101",
+    "Можно подключиться к Лотос? chat:101",
+    "Разрешено ли подключение к Лотос? chat:101",
+  ]) {
+    const plan = planQuestion(text)
+    assert.ok(plan.changed, text)
+    assert.equal(plan.scope, "chat:101")
+    assert.ok(plan.queries.every((q) => !q.includes("?")))
+  }
+  assert.ok(planQuestion("Can contractors not access Nimbus?").terms.includes("not"))
+  assert.ok(planQuestion("Подрядчики не могут подключиться к Лотос?").terms.includes("не"))
+  for (const text of ["Can access Nimbus AND vendors?", "Can access Nim*?", "Nimbus report?", "Nimbus canary?"])
+    assert.deepEqual(planQuestion(text).queries, [text])
+})
