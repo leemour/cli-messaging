@@ -6,6 +6,7 @@ import { formatLocator } from "../domain/locator.js"
 import type { AttachmentInput, EmailInput } from "../store/index.js"
 import { type AccountKey, type MessageStore, openStore } from "../store/store.js"
 import { searchStore } from "./messages.js"
+import { personContext } from "./person-context.js"
 
 const MAIL: AccountKey = { provider: "email", account: "owner@example.com" }
 const live: MessageStore[] = []
@@ -181,5 +182,57 @@ describe("search mail over the mail tables", () => {
     const { store, accountId } = await seeded()
     await store.mail.markDeleted(accountId, ["<three@example.com>"], at(30))
     expect(await found(store, "lunch")).toEqual([])
+  })
+
+  it("finds mail in a search that names a messenger account too, and skips mail for a messenger field", async () => {
+    const { store } = await seeded()
+    const TG: AccountKey = { provider: "tg", account: "1" }
+    await store.saveChats(TG, [
+      { id: "5", title: "Team", kind: "group", unreadCount: 0, lastMessageAt: null, participantsCount: null },
+    ])
+    await store.saveMessages(
+      TG,
+      "5",
+      [
+        {
+          id: "1",
+          chatId: "5",
+          senderId: "9",
+          senderName: "Carol Example",
+          timestamp: new Date(at(3)).toISOString(),
+          editedAt: null,
+          text: "the roadmap call",
+          outgoing: false,
+          attachments: [],
+          replyTo: null,
+          forwardedFrom: null,
+          reactions: null,
+        },
+      ],
+      { via: "history" },
+    )
+    const both = async (text: string) =>
+      (await searchStore(store, TG, { text, language: "lucene", accounts: [TG, MAIL], limit: 10 })).items.map(
+        ({ locator }) => locator,
+      )
+    expect(await both("roadmap")).toEqual(
+      expect.arrayContaining([
+        formatLocator({ ...TG, chat: "5", message: "1" }),
+        formatLocator({ ...MAIL, chat: "thread-1", message: "<one@example.com>" }),
+      ]),
+    )
+    expect(await both("roadmap kind:group")).toEqual([formatLocator({ ...TG, chat: "5", message: "1" })])
+  })
+
+  it("puts their mail in a person's context", async () => {
+    const { store } = await seeded()
+    const context = await personContext(store, MAIL, "bob@example.com")
+    expect(context.recent.direct.map(({ id }) => id)).toEqual(["<two@example.com>"])
+    expect(context.last.fromThem).toMatchObject({
+      id: "<two@example.com>",
+      chatTitle: "Quarterly planning",
+      locator: formatLocator({ ...MAIL, chat: "thread-1", message: "<two@example.com>" }),
+    })
+    expect(context.recent.groups).toEqual([])
   })
 })

@@ -15,13 +15,13 @@ afterEach(async () => {
 const freshPath = () => join(mkdtempSync(join(tmpdir(), "mail-")), "store.db")
 
 const seeded = async () => {
-  const { database } = await openSqlite(freshPath())
+  const { database, orm } = await openSqlite(freshPath())
   opened.push(database)
   migrate(database)
   database
     .prepare("INSERT INTO accounts (id, provider, external_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 1)")
     .run(1, "email", "owner@example.com", "Owner Example")
-  return { database, mail: mailStoreOver({ database }) }
+  return { database, mail: mailStoreOver({ database, orm }) }
 }
 
 const email = (overrides: Partial<EmailInput> = {}): EmailInput => ({

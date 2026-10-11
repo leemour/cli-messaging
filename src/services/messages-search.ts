@@ -19,7 +19,7 @@ import {
 } from "../store/store.js"
 import { mailAround, mergeMail, withMailThreads } from "./mail-search.js"
 import { chatAmong, type SearchFound, type SearchQuery, senderAmong } from "./messages.js"
-import { accountsOfKind } from "./search-kind.js"
+import { accountsOfKind, MAIL } from "./search-kind.js"
 import type { SearchRefreshed } from "./search-refresh.js"
 
 export interface QueryMetadata {
@@ -152,7 +152,7 @@ export const prepareLucene = async (
     messenger.app?.command,
   )
   const scopeAccounts = accounts.map(({ provider, account }) => ({ provider, account }))
-  const chatLookup = request.kind === "mail" ? withMailThreads(store) : store
+  const chatLookup = scopeAccounts.some(({ provider }) => provider === MAIL) ? withMailThreads(store) : store
   const globalChat =
     request.chat === undefined ? undefined : await chatAmong(messenger, chatLookup, scopeAccounts, request.chat)
   const resolve = async (node: QueryNode): Promise<ResolvedNode> => {
@@ -415,15 +415,21 @@ export const searchLucene = async (
   const execute = store.matchQuery
   if (!execute)
     throw new CliError("validation_error", "this store does not support the Lucene profile — upgrade cli-messaging")
+  const mailAccounts = prepared.scopeAccounts.filter(({ provider }) => provider === MAIL)
+  const inMailTables = async () => {
+    try {
+      return await execute({ ...prepared.execution, accounts: mailAccounts, corpus: "mail" })
+    } catch (error) {
+      // A messenger field (`kind:`, `topic:`) leaves mail out of a search that names messenger accounts too.
+      if (request.kind !== "mail" && error instanceof CliError && error.code === "validation_error")
+        return { items: [], hasMore: false }
+      throw error
+    }
+  }
   const found = !prepared.scopeAccounts.length
     ? { items: [], hasMore: false }
-    : request.kind === "mail"
-      ? mergeMail(
-          await execute(prepared.execution),
-          await execute({ ...prepared.execution, corpus: "mail" }),
-          request.limit,
-          request.newest,
-        )
+    : mailAccounts.length
+      ? mergeMail(await execute(prepared.execution), await inMailTables(), request.limit, request.newest)
       : await execute(prepared.execution)
   const { completeness, coverage } = await coverageOf(store, prepared, messenger)
   const items = await Promise.all(
@@ -433,7 +439,7 @@ export const searchLucene = async (
       return {
         ...hit,
         context:
-          (request.kind === "mail" ? await mailAround(store, hit, request.context) : undefined) ??
+          (locator.provider === MAIL ? await mailAround(store, hit, request.context) : undefined) ??
           (await store.around({ provider: locator.provider, account: locator.account }, hit.chatId, hit.id, {
             before: request.context,
             after: request.context,

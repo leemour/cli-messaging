@@ -2,6 +2,7 @@ import { CliError } from "@wirecat/cli-core"
 import { formatLocator } from "../domain/locator.js"
 import type { ChatKind, Id, Message, Provider } from "../domain/models.js"
 import { pickPerson } from "../resolve.js"
+import { messageOfEmail } from "../store/sqlite/emails.js"
 import type { AccountKey, IdentityRef, LinkedIdentity, MessageStore, PersonRecord } from "../store/store.js"
 
 export const CONTEXT_MESSAGES = 10
@@ -68,6 +69,37 @@ const toContext = (key: AccountKey, message: Message, chatTitle: string | null):
   text: message.text,
 })
 
+/** Their mail in the mail tables, newest first: what they sent, and what was sent to them. */
+const mailWith = async (
+  store: MessageStore,
+  key: AccountKey,
+  address: Id,
+  limit: number,
+  since: number | undefined,
+): Promise<{ items: ContextMessage[]; hasMore: boolean }> => {
+  const account = await store.storedAccount(key).catch(() => undefined)
+  if (!account) return { items: [], hasMore: false }
+  const emails = await store.mail.emails({
+    accountId: account.id,
+    participant: address,
+    limit: limit + 1,
+    ...(since === undefined ? {} : { since }),
+  })
+  const threads = new Map<number, { externalId: string; subject: string | null }>()
+  const items: ContextMessage[] = []
+  for (const email of emails.slice(0, limit)) {
+    let thread = threads.get(email.emailThreadId)
+    if (!thread) {
+      const details = await store.mail.thread(email.emailThreadId)
+      if (!details) continue
+      thread = details.thread
+      threads.set(email.emailThreadId, thread)
+    }
+    items.push(toContext(key, messageOfEmail(email, thread.externalId), thread.subject))
+  }
+  return { items, hasMore: emails.length > limit }
+}
+
 const newestFirst = (a: ContextMessage, b: ContextMessage) => Date.parse(b.timestamp) - Date.parse(a.timestamp)
 
 /**
@@ -130,6 +162,12 @@ export const personContext = async (
       direct.push(...page.items.map((message) => toContext(key, message, dialog.title)))
       cut ||= page.hasMore
     }
+    if (key.provider === "email") {
+      const mail = await mailWith(store, key, identity.id, messages, since)
+      direct.push(...mail.items)
+      theirs.push(...mail.items.filter((message) => message.senderId === identity.id))
+      cut ||= mail.hasMore
+    }
     const written = await store.find({ account: key, senders: [identity.id], limit: messages })
     theirs.push(...written.items.map((hit) => toContext(key, hit, hit.chatTitle ?? null)).filter(recent))
     cut ||= written.hasMore
@@ -149,7 +187,10 @@ export const personContext = async (
   const inDialog = new Set(
     shared.filter((chat) => chat.kind === "dialog").map((chat) => `${chat.account}/${chat.chatId}`),
   )
-  const groups = theirs.filter((message) => !inDialog.has(`${message.account}/${message.chatId}`))
+  const inDirect = new Set(direct.map(({ locator }) => locator))
+  const groups = theirs.filter(
+    (message) => !inDialog.has(`${message.account}/${message.chatId}`) && !inDirect.has(message.locator),
+  )
   const lists = {
     direct: direct.slice(0, messages),
     groups: groups.slice(0, messages),

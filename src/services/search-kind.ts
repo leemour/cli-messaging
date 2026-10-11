@@ -5,7 +5,7 @@ export type SearchKind = "messages" | "mail"
 
 export const NO_MAIL = "no_mail"
 
-const MAIL = "email"
+export const MAIL = "email"
 /** Notes stored as messages before store version 25: `search notes` reads their own table now. */
 const OLD_NOTES = "notes"
 
