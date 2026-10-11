@@ -34,11 +34,11 @@ importers:
         specifier: 0.2.7
         version: 0.2.7(@wirecat/cli-core@0.19.4(commander@15.0.0)(typescript@7.0.2))
       '@wirecat/cli-messaging-onnx':
-        specifier: 1.0.0
-        version: 1.0.0
+        specifier: 1.0.1
+        version: 1.0.1
       '@wirecat/cli-messaging-sqlite':
-        specifier: 1.0.0
-        version: 1.0.0
+        specifier: 1.0.1
+        version: 1.0.1
       '@wirecat/cli-tasks':
         specifier: 0.3.1
         version: 0.3.1
@@ -1285,11 +1285,11 @@ packages:
     peerDependencies:
       '@wirecat/cli-core': '>=0.18.1 <0.20.0'
 
-  '@wirecat/cli-messaging-onnx@1.0.0':
-    resolution: {integrity: sha512-U8x0jee2htq5VaWLFeyfmV+Eq3Lv5KTKIZMjyZLnZdA56OYSYwomFAT3usHN3MlA3qCqm6v0Vn77W0OfQg/OGA==}
+  '@wirecat/cli-messaging-onnx@1.0.1':
+    resolution: {integrity: sha512-e0ewPI3k417jvzoXy4I/4KW3PBnGWhRXy/YDshya0+d1D8QlajmswGpsh6UJlVr3DbAPuQLLc0qkqgGmh1+eNw==}
 
-  '@wirecat/cli-messaging-sqlite@1.0.0':
-    resolution: {integrity: sha512-xdPRDx6p8189iHUikaauadrOUro1LCxkQzwP3jV8fJpA1I6NUoVNmeE3sKVtIkSiT/6XmAPEGov4AgSCuqy6wg==}
+  '@wirecat/cli-messaging-sqlite@1.0.1':
+    resolution: {integrity: sha512-hnB4eL6ER/++nTPrlSCAUzDJH7MN3V+Obx9B2xXMwBN1KrLkJHIrybQCikfNOnwnyrkultSkLulM7vd+qSG5Hg==}
 
   '@wirecat/cli-tasks@0.3.1':
     resolution: {integrity: sha512-sNjtlKnhKSjswSH9Zg5hdu+0eHglhpAC0HrPzKn4LAk5dWRK3PRu9TJSgIiTqlX8AnKKxEaCfSeQWpuU5f109w==}
@@ -3517,11 +3517,11 @@ snapshots:
       '@wirecat/cli-core': 0.19.4(commander@15.0.0)(typescript@7.0.2)
       commander: 15.0.0
 
-  '@wirecat/cli-messaging-onnx@1.0.0':
+  '@wirecat/cli-messaging-onnx@1.0.1':
     dependencies:
       onnxruntime-common: 1.30.0
 
-  '@wirecat/cli-messaging-sqlite@1.0.0': {}
+  '@wirecat/cli-messaging-sqlite@1.0.1': {}
 
   '@wirecat/cli-tasks@0.3.1': {}
 

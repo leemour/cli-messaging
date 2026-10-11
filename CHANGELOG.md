@@ -16,6 +16,9 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   acts as a wildcard that prevents partial evidence retrieval. Subjects, negation and filters remain
   visible; explicit query syntax and strict search keep their existing behavior.
 
+- **`@wirecat/cli-messaging-sqlite` and `@wirecat/cli-messaging-onnx` 1.0.1**, which ship the Apache 2.0 license file
+  the rest of the package has; no code changed.
+
 ## 0.228.0 — 11.10.2026
 
 ### Added
