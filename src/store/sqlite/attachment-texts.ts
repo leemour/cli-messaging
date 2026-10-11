@@ -97,6 +97,20 @@ export const localPathOf = ({ database }: StoreContext, attachmentPk: number): s
   return row?.local_path == null ? null : String(row.local_path)
 }
 
+/** The account row that holds an attachment's message, email or meeting. */
+export const accountOf = ({ database }: StoreContext, attachmentPk: number): number | undefined => {
+  const row = database
+    .prepare(
+      `SELECT coalesce(m.account_id, e.account_id, mt.account_id) AS account_id FROM attachments a
+       LEFT JOIN messages m ON a.attachable_type = 'message' AND m.id = a.attachable_id
+       LEFT JOIN emails e ON a.attachable_type = 'email' AND e.id = a.attachable_id
+       LEFT JOIN meetings mt ON a.attachable_type = 'meeting' AND mt.id = a.attachable_id
+       WHERE a.id = ?`,
+    )
+    .get(attachmentPk)
+  return row?.account_id == null ? undefined : Number(row.account_id)
+}
+
 /** Failed extraction cannot erase good text; agent text wins over every automated write. */
 export const keepText = (
   { database, now }: StoreContext,

@@ -423,7 +423,11 @@ shares with a command lives in the service, and the command imports it.
 
 A service is a plain object made by a factory over `ServiceDeps` (`src/services/deps.ts`): the
 messenger, `offline`, and a connection, a store and an account that are each opened on first use —
-so a read from the store never connects. `servicesFor(deps)` hands out `messages`, `chats`, `people`,
+so a read from the store never connects. A service reads and writes through `accountStore(deps)`: the store
+with the running account bound (`store.forAccount(key)`), where no call takes an account and a row id of
+another account — an attachment, a mail thread, a meeting — is not found. A read across accounts on
+purpose takes the whole store from `crossAccount(deps, reason)`. `chats`, `conversations` and
+`attachments` work this way; the other services still pair `deps.store()` with `deps.account()`. `servicesFor(deps)` hands out `messages`, `chats`, `people`,
 `inbox` and `archive`. A command gets them from `withServices` on its context, which closes what was
 opened; an MCP tool builds them over the session's connection with `onlineDeps`, or over the store
 with `storedDeps`. The services callback can also borrow the held

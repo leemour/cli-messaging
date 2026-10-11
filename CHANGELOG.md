@@ -7,6 +7,24 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## Unreleased
 
+### Added
+
+- **`store.forAccount(key)` binds a store to one account.** The same calls without the account argument; `find`
+  and `search` take no `account`, `accounts` or `provider`. `localPathOf` and `keepAttachmentText` refuse an
+  attachment of another account (`not_found`); its `mail` and `meetings` read only that account, and
+  `thread(id)` / `meeting(id)` answer `null` for another account's row. From `./services`, `accountStore(deps)`
+  gives a service the running account's bound store and `crossAccount(deps, reason)` the whole store for a read
+  across accounts on purpose; `chatIdIn(messenger, reference, bound)` is `storedChatId` over a bound store.
+  `chats`, `conversations` and `attachments` services read and write through it.
+
+### Changed — may break callers
+
+- **`MessageStore` has a new required member, `forAccount`.** `openStore` implements it; a hand-written store
+  or a test double typed as `MessageStore` adds it. tg, max, memo and zoom have none.
+- **`MessageFilter` with `chatId` needs `account` at compile time too.** It is a union now; the fields shared
+  with one account's search are `AccountMessageFilter`. A filter built with `chatId` and no `account` stops
+  compiling, as it already failed at run time.
+
 ### Fixed
 
 - **`store.find` refuses a `chatId` without its `account`.** A chat id is one account's; without the account it

@@ -13,6 +13,7 @@ import {
   SHARED_WORD,
   type TwinStore,
   twinAccount,
+  twinMail,
   twinMeetings,
 } from "../testing/twin-accounts.js"
 import { servicesFor, storedDeps } from "./index.js"
@@ -122,6 +123,18 @@ const BOUND: [string, Read][] = [
     ({ store, twins }) => store.meetings.search(SHARED_WORD, { accountId: twins.alpha.meetingAccountId }),
   ],
   ["person timeline", ({ store }) => personTimeline(store, alpha, SENDER)],
+  ["bound: messages", ({ store }) => store.forAccount(alpha).messages(CHAT, { limit: 10 })],
+  ["bound: find", ({ store }) => store.forAccount(alpha).find({ text: SHARED_WORD, limit: 50 })],
+  [
+    "bound: find in chat 7",
+    ({ store }) => store.forAccount(alpha).find({ chatId: CHAT, text: SHARED_WORD, limit: 50 }),
+  ],
+  ["bound: search", ({ store }) => store.forAccount(alpha).search(SHARED_WORD, { limit: 50 })],
+  ["bound: mail threads", ({ store }) => store.forAccount(twinMail("alpha")).mail.threads()],
+  ["bound: mail emails", ({ store }) => store.forAccount(twinMail("alpha")).mail.emails()],
+  ["bound: mail email by id", ({ store }) => store.forAccount(twinMail("alpha")).mail.email(EMAIL)],
+  ["bound: meetings list", ({ store }) => store.forAccount(twinMeetings("alpha")).meetings.meetings()],
+  ["bound: meetings search", ({ store }) => store.forAccount(twinMeetings("alpha")).meetings.search(SHARED_WORD)],
   [
     "search all with meetings: the meeting hits",
     async ({ store }) => {
@@ -201,17 +214,45 @@ describe("one account's reads never answer with another's", () => {
 
   it("a chat id without its account is refused, since every account may hold that id", async () => {
     const { store } = await twinStore()
+    // @ts-expect-error a chat id comes only with its account
     await expect(store.find({ chatId: CHAT, text: SHARED_WORD, limit: 50 })).rejects.toMatchObject({
       code: "validation_error",
     })
     await expect(
+      // @ts-expect-error nor with several accounts
       store.find({ provider: "synthetic", accounts: ["500", "600"], chatId: CHAT, text: SHARED_WORD, limit: 50 }),
     ).rejects.toMatchObject({ code: "validation_error" })
   })
+})
 
-  it.todo("unbound: localPathOf(attachmentPk) reads any account's attachment by its row id")
-  it.todo("unbound: keepAttachmentText(attachmentPk) writes any account's attachment by its row id")
-  it.todo("unbound: mail.thread(id) reads any account's thread by its row id")
-  it.todo("unbound: meetings.meeting(id) reads any account's meeting by its row id")
-  it.todo("unbound: mail.threads/emails and meetings.meetings read every account when accountId is left out")
+describe("the account-bound store", () => {
+  it("refuses the other account's attachment by its row id, and leaves its text as it was", async () => {
+    const { store, twins } = await twinStore()
+    const bound = store.forAccount(alpha)
+    expect(await bound.localPathOf(twins.alpha.attachmentPk)).toBe("/downloads/alpha/same.txt")
+    await expect(bound.localPathOf(twins.bravo.attachmentPk)).rejects.toMatchObject({ code: "not_found" })
+    await expect(
+      bound.keepAttachmentText(twins.bravo.attachmentPk, { text: "overwritten", origin: "agent", extractor: "agent" }),
+    ).rejects.toMatchObject({ code: "not_found" })
+    const [held] = await store.forAccount(twinAccount("bravo")).attachments({ chatId: CHAT, limit: 1 })
+    expect(held?.text?.chars).toBe("bravo-only attachment text".length)
+  })
+
+  it("reads the other account's mail thread and meeting by row id as nothing", async () => {
+    const { store, twins } = await twinStore()
+    const mail = store.forAccount(twinMail("alpha")).mail
+    expect((await mail.thread(twins.alpha.threadId))?.thread.subject).toBe("alpha subject")
+    expect(await mail.thread(twins.bravo.threadId)).toBeNull()
+    const meetings = store.forAccount(twinMeetings("alpha")).meetings
+    expect((await meetings.meeting(twins.alpha.meetingId))?.meeting.title).toBe("alpha meeting")
+    expect(await meetings.meeting(twins.bravo.meetingId)).toBeNull()
+  })
+
+  it("an account the store does not hold reads as empty", async () => {
+    const { store } = await twinStore()
+    const stranger = store.forAccount({ provider: "email", account: "999" })
+    expect(await stranger.mail.threads()).toEqual([])
+    expect(await stranger.meetings.meetings()).toEqual([])
+    await expect(stranger.localPathOf(1)).rejects.toMatchObject({ code: "not_found" })
+  })
 })

@@ -22,10 +22,11 @@ import { NOT_FILES } from "../domain/attachments.js"
 import { formatLocator, isLocator, parseLocator } from "../domain/locator.js"
 import type { Id } from "../domain/models.js"
 import { refusedPlace } from "../sends/upload.js"
-import type { AccountKey, AttachmentView, FileAttachment, MessageStore, TextOrigin } from "../store/store.js"
+import type { AccountStore } from "../store/account-store.js"
+import type { AccountKey, AttachmentView, FileAttachment, TextOrigin } from "../store/store.js"
 import { batchProgress } from "./batch.js"
-import type { ServiceDeps } from "./deps.js"
-import { storedChatId } from "./messages.js"
+import { accountStore, type ServiceDeps } from "./deps.js"
+import { chatIdIn } from "./messages.js"
 
 export type ExtractStatus = "extracted" | "needs-agent" | "unreadable" | "engine-missing" | "too-large" | "missing"
 
@@ -198,7 +199,7 @@ const outcome = async (
 }
 
 const keep = async (
-  store: MessageStore,
+  store: AccountStore,
   file: FileAttachment,
   extraction: Extraction,
   bytes: number,
@@ -232,11 +233,11 @@ const itemOf = (account: AccountKey, view: AttachmentView): AttachmentItem => ({
 /** A chat and a message id, or a msg: locator alone — of this account. */
 const messageOf = async (
   deps: ServiceDeps,
-  store: MessageStore,
-  account: AccountKey,
+  store: AccountStore,
   chat: string,
   message: string | undefined,
 ): Promise<{ chatId: Id; messageId: Id }> => {
+  const { account } = store
   if (isLocator(chat)) {
     if (message !== undefined) throw new CliError("validation_error", "a locator already names the message")
     const locator = parseLocator(chat)
@@ -245,7 +246,7 @@ const messageOf = async (
     return { chatId: locator.chat, messageId: locator.message }
   }
   if (message === undefined) throw new CliError("validation_error", "which message? give its id after the chat")
-  return { chatId: await storedChatId(deps.messenger, chat, store, account), messageId: message.trim() }
+  return { chatId: await chatIdIn(deps.messenger, chat, store), messageId: message.trim() }
 }
 
 export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
@@ -278,13 +279,13 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
     if (cursor !== undefined && (!/^[1-9][0-9]*$/.test(cursor) || !Number.isSafeInteger(Number(cursor))))
       throw new CliError("validation_error", "invalid extraction cursor")
     deps.guard.check({ chatId: null, key: "attachments.extract" }, { reserve: false })
-    const store = await deps.store()
-    const account: AccountKey = await deps.account()
-    const chatId = chat === undefined ? undefined : await storedChatId(deps.messenger, chat, store, account)
+    const store = await accountStore(deps)
+    const { account } = store
+    const chatId = chat === undefined ? undefined : await chatIdIn(deps.messenger, chat, store)
     const directory =
       fromDir === undefined
         ? undefined
-        : await directoryPaths(store, account, chatId as string, fromDir, deps.messenger.app, deps.env ?? process.env)
+        : await directoryPaths(store, chatId as string, fromDir, deps.messenger.app, deps.env ?? process.env)
     const selected = paths === undefined ? undefined : new Set(paths)
     const run: ExtractRun = {
       items: [],
@@ -403,7 +404,7 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
     }
     try {
       walk: for (;;) {
-        const page = await store.fileAttachments(account, {
+        const page = await store.fileAttachments({
           ...(chatId === undefined ? {} : { chatId }),
           ...(onlyMessage === undefined ? {} : { messageId: onlyMessage }),
           ...(beforePk === undefined ? {} : { beforePk }),
@@ -429,9 +430,7 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
           scanned += 1
           let path = directory === undefined ? file.localPath : (directory.get(file.pk) ?? null)
           if (directory && path)
-            await store.keepDownloads(account, file.chatId, file.messageId, [
-              { kind: file.kind, position: file.position, path },
-            ])
+            await store.keepDownloads(file.chatId, file.messageId, [{ kind: file.kind, position: file.position, path }])
           if (selected && (path === null || !selected.has(path))) continue
           const message = `${file.chatId}/${file.messageId}`
           if (path === null && download && !fetched.has(message)) {
@@ -468,10 +467,10 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
   },
 
   list: async ({ chat, needsText, limit, page = 1 }) => {
-    const store = await deps.store()
-    const account = await deps.account()
-    const chatId = chat === undefined ? undefined : await storedChatId(deps.messenger, chat, store, account)
-    const views = await store.attachments(account, {
+    const store = await accountStore(deps)
+    const { account } = store
+    const chatId = chat === undefined ? undefined : await chatIdIn(deps.messenger, chat, store)
+    const views = await store.attachments({
       ...(chatId === undefined ? {} : { chatId }),
       ...(needsText ? { needsText } : {}),
       offset: (page - 1) * limit,
@@ -488,10 +487,10 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
       throw new CliError("validation_error", "PDF page cannot be combined with byte offset or chunk size")
     if (attachment !== undefined && (!Number.isSafeInteger(attachment) || attachment < 1))
       throw new CliError("validation_error", "attachment must be a position from 1")
-    const store = await deps.store()
-    const account = await deps.account()
-    const { chatId, messageId } = await messageOf(deps, store, account, chat, message)
-    const files = (await store.attachments(account, { chatId, messageId, limit: 1000 })).filter(
+    const store = await accountStore(deps)
+    const { account } = store
+    const { chatId, messageId } = await messageOf(deps, store, chat, message)
+    const files = (await store.attachments({ chatId, messageId, limit: 1000 })).filter(
       ({ kind }) => !NOT_FILES.has(kind),
     )
     const chosen =
@@ -549,10 +548,10 @@ export const attachmentsService = (deps: ServiceDeps): AttachmentsService => ({
         "validation_error",
         `the text is over ${MAX_TEXT_CHARS} characters — keep the part worth searching`,
       )
-    const store = await deps.store()
-    const account = await deps.account()
-    const { chatId, messageId } = await messageOf(deps, store, account, chat, message)
-    const files = (await store.attachments(account, { chatId, messageId, limit: 1000 })).filter(
+    const store = await accountStore(deps)
+    const { account } = store
+    const { chatId, messageId } = await messageOf(deps, store, chat, message)
+    const files = (await store.attachments({ chatId, messageId, limit: 1000 })).filter(
       ({ kind }) => !NOT_FILES.has(kind),
     )
     if (files.length === 0)
