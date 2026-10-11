@@ -8,6 +8,8 @@ import { searchServices } from "../search-sync.js"
 import { type AnyTool, limit, READ, tool } from "../tool.js"
 import {
   answerMessagesSearch,
+  backendArgs,
+  backendInputs,
   MESSAGES_SEARCH_DESCRIPTION,
   type MessagesSearchArgs,
   mailSearchInput,
@@ -26,14 +28,18 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
     title: "Search everything",
     description:
       "Start here to find anything by text: messenger messages, mail and notes held in the local store, merged best " +
-      "first. Each item says its kind (message, mail, note), ref (msg:… or note:…), provider and account. A query " +
+      "first. Where the messenger's server can search, it is asked for messages too, as search_messages asks it " +
+      "(backend=both by default; archive for the local store only; server for the server's hits only) — mail and " +
+      "notes are local only. Each item says its kind (message, mail, note), ref (msg:… or note:…), provider and account. A query " +
       "field one kind lacks skips that kind and `skipped` says why; `only` narrows the kinds. With `meetings`, one " +
       "meeting account's transcripts, chat and summaries join in as kind meeting, with meetingId, scope, id and " +
       "startMs instead of a ref, and a null timestamp when the start is unknown; true picks the one stored account " +
       "that holds meetings and refuses when several do. An empty answer means the store does not hold it, not that " +
-      "it was never written. Returns { query, items, hasMore, searched, skipped, notes?, meetings? }; hasMore is " +
-      "null when a bounded meeting scan could not tell.",
+      "it was never written. Returns { query, items, hasMore, searched, skipped, notes?, meetings?, server? }; " +
+      "hasMore is null when a bounded meeting scan could not tell.",
     input: v.object({
+      // Typed as present so the answer code reads them; offered only where the server can search.
+      ...((messenger.serverSearch ? backendInputs : {}) as typeof backendInputs),
       text,
       only: v.optional(
         v.pipe(
@@ -68,12 +74,14 @@ export const searchTools = (messenger: Messenger): Record<string, AnyTool> => ({
       if (meetings === undefined && args.max_meetings !== undefined)
         throw new CliError("validation_error", "max_meetings needs meetings")
       const meetingAccount = typeof meetings === "string" ? meetingAccountOf(meetings) : undefined
-      const services = searchServices(messenger, store, account, defaults, messenger.serverSearch ? connect : undefined)
+      const network = Boolean(messenger.serverSearch) && args.backend !== "archive"
+      const services = searchServices(messenger, store, account, defaults, network ? connect : undefined)
       const request = {
         text: args.text,
         limit: args.limit ?? defaults.limit,
         ...(args.exact ? { exact: true } : {}),
         ...(args.timezone === undefined ? {} : { timezone: args.timezone }),
+        ...backendArgs(args),
         env: defaults.env,
         ...(defaults.signal === undefined ? {} : { signal: defaults.signal }),
       }

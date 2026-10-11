@@ -189,8 +189,8 @@ export const registerPrompts = (server: McpServer, { command, name }: { command:
       asked(
         [
           `Find ${JSON.stringify(text)} in ${name}.`,
-          `For a person, use ${command}_read with "contacts list" and "contacts show"; for words, "search all" — it searches only`,
-          "what this machine has kept, so an empty answer is not proof it was never said.",
+          `For a person, use ${command}_read with "contacts list" and "contacts show"; for words, "search all" — it searches what`,
+          "this machine has kept, and messages on the server where it can search; an empty answer is not proof it was never said.",
           `Show each hit with "messages context" for the messages around it. Send nothing.`,
           DATA,
         ].join(" "),

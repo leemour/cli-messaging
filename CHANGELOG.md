@@ -16,6 +16,10 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   locator. Its word half still reads mail stored as messages only; `search mail` finds mail by words. A change
   of stemmer choices now re-indexes mail as it does notes.
 - `./store` exports `MEMORY_KINDS`, `MEMORY_STATUSES`, `MEMORY_SCOPES` and `PROPOSAL_STATUSES`.
+- **`search all` and MCP `search_all` take `--backend archive|server|both` and `--server-time`** (`backend`,
+  `server_time`), as `search messages` does, where the messenger's server can search. They choose where messages
+  are searched; mail and notes stay local. The default is still `both`, falling back to the archive silently;
+  `archive` never connects, and `server` keeps only the messages the server returned.
 
 ### Changed — may break callers
 

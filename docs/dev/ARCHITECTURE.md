@@ -267,6 +267,8 @@ the service the old command called, and the MCP tools are named after the leaves
 messenger account, never mail), mail and notes in turn and merges their lists by reciprocal rank, so
 no resource's own scores are compared with another's. A resource that cannot answer the query — a
 field it lacks, or nothing stored — is listed in `skipped` with the reason instead of failing the search.
+Its messages take the same server step as `search messages` (`--backend`, default `both`, through
+`messages.searchAll`); mail and notes are always the local store's.
 
 `searchAllIncludingMeetings` (`src/services/search-all-meetings.ts`) is a separate opt-in service.
 It delegates the legacy search unchanged, then blends its ordered result with one explicit meeting

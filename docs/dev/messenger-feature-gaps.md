@@ -31,7 +31,7 @@ decisions taken here and points there.
 
 | Gap | Owner | Where |
 |---|---|---|
-| Server-side search | search lane | `--backend live\|archive\|both` on `messages search`, default `archive` — owner's answer 2026-10-04 (max-cli private `docs_ai/journal/2026-10-04-competitor-parity.md`, NEED-563) |
+| Server-side search | search lane | `--backend archive\|server\|both` on `search messages` and `search all` (messages only there), default `both` — first decided 2026-10-04 (max-cli private `docs_ai/journal/2026-10-04-competitor-parity.md`, NEED-563) |
 | Drafts | Telegram actions, G4 (B3) | local draft revisions, publish/pull |
 | Mute and notification settings, remote media search | Telegram actions, G3 (B4) | same plan, §3 and §4 G3 |
 
@@ -75,8 +75,9 @@ and `src/sends/guarded.ts`. tg: `src/telegram/adapter.ts` + `map.ts`, registered
 Today an agent can search only what was fetched; a question about an unfetched month needs a
 fetch first.
 
-- Shape, decided 2026-10-04: `messages search --backend live|archive|both`, default `archive`.
-  `--source` keeps meaning which messenger or account. Results must say where each came from.
+- Shape: `search messages` and `search all` take `--backend archive|server|both`, default `both`;
+  `search all` asks the server for messages only, mail and notes stay local. `--source` keeps
+  meaning which messenger or account. Each hit says where it came from.
 - tg: mtcute `searchMessages` / `searchGlobal`. Easy.
 - max: opcode 73 `{query, count, chatId}` (max-api-docs `protocol/messaging.md:946`, a claim).
   Measure first. Leave 68 and 60 out: sources disagree on what they are.
@@ -166,8 +167,8 @@ storage, and the chat is bound to one device) and calls (no voice or video stack
 
 ## Decisions for the owner
 
-Taken 2026-10-04: server search is `--backend live|archive|both`, and `live` results are stored
-locally (slice 1); drafts start as `messages send --draft` (slice 2).
+Taken: server search is `--backend archive|server|both`, default `both`, and server results are
+stored locally (slice 1); drafts start as `messages send --draft` (slice 2).
 
 Open:
 

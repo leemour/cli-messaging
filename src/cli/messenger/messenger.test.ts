@@ -1894,6 +1894,76 @@ describe("the shared read commands", () => {
     expect(never).not.toHaveBeenCalled()
   })
 
+  it("**search all --backend** asks the server for messages only: archive never connects, server keeps its hits", async () => {
+    const root = mkdtempSync(join(tmpdir(), "search-all-backend-"))
+    const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }
+    await call(["messages", "context", "Book", "2", "--json"], async () => fake, env)
+    const store = await openStore({ path: env.MESSAGING_STORE })
+    await store.notes.addNote({ title: "Reading list", text: "the chapter to read next" })
+    const other = { provider: "chat", account: "999" }
+    await store.saveChats(other, [{ ...chat, id: "7", title: "Other" }])
+    await store.saveMessages(other, "7", [{ ...message, id: "40", text: "chapter forty elsewhere" }], { via: "test" })
+    await store.fillSearchIndex()
+    await store.close()
+    const searchMessages = vi.fn(async () => ({
+      items: [{ ...message, id: "40", text: "chapter four", chatTitle: "Book club" }],
+      hasMore: false,
+      chats: [],
+    }))
+    const server = vi.fn(async () => ({ ...fake, searchMessages }))
+    const never = vi.fn(async (): Promise<MessengerAdapter> => {
+      throw new Error("--backend archive must never connect")
+    })
+    const search = async (connect: Messenger["connect"], ...extra: string[]) => {
+      const result = await call(
+        ["search", "all", "chapter", ...extra, "--json"],
+        connect,
+        env,
+        {},
+        { serverSearch: true },
+      )
+      expect(result.code).toBe(0)
+      return JSON.parse(result.stdout[0] ?? "")
+    }
+    const messageIds = (answer: { items: { kind: string; ref: string; account: string }[] }) =>
+      answer.items
+        .filter(({ kind, account }) => kind === "message" && account !== "999")
+        .map(({ ref }) => ref.split("/").at(-1))
+
+    const archive = await search(never, "--backend", "archive")
+    expect(never).not.toHaveBeenCalled()
+    expect(archive.server).toBeUndefined()
+    expect(messageIds(archive)).not.toContain("40")
+    expect(archive.items.map(({ kind }: { kind: string }) => kind)).toContain("note")
+
+    const onlyServer = await search(server, "--backend", "server", "--server-time", "2s")
+    expect(onlyServer.server).toMatchObject({ backend: "server", calls: 1, new: 1, complete: true })
+    expect(messageIds(onlyServer)).toEqual(["40"])
+    expect(onlyServer.items.filter(({ kind }: { kind: string }) => kind === "message")).toHaveLength(1)
+    expect(onlyServer.items.map(({ kind }: { kind: string }) => kind)).toContain("note")
+
+    const both = await search(server, "--backend", "both")
+    expect(both.server).toMatchObject({ backend: "both", calls: 1 })
+    expect(messageIds(both)).toContain("40")
+    expect(messageIds(both).length).toBeGreaterThan(1)
+
+    searchMessages.mockClear()
+    const unasked = await search(server)
+    expect(searchMessages).toHaveBeenCalledTimes(1)
+    expect(messageIds(unasked)).toContain("40")
+
+    const offline = await search(never, "--backend", "server", "--offline")
+    expect(offline.skipped).toContainEqual({
+      resource: "messages",
+      reason: expect.stringContaining("not with --offline"),
+    })
+    expect(never).not.toHaveBeenCalled()
+
+    const plain = await call(["search", "all", "chapter", "--backend", "archive"], never, env)
+    expect(plain.code).not.toBe(0)
+    expect(plain.stderr.join("\n")).toContain("--backend")
+  })
+
   it("**search all --meetings** adds the one stored meeting account, and refuses to guess between several", async () => {
     const root = mkdtempSync(join(tmpdir(), "search-all-meetings-"))
     const env = { CHAT_STATE_DIR: join(root, "state"), MESSAGING_STORE: join(root, "m.db") }

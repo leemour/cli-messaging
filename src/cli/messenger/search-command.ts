@@ -13,7 +13,7 @@ import { positiveCount } from "../paging.js"
 import { type Messenger, messengerContext } from "./context.js"
 import { conversationsSearchCommand } from "./conversations-command.js"
 import { messagesSearchCommand } from "./messages-search-command.js"
-import { noteServer } from "./search-backend-options.js"
+import { backendOptions, backendRequest, noteServer } from "./search-backend-options.js"
 import { topicsSearchCommand } from "./topics-command.js"
 
 const onlyOf = (value: string): ResourceWithMeetings[] => {
@@ -55,11 +55,15 @@ const noteTypeOf = (value: string): Note["source"] => {
   return value
 }
 
-const allCommand = (messenger: Messenger): Command =>
-  new Command("all")
+const allCommand = (messenger: Messenger): Command => {
+  const command = new Command("all")
     .description(
-      "search everything the local store holds — messenger messages, mail and notes, and with --meetings a meeting " +
-        "account's transcripts — best match first; start here when you do not know where something was written",
+      (messenger.serverSearch
+        ? "search everything the local store holds, and the messenger's server for messages (--backend; mail and " +
+          "notes are local only)"
+        : "search everything the local store holds") +
+        " — messenger messages, mail and notes, and with --meetings a meeting account's transcripts — best match " +
+        "first; start here when you do not know where something was written",
     )
     .argument("<query...>", 'strict Lucene query: words, "phrases", AND/OR/NOT, field groups and date ranges')
     .option(
@@ -79,55 +83,60 @@ const allCommand = (messenger: Messenger): Command =>
     .option("--limit <n>", "how many", positiveCount("--limit"))
     .option("--exact", "bare words and quotes match their exact form only, as exact:word does")
     .option("--timezone <zone>", "the IANA timezone for calendar date boundaries")
-    .action(async function (this: Command, words: string[]) {
-      const context = messengerContext(this, messenger)
-      const { only, meetings, maxMeetings, limit, exact, timezone } = this.opts<{
-        only?: ResourceWithMeetings[]
-        meetings?: string | true
-        maxMeetings?: number | "all"
-        limit?: number
-        exact?: boolean
-        timezone?: string
-      }>()
-      if (meetings === undefined && only?.includes("meetings"))
-        throw new CliError("validation_error", "--only meetings needs --meetings")
-      if (meetings === undefined && maxMeetings !== undefined)
-        throw new CliError("validation_error", "--max-meetings needs --meetings")
-      const meetingAccount = typeof meetings === "string" ? accountAfterQuery(meetings) : undefined
-      const request = {
-        text: words.join(" "),
-        limit: limit ?? context.settings.limit,
-        ...(exact ? { exact: true } : {}),
-        ...(timezone === undefined ? {} : { timezone }),
-        env: context.env,
-      }
-      const found = await context.withServices<SearchAllIncludingMeetingsFound>((services) =>
-        meetings === undefined
-          ? services.messages.searchAll({
-              ...request,
-              ...(only === undefined
-                ? {}
-                : { only: only.filter((one): one is SearchedResource => one !== "meetings") }),
-            })
-          : services.messages.searchAllWithMeetings({
-              ...request,
-              ...(only === undefined ? {} : { only }),
-              ...(meetingAccount === undefined ? {} : { meetingAccount }),
-              ...(maxMeetings === undefined ? {} : { maxMeetings }),
-            }),
+  return backendOptions(command, messenger).action(async function (this: Command, words: string[]) {
+    const context = messengerContext(this, messenger)
+    const { only, meetings, maxMeetings, limit, exact, timezone } = this.opts<{
+      only?: ResourceWithMeetings[]
+      meetings?: string | true
+      maxMeetings?: number | "all"
+      limit?: number
+      exact?: boolean
+      timezone?: string
+    }>()
+    if (meetings === undefined && only?.includes("meetings"))
+      throw new CliError("validation_error", "--only meetings needs --meetings")
+    if (meetings === undefined && maxMeetings !== undefined)
+      throw new CliError("validation_error", "--max-meetings needs --meetings")
+    const meetingAccount = typeof meetings === "string" ? accountAfterQuery(meetings) : undefined
+    const request = {
+      text: words.join(" "),
+      limit: limit ?? context.settings.limit,
+      ...(exact ? { exact: true } : {}),
+      ...(timezone === undefined ? {} : { timezone }),
+      ...backendRequest(this),
+      env: context.env,
+    }
+    const found = await context.withServices<SearchAllIncludingMeetingsFound>((services) =>
+      meetings === undefined
+        ? services.messages.searchAll({
+            ...request,
+            ...(only === undefined ? {} : { only: only.filter((one): one is SearchedResource => one !== "meetings") }),
+          })
+        : services.messages.searchAllWithMeetings({
+            ...request,
+            ...(only === undefined ? {} : { only }),
+            ...(meetingAccount === undefined ? {} : { meetingAccount }),
+            ...(maxMeetings === undefined ? {} : { maxMeetings }),
+          }),
+    )
+    noteServer(context, found.server)
+    for (const { resource, reason } of found.skipped) context.renderer.note(`${resource} not searched: ${reason}`)
+    if (found.notes?.meaningSkipped) context.renderer.note(`notes by words only: ${found.notes.meaningSkipped}`)
+    if (found.meetings?.complete === false)
+      context.renderer.note(
+        `meetings: stopped after ${found.meetings.meetingsScanned} meetings; more may match — --max-meetings all looks through every one`,
       )
-      noteServer(context, found.server)
-      for (const { resource, reason } of found.skipped) context.renderer.note(`${resource} not searched: ${reason}`)
-      if (found.notes?.meaningSkipped) context.renderer.note(`notes by words only: ${found.notes.meaningSkipped}`)
-      if (found.meetings?.complete === false)
-        context.renderer.note(
-          `meetings: stopped after ${found.meetings.meetingsScanned} meetings; more may match — --max-meetings all looks through every one`,
-        )
-      if (context.format === "jsonl") return context.renderer.stream(found.items)
-      if (context.format !== "pretty") return context.renderer.result(found)
-      context.streams.data(found.items.map(lineOf).join(""))
-      if (found.items.length === 0) context.renderer.note("nothing found in what the local store holds")
-    })
+    if (context.format === "jsonl") return context.renderer.stream(found.items)
+    if (context.format !== "pretty") return context.renderer.result(found)
+    context.streams.data(found.items.map(lineOf).join(""))
+    if (found.items.length === 0)
+      context.renderer.note(
+        found.server && !found.server.skipped
+          ? "nothing found in the local store or on the messenger's server"
+          : "nothing found in what the local store holds",
+      )
+  })
+}
 
 const notesCommand = (messenger: Messenger): Command =>
   new Command("notes")
