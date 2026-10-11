@@ -257,7 +257,7 @@ export const archiveService = (deps: ServiceDeps): ArchiveService => {
       const list = capability(connection, "chats", "list its chats")
       const chats: Chat[] = []
       for (let offset = 0; ; ) {
-        const page = await list({ offset, limit: 100 })
+        const page = await patiently(() => list({ offset, limit: 100 }), options.note, options.stop)
         chats.push(...page.items)
         offset += page.items.length
         if (!page.hasMore || page.items.length === 0) break

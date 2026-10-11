@@ -194,9 +194,11 @@ export const run = async (argv: string[], definition: ProgramDefinition, options
     listens = persistent
     const interactiveLogin = !headless && (path[0] === "setup" || (path[0] === "session" && path[1] === "start"))
     const timeout = flags.timeout ?? (commandEnv[envName(definition.app, "TIMEOUT")]?.trim() || undefined)
+    // A background fetch was asked to outlive the shell; only an explicit --timeout bounds it.
+    const job = commandEnv[envName(definition.app, "BACKFILL_JOB")] !== undefined
     control.start(
       timeout === undefined
-        ? persistent || interactiveLogin
+        ? persistent || interactiveLogin || job
           ? undefined
           : DEFAULT_COMMAND_MS
         : persistent

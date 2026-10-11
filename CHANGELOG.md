@@ -15,6 +15,13 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
   instead of 0 with `fetched: 0` and an `issue`. A wait the messenger asks for still ends as a partial result
   with `issue`, as does any failure after some pages.
 
+- **A `store fetch --background` job is no longer cut off after 30 s.** Since 0.157.0 every command had a 30 s
+  default deadline, and a background job got it too: `max store fetch --all --background` stopped after 117
+  messages. A job now runs until it finishes; an explicit `--timeout` still bounds it.
+- **`store fetch --all` waits out a short "wait N seconds" from the chat list** (up to 5 minutes, as message pages
+  already did) instead of failing at once with `rate_limited`. A Telegram FLOOD_WAIT of 21 s on the first chat list
+  ended every `tg store fetch --all` on an empty store.
+
 ## 0.225.0 — 11.10.2026
 
 ### Added
