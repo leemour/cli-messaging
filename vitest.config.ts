@@ -5,6 +5,8 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "scripts/parity/**/*.test.ts"],
     setupFiles: ["src/testing/sandbox.ts"],
     globals: false,
+    // Agents run suites side by side on 24 cores; one worker per core ran the machine out of memory (2026-10-11).
+    maxWorkers: 4,
     // Several sessions run suites on one machine; at load 70 an ordinary store test takes 5–7 s (2026-10-11).
     testTimeout: 15_000,
     coverage: {
