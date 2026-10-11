@@ -17,6 +17,7 @@ import {
   twinMeetings,
 } from "../testing/twin-accounts.js"
 import { servicesFor, storedDeps } from "./index.js"
+import { searchNotesQuery } from "./notes-search.js"
 import { personTimeline } from "./person-timeline.js"
 import { searchAll } from "./search-all.js"
 import { searchAllIncludingMeetings } from "./search-all-meetings.js"
@@ -117,6 +118,14 @@ const BOUND: [string, Read][] = [
   ["mail emails", ({ store, twins }) => store.mail.emails({ accountId: twins.alpha.mailAccountId })],
   ["mail email by id", ({ store, twins }) => store.mail.email(twins.alpha.mailAccountId, EMAIL)],
   ["documents of a folder", ({ store, twins }) => store.notes.notes({ folderId: twins.alpha.folderId })],
+  [
+    "search mail --account",
+    ({ store }) => asAlpha(store).messages.search({ ...search, kind: "mail", mailAccount: twinMail("alpha").account }),
+  ],
+  [
+    "search notes --folder",
+    ({ store, twins }) => searchNotesQuery(store, { text: SHARED_WORD, limit: 50, folderIds: [twins.alpha.folderId] }),
+  ],
   ["meetings list", ({ store, twins }) => store.meetings.meetings({ accountId: twins.alpha.meetingAccountId })],
   [
     "meetings search",
@@ -149,19 +158,17 @@ const BOUND: [string, Read][] = [
   ],
 ]
 
-/** Reads that span accounts today: each must find both twins, so this list says which ones do. */
+/** Reads that span accounts on purpose: each must find both twins, so this list says which ones do. */
 const ACROSS: [string, Read][] = [
   ["search messages --source all", ({ store }) => asAlpha(store).messages.search({ ...search, source: "all" })],
   [
     "search messages in:all",
     ({ store }) => asAlpha(store).messages.search({ ...search, text: `${SHARED_WORD} in:all` }),
   ],
-  [
-    "today: search mail spans every mailbox — owner to confirm",
-    ({ store }) => asAlpha(store).messages.search({ ...search, kind: "mail" }),
-  ],
+  ["search mail, every mail account", ({ store }) => asAlpha(store).messages.search({ ...search, kind: "mail" })],
   ["search all", ({ store }) => searchAll(store, alpha, { text: SHARED_WORD, limit: 50 })],
-  ["today: notes without a folder span every folder — owner to confirm", ({ store }) => store.notes.notes({})],
+  ["notes without a folder, every folder", ({ store }) => store.notes.notes({})],
+  ["search notes without --folder", ({ store }) => searchNotesQuery(store, { text: SHARED_WORD, limit: 50 })],
   [
     "direct replies, both parents named",
     async ({ store }) =>
@@ -210,6 +217,20 @@ describe("one account's reads never answer with another's", () => {
     await expect(
       asAlpha(store).messages.search({ ...search, text: `${SHARED_WORD} in:all chat:7` }),
     ).rejects.toMatchObject({ code: "validation_error" })
+  })
+
+  it("search mail --account refuses an address the store does not hold", async () => {
+    const { store } = await twinStore()
+    await expect(
+      asAlpha(store).messages.search({ ...search, kind: "mail", mailAccount: "nobody@example.com" }),
+    ).rejects.toMatchObject({ code: "not_found" })
+  })
+
+  it("--account is refused outside search mail", async () => {
+    const { store } = await twinStore()
+    await expect(asAlpha(store).messages.search({ ...search, mailAccount: "500" })).rejects.toMatchObject({
+      code: "validation_error",
+    })
   })
 
   it("a chat id without its account is refused, since every account may hold that id", async () => {

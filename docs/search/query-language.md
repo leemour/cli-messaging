@@ -14,10 +14,12 @@ StandardSyntaxParser и PrecedenceQueryParser, default AND, default field `text`
 
 Этот профиль — для всех команд `search`: `search all` (сообщения, почта и заметки сразу — с неё
 начинать, если неизвестно, где написано), `search messages` (только сообщения мессенджеров), `search mail`
-(только почта, импортированная `memo mail import`; `chat:` и `--chat` там — тред по id или теме, полей `kind` и
+(только почта, импортированная `memo mail import`, во всех почтовых аккаунтах сразу, а `--account <адрес>` —
+в одном; `chat:` и `--chat` там — тред по id или теме, полей `kind` и
 `topic` нет; только у почты — `to:`, `cc:`, `bcc:` (человек, как в `from:`), `subject:` (слова темы) и
-`mailbox:` (папка или ярлык по id или имени)) и `search notes` (заметки; у них только поля `text`,
-`exact`, `body`, `tag`, `date`, `in`), и для их MCP-инструментов `search_*`. Поле, которого у вида нет,
+`mailbox:` (папка или ярлык по id или имени)) и `search notes` (заметки всех папок сразу, `--folder <id>` —
+только одной; у них только поля `text`, `exact`, `body`, `tag`, `date`, `in`), и для их MCP-инструментов
+`search_*` (`account` у `search_mail`, `folders` у `search_notes`). Поле, которого у вида нет,
 в `search all` пропускает этот вид, и ответ называет причину в `skipped`. `bot search messages`
 сохраняет legacy discovery; строгий поиск общего архива выбирает bot accounts через `in:bots`.
 
@@ -384,7 +386,8 @@ MAX — нет, там ищите по расширению (`filename:*.pdf`). 
 `--timezone`; `date:7d` — с момента 7 дней назад (также `30m`, `2h`); `date>=7d` и
 `date:[30d TO 7d}` — то же в сравнении и диапазоне. Отсчёт идёт от момента запроса.
 
-Default scope — активный account. `in:` с положительным условием или `--source` явно выбирает
+Default scope `search messages` — активный account; `search mail` читает все почтовые аккаунты, `search notes` —
+все папки заметок. `in:` с положительным условием или `--source` явно выбирает
 accounts провайдера/класса, включая `all`. Отрицательный `in:` не расширяет scope.
 При заданном caller allow-list из `accounts` query не может его расширить;
 `--source` и положительный `in:` тогда отвергаются. `--source` остаётся provider scope,

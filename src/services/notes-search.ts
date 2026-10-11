@@ -19,6 +19,7 @@ export interface NotesSearchRequest {
   /** Every word as written: no stems. */
   exact?: boolean
   newest?: boolean
+  /** Every folder when unset: a notes folder is a place the owner keeps notes, not someone else's account. */
   folderIds?: string[]
   source?: Note["source"]
   /** For `date:` — the zone a bare day is read in. */
