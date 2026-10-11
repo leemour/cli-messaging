@@ -169,6 +169,11 @@ export type { CounterQuery, CountersService } from "./counters.js"
 export { countersService } from "./counters.js"
 export type { ModelChoice } from "./embeddings.js"
 export {
+  createMeetingContextService,
+  type MeetingContextService,
+  type MeetingContextServiceStore,
+} from "./meeting-context.js"
+export {
   type MeetingEvidenceCue,
   type MeetingEvidenceOptions,
   type MeetingEvidencePacket,
@@ -195,7 +200,6 @@ export {
   proposeMeetingEmbedding,
   readMeetingSemantic,
 } from "./meeting-semantic.js"
-
 export { type MeetingTaskProposal, proposeMeetingTask } from "./meeting-task-proposal.js"
 export {
   type CreateMeetingTaskInput,

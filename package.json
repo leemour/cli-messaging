@@ -117,7 +117,7 @@
     "@modelcontextprotocol/server": "2.1.0",
     "@resvg/resvg-js": "2.6.2",
     "@valibot/to-json-schema": "1.8.0",
-    "@wirecat/cli-meetings": "0.3.0",
+    "@wirecat/cli-meetings": "0.4.0",
     "@wirecat/cli-messaging-onnx": "1.0.1",
     "@wirecat/cli-messaging-sqlite": "1.0.1",
     "@wirecat/cli-tasks": "0.3.1",
@@ -139,6 +139,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@cspell/dict-en-gb": "5.0.34",
+    "@cspell/dict-es-es": "3.0.9",
+    "@cspell/dict-ru_ru": "2.3.3",
     "@modelcontextprotocol/client": "2.2.0",
     "@napi-rs/canvas": "1.0.10",
     "@types/node": "^22.20.4",
@@ -146,6 +149,7 @@
     "@vitest/coverage-v8": "^5.0.2",
     "@wirecat/cli-core": "0.19.4",
     "commander": "15.0.0",
+    "cspell": "10.3.6",
     "drizzle-kit": "1.0.0-rc.4",
     "drizzle-orm": "1.0.0-rc.4",
     "esbuild": "0.25.12",
@@ -153,15 +157,11 @@
     "jsqr": "1.4.0",
     "lefthook": "2.1.16",
     "mammoth": "1.13.0",
+    "markdownlint-cli2": "0.23.3",
     "pngjs": "7.0.0",
     "typescript": "^7.0.2",
     "unpdf": "1.8.1",
-    "vitest": "^5.0.1",
-    "@cspell/dict-en-gb": "5.0.34",
-    "@cspell/dict-es-es": "3.0.9",
-    "@cspell/dict-ru_ru": "2.3.3",
-    "cspell": "10.3.6",
-    "markdownlint-cli2": "0.23.3"
+    "vitest": "^5.0.1"
   },
   "publishConfig": {
     "access": "public"

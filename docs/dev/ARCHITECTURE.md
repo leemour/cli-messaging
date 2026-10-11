@@ -36,7 +36,7 @@ conformance or imply that planned command paths are already implemented.
 | `.` | `src/domain/`, `src/render/`, `src/resolve.ts`, `src/terminal/` | the domain model (`models.ts`, types only), message locators, message rendering, name resolution that refuses rather than guesses, the secret prompt, the terminal QR code |
 | `./store` | `src/store/` | the SQLite seam and the shared message store |
 | `./sends` | `src/sends/` | the send guard: read-only, the allow-list, the recipient list, the hourly limit, the journal (never the text), the send id |
-| `./speech` | `src/speech/` | the pinned catalogue, shared model directories and verified installer, without loading the recognizer |
+| `./speech` | `src/speech/` | the pinned catalogue, shared model directories, verified installer and installed-only bounded PCM recognizer; import alone loads no engine |
 | `./charts` | `src/charts/` | neutral chart data and a replaceable renderer interface; SVG rendering loads ECharts only on demand; a separate lazy PNG encoder uses resvg and bundled fonts |
 | `./models` | `src/models/` | purpose-specific text generation with typed image inputs, OpenAI-compatible and Anthropic adapters, strict options, injected key/consent resolvers; no configured provider means no call |
 | `./services` | `src/services/` | the use cases, once each, that commands and MCP tools call — see [Services](#services) |
@@ -578,6 +578,31 @@ declares static support for a connection-free preview. The shared service resolv
 exact locator selection before connecting and guards `stats.messages.counters.refresh` as a local write.
 It closes stalled connections on abort and records partial results without message actions.
 CLI commands and the existing three-tool MCP frontend share this service. See [statistics guide](../rankings.md).
+
+## Meeting integration capabilities
+
+The meeting SDK 0.4.0 supplies optional ports alongside the unchanged base meeting store. Native
+event and participant association writes check the selected account, live target and optional
+previous value in one transaction. Participant association moves only one identity and records its
+manual audit and account observation; it never merges entire people from display names.
+
+`createMeetingContextService` reuses existing notes, knowledge and memory stores with canonical
+meeting references. It validates account ownership and evidence on preview and again before apply.
+Writes require explicit application; owner memories are confirmed as in memo. Memo already provides
+meeting notes, tags and memory commands, so providers reuse these records instead of creating
+another knowledge system.
+
+`searchHits` pages inside one occurrence with an account/query-bound continuation and stored text
+byte budgets. `indexSearch` explicitly maintains a bounded account queue batch; reads do not drain
+global queues. Coverage reports pending indexing and unknown archive completeness. Append receipts
+count new occurrences, inserted/replayed revisions and superseded revisions in the same transaction.
+Their legacy full meeting snapshot still hydrates retained history; compact CLI receipts do not
+change that store limitation.
+
+`openLocalSpeechRecognizer` uses an already installed speech model, bounded mono PCM windows and
+bounded text. It never downloads a model and loads the existing engine only when explicitly opened.
+Cancellation occurs between synchronous inference windows. Model provenance identifies the pinned
+registry configuration; importing the descriptor requires no installed files.
 
 ## Shared result projection
 

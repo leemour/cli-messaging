@@ -355,7 +355,7 @@ the same day.
 | `./cli` | `Messenger`, `MessengerAdapter` and its method groups (`MessengerCore` required; `ServerReads` and the rest optional), `createProgram`, `run`, `messengerContext`, the command factories' names and arguments |
 | `./store` | `openStore`, `MessageStore`, `storePath`, and the file format: `minCompatible` rises only in a breaking release |
 | `./sends` | `sendGuard`, `SendJournal`, the journal's line format |
-| `./speech` | The pinned speech-model catalogue and types, model ordering, the shared audio/text directories, installed-file checks and the SHA-256-verified speech installer. Importing it does not load a recognizer or download a model |
+| `./speech` | The pinned speech-model catalogue, shared directories, verified installer and installed-only bounded PCM recognizer. Importing it does not load a recognizer or download a model |
 | `./services` | `servicesFor`, `Override` and the service names |
 | `./background` | `lockPath`, `readLock`, `holdLock`, `releaseLock`, `servingProfiles`, `alive`, `carries`, `holdersOf`, `ServerSystem`, `thisMachine`, `platformFor` and the systemd and launchd units |
 
