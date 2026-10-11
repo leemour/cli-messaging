@@ -46,6 +46,7 @@ export type {
 export type { MeetingVectorHit, MeetingVectors } from "./sqlite/meeting-vectors.js"
 export type { AttachmentInput } from "./sqlite/meetings.js"
 export type { Author, MemoriesStore, Memory, MemoryInput } from "./sqlite/memories.js"
+export { MEMORY_KINDS, MEMORY_SCOPES, MEMORY_STATUSES } from "./sqlite/memories.js"
 export type { NoteIndexState } from "./sqlite/note-index.js"
 export {
   type NearestNote,
@@ -66,6 +67,7 @@ export type {
 } from "./sqlite/notes.js"
 export type { PrivateContact, PrivateContactNote } from "./sqlite/private-people.js"
 export type { ProposalInput, ProposedAction, ProposedActionsStore } from "./sqlite/proposed-actions.js"
+export { PROPOSAL_STATUSES } from "./sqlite/proposed-actions.js"
 export {
   fillSearchIndex,
   resetSearchIndex,
