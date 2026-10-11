@@ -1,4 +1,5 @@
 import type { Attachment, Metadata } from "@wirecat/cli-meetings"
+import { CHUNK_CHARS, chunkHash, splitText } from "../../conversations/chunks.js"
 import { formatLocator } from "../../domain/locator.js"
 import type { Message } from "../../domain/models.js"
 import type { Stemmer, Stemmers } from "../../search/stem.js"
@@ -363,6 +364,69 @@ const join = (database: CacheDatabase, emailId: number, mailboxId: number, now: 
     .prepare("INSERT OR IGNORE INTO email_mailboxes (email_id, mailbox_id, created_at) VALUES (?, ?, ?)")
     .run(emailId, mailboxId, now)
 
+/** Every piece of mail, an email's own text or one of its attachments', with the email it belongs to as `e`. */
+const MAIL_PIECES = `(SELECT k.id, k.content_hash, k.chunkable_type AS type, k.chunkable_id AS owner, k.start_offset, k.end_offset,
+    CASE k.chunkable_type WHEN 'email' THEN k.chunkable_id ELSE a.attachable_id END AS email_id
+    FROM chunks k LEFT JOIN attachments a ON k.chunkable_type = 'attachment' AND a.id = k.chunkable_id
+      AND a.attachable_type = 'email'
+   WHERE k.chunkable_type = 'email' OR a.id IS NOT NULL) p JOIN emails e ON e.id = p.email_id`
+
+const ATTACHMENTS_OF_EMAIL = "SELECT id FROM attachments WHERE attachable_type = 'email' AND attachable_id = ?"
+
+/** Drops the pieces of an email's attachment texts; answers their hashes, for `purgeUnused` once new ones are in. */
+const dropAttachmentChunks = (database: CacheDatabase, emailId: number): string[] => {
+  const hashes = database
+    .prepare(
+      `SELECT content_hash AS hash FROM chunks WHERE chunkable_type = 'attachment' AND chunkable_id IN (${ATTACHMENTS_OF_EMAIL})`,
+    )
+    .all(emailId)
+    .map(({ hash }) => String(hash))
+  database
+    .prepare(`DELETE FROM chunks WHERE chunkable_type = 'attachment' AND chunkable_id IN (${ATTACHMENTS_OF_EMAIL})`)
+    .run(emailId)
+  return hashes
+}
+
+/** Vectors are keyed by text alone, so one goes only when no piece of anything holds that text any more. */
+const purgeUnused = (database: CacheDatabase, hashes: string[]) => {
+  const purge = database.prepare(
+    "DELETE FROM embeddings WHERE content_hash = ? AND NOT EXISTS (SELECT 1 FROM chunks WHERE content_hash = ?)",
+  )
+  for (const hash of new Set(hashes)) purge.run(hash, hash)
+}
+
+/** Each attachment's extracted text, in pieces for search by meaning, as an email's own text is. */
+const chunkAttachments = (database: CacheDatabase, accountId: number, emailId: number, now: number) => {
+  const email = database
+    .prepare(
+      "SELECT a.scope, coalesce(e.received_at, e.sent_at) AS at FROM emails e JOIN accounts a ON a.id = e.account_id WHERE e.id = ?",
+    )
+    .get(emailId)
+  const insert = database.prepare(
+    `INSERT INTO chunks (chunkable_type, chunkable_id, position, start_offset, end_offset, content_hash, scope, account_id,
+       occurred_at, created_at, updated_at) VALUES ('attachment', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+  const files = database
+    .prepare("SELECT id, text FROM attachments WHERE attachable_type = 'email' AND attachable_id = ? AND text <> ''")
+    .all(emailId)
+  for (const file of files) {
+    const text = String(file.text)
+    for (const [position, { start, end }] of splitText(text, CHUNK_CHARS).entries())
+      insert.run(
+        Number(file.id),
+        position,
+        start,
+        end,
+        chunkHash(text.slice(start, end)),
+        str(email?.scope),
+        accountId,
+        int(email?.at),
+        now,
+        now,
+      )
+  }
+}
+
 const saveEmail = (
   database: CacheDatabase,
   orm: Orm,
@@ -439,6 +503,7 @@ const saveEmail = (
   for (const box of mail.mailboxes ?? []) join(database, emailId, mailboxPk(database, accountId, box, now), now)
 
   if (mail.attachments !== undefined) {
+    const before = dropAttachmentChunks(database, emailId)
     const positions = mail.attachments.map(({ position }) => position)
     database
       .prepare(
@@ -454,6 +519,8 @@ const saveEmail = (
         { ...a, normalizedText: a.text === null ? null : normalize(a.text) },
         now,
       )
+    chunkAttachments(database, accountId, emailId, now)
+    purgeUnused(database, before)
   }
   return found ? Number(found.email_thread_id) : null
 }
@@ -667,7 +734,9 @@ export const mailStoreOver = (
       )
       const threads = externalIds.flatMap((id) =>
         mark.all(now, now, accountId, id).map((r) => {
+          const pieces = dropAttachmentChunks(database, Number(r.id))
           forget.run(Number(r.id))
+          purgeUnused(database, pieces)
           return Number(r.email_thread_id)
         }),
       )
@@ -678,32 +747,37 @@ export const mailStoreOver = (
   async chunksToEmbed(model, { after, limit }) {
     drainEmailIndex(database, stemmerFor)
     const read = database.prepare(CORPORA.email.read)
+    const file = database.prepare("SELECT text FROM attachments WHERE id = ?")
     return database
       .prepare(
-        `SELECT k.content_hash AS hash, min(k.chunkable_id) AS owner, k.start_offset AS start, k.end_offset AS end
-           FROM chunks k JOIN emails e ON k.chunkable_type = 'email' AND e.id = k.chunkable_id
-          WHERE k.content_hash > ? AND e.deleted_at IS NULL
-            AND NOT EXISTS (SELECT 1 FROM embeddings v WHERE v.model = ? AND v.content_hash = k.content_hash)
-          GROUP BY k.content_hash ORDER BY k.content_hash LIMIT ?`,
+        `SELECT p.content_hash AS hash, min(p.type || ':' || p.owner) AS owner, p.start_offset AS start, p.end_offset AS end
+           FROM ${MAIL_PIECES}
+          WHERE p.content_hash > ? AND e.deleted_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM embeddings v WHERE v.model = ? AND v.content_hash = p.content_hash)
+          GROUP BY p.content_hash ORDER BY p.content_hash LIMIT ?`,
       )
       .all(after ?? "", model, limit)
       .flatMap((row) => {
-        const email = read.get(Number(row.owner))
-        if (!email) return []
-        const text = noteIndexText(str(email.title), String(email.body))
-        return [{ hash: String(row.hash), text: text.slice(Number(row.start), Number(row.end)) }]
+        const [type, id] = String(row.owner).split(":")
+        const text =
+          type === "email"
+            ? (() => {
+                const email = read.get(Number(id))
+                return email ? noteIndexText(str(email.title), String(email.body)) : undefined
+              })()
+            : str(file.get(Number(id))?.text)
+        return text == null ? [] : [{ hash: String(row.hash), text: text.slice(Number(row.start), Number(row.end)) }]
       })
   },
   async nearest(model, query, { accountId, limit, threadExternalId, since }) {
     drainEmailIndex(database, stemmerFor)
     const page = database.prepare(
-      `SELECT k.id, k.chunkable_id AS email, v.vector FROM chunks k
-         JOIN emails e ON k.chunkable_type = 'email' AND e.id = k.chunkable_id
-         JOIN embeddings v ON v.model = ? AND v.content_hash = k.content_hash
-        WHERE k.id > ? AND e.account_id = ? AND e.deleted_at IS NULL
+      `SELECT p.id, p.email_id AS email, v.vector FROM ${MAIL_PIECES}
+         JOIN embeddings v ON v.model = ? AND v.content_hash = p.content_hash
+        WHERE p.id > ? AND e.account_id = ? AND e.deleted_at IS NULL
           AND (? IS NULL OR e.email_thread_id IN (SELECT id FROM email_threads WHERE account_id = e.account_id AND external_id = ?))
           AND (? IS NULL OR coalesce(e.received_at, e.sent_at) >= ?)
-        ORDER BY k.id LIMIT 500`,
+        ORDER BY p.id LIMIT 500`,
     )
     const best = new Map<number, number>()
     for (let after = 0; ; ) {
