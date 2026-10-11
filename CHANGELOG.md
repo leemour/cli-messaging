@@ -5,6 +5,15 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
+## Unreleased
+
+### Added
+
+- **Mail search reads recipients, folders and the subject.** `to:`, `cc:` and `bcc:` name a person as `from:` does
+  (name or address), `mailbox:` a folder or label by its id or name, and `subject:` words of the subject alone.
+  They are mail fields: a search that holds no mail account refuses them; in a search across messengers and mail
+  they match mail only.
+
 ## 0.231.0 — 11.10.2026
 
 ### Added

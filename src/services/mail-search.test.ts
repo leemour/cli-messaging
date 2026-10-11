@@ -160,6 +160,43 @@ describe("search mail over the mail tables", () => {
     expect(await found(store, "tag:food")).toEqual(["<three@example.com>"])
   })
 
+  it("filters by recipients, mailbox and subject", async () => {
+    const { store, accountId } = await seeded()
+    await store.mail.saveThread({
+      accountId,
+      externalId: "thread-3",
+      now: at(12),
+      emails: [
+        email("<four@example.com>", {
+          subject: "Roadmap review",
+          bodyText: "Agenda attached.",
+          sentAt: at(9),
+          receivedAt: at(9),
+          to: [{ address: "carol@example.com", name: "Carol Example" }],
+          cc: [],
+          bcc: [{ address: "bob@example.com", name: "Bob Sample" }],
+          mailboxes: [{ externalId: "Label_1", name: "Projects", kind: "label" }],
+        }),
+      ],
+    })
+    const sorted = async (text: string) => (await found(store, text)).sort()
+
+    expect(await sorted('to:"carol@example.com"')).toEqual(["<four@example.com>"])
+    expect(await sorted('to:"Carol Example"')).toEqual(["<four@example.com>"])
+    expect(await sorted('bcc:"bob@example.com"')).toEqual(["<four@example.com>"])
+    expect(await sorted('to:"owner@example.com" AND from:"bob@example.com"')).toEqual(["<two@example.com>"])
+    expect(await sorted("mailbox:Projects")).toEqual(["<four@example.com>"])
+    expect(await sorted("mailbox:label_1")).toEqual(["<four@example.com>"])
+    expect(await sorted("subject:roadmap")).toEqual(["<four@example.com>"])
+    expect(await sorted("roadmap")).toEqual(["<four@example.com>", "<one@example.com>", "<zero@example.com>"])
+    expect(await sorted('subject:"quarterly planning"')).toEqual(["<one@example.com>", "<two@example.com>"])
+
+    const TG: AccountKey = { provider: "tg", account: "1" }
+    await expect(searchStore(store, TG, { text: "subject:roadmap", language: "lucene", limit: 5 })).rejects.toThrow(
+      "subject: is a mail field",
+    )
+  })
+
   it("refuses messenger-only fields", async () => {
     const { store } = await seeded()
     await expect(search(store, "kind:group")).rejects.toThrow("mail has no kind")

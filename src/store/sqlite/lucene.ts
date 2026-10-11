@@ -55,12 +55,12 @@ const MESSAGES: Corpus = {
   thread: "chat",
 }
 
-// The same column names as messages and chats, so every rule reads mail as it reads messages.
+// The same column names as messages and chats, so every rule reads mail as it reads messages. The text is the
+// subject, a blank line, then the body, so `subject:` reads the subject back from it.
 const MAIL: Corpus = {
   rows: `(SELECT id, account_id, email_thread_id AS chat_id, external_id, deleted_at, from_identity_id AS sender_identity_id,
     outgoing, coalesce(sent_at, received_at) AS sent_at,
-    CASE WHEN coalesce(subject, '') = '' THEN coalesce(body_text, '') WHEN coalesce(body_text, '') = '' THEN subject
-      ELSE subject || char(10, 10) || body_text END AS text FROM emails)`,
+    coalesce(subject, '') || char(10, 10) || coalesce(body_text, '') AS text FROM emails)`,
   threads: "(SELECT id, account_id, external_id, subject AS title, 1 AS searchable FROM email_threads)",
   words: "email_words",
   stems: "email_stems",
@@ -378,6 +378,40 @@ const compileQuery = (context: StoreContext, execution: QueryExecution, boundedA
             "OR",
           )
         : bound("0")
+    } else if (field === "to" || field === "cc" || field === "bcc") {
+      const who = resolution?.sender
+      if (!who) queryError("invalid_ast", node.span)
+      fragment = mail
+        ? bound(
+            "m.id IN (SELECT r.email_id FROM email_recipients r JOIN identities ii ON ii.id = r.identity_id WHERE r.role = ? AND ii.provider = ? AND ii.external_id = ?)",
+            field,
+            who.provider,
+            who.id,
+          )
+        : bound("0")
+    } else if (field === "mailbox") {
+      fragment = mail
+        ? bound(
+            `m.id IN (SELECT em.email_id FROM email_mailboxes em JOIN mailboxes b ON b.id = em.mailbox_id
+               WHERE b.account_id = m.account_id AND (lower(b.external_id) = lower(?) OR lower(b.name) = lower(?)))`,
+            value,
+            value,
+          )
+        : bound("0")
+    } else if (field === "subject") {
+      const wanted = normalize(value)
+      const words = wanted.match(/[\p{L}\p{N}]+/gu) ?? []
+      if (!mail || !words.length) fragment = bound("0")
+      else {
+        // The word index holds subject and body together: it narrows, the subject itself decides.
+        fragment = { ...wordMatch(corpus, words.map(quoted).join(" AND ")), exact: false }
+        test = (text) => {
+          const subject = normalize(text.slice(0, Math.max(0, text.indexOf("\n\n"))))
+          return operator === "phrase"
+            ? subject.includes(wanted)
+            : words.every((word) => new RegExp(`(^|[^\\p{L}\\p{N}])${word}`, "u").test(subject))
+        }
+      }
     } else queryError("unsupported_field", node.span)
     return { node, fragment: { ...fragment, sql: `(${fragment.sql})` }, ...(test ? { test } : {}) }
   }

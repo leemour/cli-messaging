@@ -15,7 +15,8 @@ StandardSyntaxParser и PrecedenceQueryParser, default AND, default field `text`
 Этот профиль — для всех команд `search`: `search all` (сообщения, почта и заметки сразу — с неё
 начинать, если неизвестно, где написано), `search messages` (только сообщения мессенджеров), `search mail`
 (только почта, импортированная `memo mail import`; `chat:` и `--chat` там — тред по id или теме, полей `kind` и
-`topic` нет) и `search notes` (заметки; у них только поля `text`,
+`topic` нет; только у почты — `to:`, `cc:`, `bcc:` (человек, как в `from:`), `subject:` (слова темы) и
+`mailbox:` (папка или ярлык по id или имени)) и `search notes` (заметки; у них только поля `text`,
 `exact`, `body`, `tag`, `date`, `in`), и для их MCP-инструментов `search_*`. Поле, которого у вида нет,
 в `search all` пропускает этот вид, и ответ называет причину в `skipped`. `bot search messages`
 сохраняет legacy discovery; строгий поиск общего архива выбирает bot accounts через `in:bots`.
@@ -337,6 +338,11 @@ enum или unsupported сочетание дают ошибку, а не пус
 | `exact` | tokens | NFKD/marks/NFC/lowercase v1 | `exact:invoice` | term, phrase, wildcard, regex |
 | `body` | keyword | raw, case-sensitive | `body:/.*invoice.*/` | term, phrase, wildcard, regex |
 | `from` | person | account-scoped resolution | `from:"Alice Synthetic"` | term, phrase |
+| `to` | person | account-scoped resolution; mail only | `to:"Alice Synthetic"` | term, phrase |
+| `cc` | person | account-scoped resolution; mail only | `cc:"Alice Synthetic"` | term, phrase |
+| `bcc` | person | account-scoped resolution; mail only | `bcc:"Alice Synthetic"` | term, phrase |
+| `subject` | text | every word, folded as text is; mail only | `subject:"quarterly planning"` | term, phrase |
+| `mailbox` | keyword | a folder or label by its id or name, ASCII case folded; mail only | `mailbox:INBOX OR mailbox:"[Gmail]/Sent Mail"` | term, phrase |
 | `chat` | chat | account-scoped resolution | `chat:"Work fixture"` | term, phrase |
 | `date` | timestamp | ISO/calendar timezone; today, yesterday, 30m/2h/7d ago | `date:[2026-01-01 TO 2026-02-01}` | term, phrase, range |
 | `kind` | enum | private, saved, bot, service, group, channel, unknown | `kind:private` | term, phrase |
