@@ -1,5 +1,7 @@
 # Handoff — the store's tables nobody uses yet (2026-10-11)
 
+**Superseded 2026-10-11** by [records-next-handoff.md](records-next-handoff.md).
+
 ## 1. What this is
 
 The store (`wirecat.db`, schema version 1, [`docs/storage/schema.md`](../storage/schema.md)) was designed ahead of
