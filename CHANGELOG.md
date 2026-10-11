@@ -5,9 +5,14 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
-## Unreleased
-
 ## 0.229.0 — 11.10.2026
+
+### Changed
+
+- **Meeting consumers share the foundational SDK.** The exact cli-meetings 0.3.0 dependency exposes
+  optional provider-neutral management, recording transfer, durable archive synchronization and
+  schedule ports. Existing meeting store interfaces remain available; consumers pin this producer
+  alongside the same meetings version to avoid duplicate SDK implementations.
 
 ### Fixed
 
