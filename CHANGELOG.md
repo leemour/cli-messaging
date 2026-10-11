@@ -18,7 +18,7 @@ break callers, and says how under "Changed — may break callers". `pnpm docs:ch
 
 ## 0.230.0 — 11.10.2026
 
-### Changed
+### Added
 
 - **Meeting consumers share the foundational SDK.** The exact cli-meetings 0.3.0 dependency exposes
   optional provider-neutral management, recording transfer, durable archive synchronization and
