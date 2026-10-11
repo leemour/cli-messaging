@@ -4,6 +4,17 @@ Notable changes to `@wirecat/cli-messaging` (`@wirecat/cli-messaging` up to 0.21
 version, newest first. Versions follow [semver](https://semver.org/); before `1.0.0` a minor version may
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
+## Unreleased
+
+### Added
+
+- **`search mail` reads the mail tables.** Mail that memo saves through `store.mail` is found with the whole query
+  language: words, stems, phrases, patterns, `from:`, `chat:` and `--chat` (a thread, by id or subject), `date:`,
+  `tag:`, `has:`, `filename:`, `mime:`, `size:` and `content:` over email attachments. Mail an older import stored
+  as messages is still found; an email in both places is listed once, from the mail tables. Hits keep the
+  `msg:email/…` locator, and `--context` reads the hit's thread. `kind:` and `topic:` are refused for mail. Emails' stems are written as they are
+  indexed, and saving a thread makes its correspondents people of the account, so `from:` finds them.
+
 ## 0.226.0 — 11.10.2026
 
 ### Added

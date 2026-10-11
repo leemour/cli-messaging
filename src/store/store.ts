@@ -47,7 +47,7 @@ import { type ConversationEligibility, conversationEligibility } from "./sqlite/
 import * as conversationQueries from "./sqlite/conversations.js"
 import { applyCounterObservations, type CounterTarget, counterStates, counterTargets } from "./sqlite/counters.js"
 import { type DecisionsStore, decisionsStoreOver } from "./sqlite/decisions.js"
-import { type MailStore, mailStoreOver } from "./sqlite/emails.js"
+import { drainEmailIndex, type MailStore, mailStoreOver } from "./sqlite/emails.js"
 import * as identities from "./sqlite/identities.js"
 import { drainInvolvementQueue } from "./sqlite/involvement-queue.js"
 import { type InvolvementStore, involvementStoreOver } from "./sqlite/involvements.js"
@@ -789,6 +789,10 @@ const storeOver = (context: StoreContext): MessageStore => {
     }
   }
 
+  const mailIndexed = (execution: QueryExecution) => {
+    if (execution.corpus === "mail") drainEmailIndex(database, stems.currentStemmer(database, stemmerFor))
+    return execution
+  }
   const accountPk = (key: AccountKey, name: string | null = null) => accounts.accountPk(context, key, name)
   const findAccountPk = (key: AccountKey) => accounts.findAccountPk(context, key)
 
@@ -1368,9 +1372,9 @@ const storeOver = (context: StoreContext): MessageStore => {
     adminStatisticsQuery: async (execution, request) => adminStatisticsQuery(context, execution, request),
     rankQuery: async (execution, request) => rankQuery(context, execution, request),
     directReplies: async (parents, limit) => search.directReplies(context, parents, limit),
-    matchQuery: async (execution) => lucene.matchQuery(context, execution),
+    matchQuery: async (execution) => lucene.matchQuery(context, mailIndexed(execution)),
     conversationEligibility: async (execution) => conversationEligibility(context, execution),
-    countQuery: async (execution, by) => lucene.countQuery(context, execution, by),
+    countQuery: async (execution, by) => lucene.countQuery(context, mailIndexed(execution), by),
 
     matchWords: async (query, scope, options) => words.matchWords(context, query, scope, options),
 
@@ -1622,7 +1626,7 @@ const storeOver = (context: StoreContext): MessageStore => {
       return meetings
     },
     get mail() {
-      mail ??= mailStoreOver(context)
+      mail ??= mailStoreOver(context, () => stems.currentStemmer(database, stemmerFor))
       return mail
     },
 

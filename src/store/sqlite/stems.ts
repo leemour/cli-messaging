@@ -195,6 +195,15 @@ export const drainStems = (
   return claim(database, stemmer.identity) ? stemWriter(database, stemmer).queued(pks) : 0
 }
 
+/** The stemmer the store's setting asks for; `undefined` when a newer tool saved choices this build does not know. */
+export const currentStemmer = (
+  database: CacheDatabase,
+  stemmerFor: (stemmers: Stemmers) => Stemmer,
+): Stemmer | undefined => {
+  const stemmers = storeStemmers(database)
+  return stemmers ? stemmerFor(stemmers) : undefined
+}
+
 /** Keeps one stemmer while the setting stays the same, and starts a fresh cache when it changes. */
 export const stemmerCache = (): ((stemmers: Stemmers) => Stemmer) => {
   let stemmer: Stemmer | undefined
