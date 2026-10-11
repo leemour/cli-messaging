@@ -5,6 +5,14 @@ version, newest first. Versions follow [semver](https://semver.org/); before `1.
 break callers, and says how under "Changed — may break callers". `pnpm docs:check` checks the shape of this file.
 
 
+## Unreleased
+
+### Fixed
+
+- **`store.find` refuses a `chatId` without its `account`.** A chat id is one account's; without the account it
+  matched that id's chat in every account of the store. It is now a `validation_error`; no caller here or in
+  tg, max, memo or zoom passes one.
+
 ## 0.232.0 — 11.10.2026
 
 ### Added

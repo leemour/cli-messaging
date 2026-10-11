@@ -47,6 +47,8 @@ export const matching = (
   if (!trimmed && !pattern && !senders?.length) {
     throw new CliError("validation_error", "say what to find: some text, or who wrote it")
   }
+  if (chatId !== undefined && account === undefined)
+    throw new CliError("validation_error", "a chat id names a chat of one account — name the account too")
   const scopeProvider = account?.provider ?? provider
   if (within && scopeProvider === undefined) {
     throw new CliError("validation_error", "a read across accounts names their provider")

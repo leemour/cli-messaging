@@ -186,7 +186,7 @@ export interface MessageFilter {
    */
   pattern?: RegExp
   signal?: AbortSignal
-  /** Only this chat of the account; needs `account`. */
+  /** Only this chat of the account; needs `account`, or `find` refuses it. */
   chatId?: Id
   /** With `perChat`, the newest `limit` of each chat rather than of all of them together. */
   limit: number
