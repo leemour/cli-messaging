@@ -84,7 +84,8 @@ export const searchAll = async (
       kind,
       ...(kind === "messages"
         ? {
-            source: "all",
+            // Server hits are matched by chat and message id, which another account can share.
+            ...(request.backend === "server" ? {} : { source: "all" }),
             ...(request.backend === undefined ? {} : { backend: request.backend }),
             ...(request.server === undefined ? {} : { server: request.server }),
           }

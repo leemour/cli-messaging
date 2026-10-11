@@ -1900,6 +1900,9 @@ describe("the shared read commands", () => {
     await call(["messages", "context", "Book", "2", "--json"], async () => fake, env)
     const store = await openStore({ path: env.MESSAGING_STORE })
     await store.notes.addNote({ title: "Reading list", text: "the chapter to read next" })
+    const other = { provider: "chat", account: "999" }
+    await store.saveChats(other, [{ ...chat, id: "7", title: "Other" }])
+    await store.saveMessages(other, "7", [{ ...message, id: "40", text: "chapter forty elsewhere" }], { via: "test" })
     await store.fillSearchIndex()
     await store.close()
     const searchMessages = vi.fn(async () => ({
@@ -1922,8 +1925,10 @@ describe("the shared read commands", () => {
       expect(result.code).toBe(0)
       return JSON.parse(result.stdout[0] ?? "")
     }
-    const messageIds = (answer: { items: { kind: string; ref: string }[] }) =>
-      answer.items.filter(({ kind }) => kind === "message").map(({ ref }) => ref.split("/").at(-1))
+    const messageIds = (answer: { items: { kind: string; ref: string; account: string }[] }) =>
+      answer.items
+        .filter(({ kind, account }) => kind === "message" && account !== "999")
+        .map(({ ref }) => ref.split("/").at(-1))
 
     const archive = await search(never, "--backend", "archive")
     expect(never).not.toHaveBeenCalled()
@@ -1934,6 +1939,7 @@ describe("the shared read commands", () => {
     const onlyServer = await search(server, "--backend", "server", "--server-time", "2s")
     expect(onlyServer.server).toMatchObject({ backend: "server", calls: 1, new: 1, complete: true })
     expect(messageIds(onlyServer)).toEqual(["40"])
+    expect(onlyServer.items.filter(({ kind }: { kind: string }) => kind === "message")).toHaveLength(1)
     expect(onlyServer.items.map(({ kind }: { kind: string }) => kind)).toContain("note")
 
     const both = await search(server, "--backend", "both")
